@@ -1997,6 +1997,98 @@ def _extract_md_section(md_text: str, heading: str) -> str:
     return (after if not m else after[: m.start()]).strip()
 
 
+def _parse_simple_yaml_list(raw: str) -> List[str]:
+    items: List[str] = []
+    inner = raw.strip()[1:-1].strip()
+    if not inner:
+        return items
+    current = ""
+    in_quote = False
+    quote_char = ""
+    escape = False
+    for ch in inner:
+        if escape:
+            current += ch
+            escape = False
+            continue
+        if ch == "\\":
+            current += ch
+            escape = True
+            continue
+        if ch in ("'", '"') and not in_quote:
+            in_quote = True
+            quote_char = ch
+            current += ch
+            continue
+        if in_quote and ch == quote_char:
+            in_quote = False
+            quote_char = ""
+            current += ch
+            continue
+        if (ch == ",") and not in_quote:
+            val = current.strip()
+            if val:
+                items.append(val)
+            current = ""
+            continue
+        current += ch
+    last = current.strip()
+    if last:
+        items.append(last)
+
+    return [re.sub(r'^["\']|["\']$', "", it).replace("\\\\", "\\").replace('\\"', '"').replace("\\'", "'") for it in items]
+
+
+def _parse_front_matter(md_text: str) -> Dict[str, Any]:
+    """
+    简易解析 Markdown 文件中的 YAML front matter，优先提取 metadata。
+    """
+    text = (md_text or "").lstrip()
+    if not text.startswith("---"):
+        return {}
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    end = text.find("\n---", 3)
+    if end == -1:
+        return {}
+    block = text[3:end].strip()
+    meta: Dict[str, Any] = {}
+    for line in block.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            continue
+        key, raw = line.split(":", 1)
+        key = key.strip()
+        if not key:
+            continue
+        raw = raw.strip()
+        if not raw:
+            meta[key] = ""
+            continue
+
+        val: Any = raw
+        lowered = raw.lower()
+        if lowered in ("null", "~", "none"):
+            val = ""
+        elif raw.startswith("[") and raw.endswith("]"):
+            try:
+                val = json.loads(raw)
+                if not isinstance(val, list):
+                    raise ValueError
+            except Exception:
+                val = _parse_simple_yaml_list(raw)
+        else:
+            if (raw[0] in ('"', "'") and raw[-1] == raw[0]) or (
+                raw[0] == '"' and raw[-1] == '"' and len(raw) >= 2
+            ):
+                raw = raw[1:-1]
+            val = raw.replace("\\n", "\n").replace('\\"', '"').replace("\\'", "'").replace("\\\\", "\\")
+
+        meta[key] = val
+    return meta
+
+
 def _parse_generated_md_to_meta(md_path: str, paper_id: str, section: str) -> Dict[str, Any]:
     """
     从 Step6 已生成的论文 Markdown 中提取可导出的元信息（不引入额外 LLM 调用）。
@@ -2008,32 +2100,56 @@ def _parse_generated_md_to_meta(md_path: str, paper_id: str, section: str) -> Di
         text = ""
 
     lines = (text or "").splitlines()
+    fm_meta: Dict[str, Any] = _parse_front_matter(text)
 
-    # 标题：开头连续的 `# ` 行（英文/中文）
-    h1s: List[str] = []
-    for line in lines:
-        m = re.match(r"^#\s+(.*)$", line)
-        if not m:
-            break
-        h1s.append((m.group(1) or "").strip())
-        if len(h1s) >= 2:
-            break
-    title_en = h1s[0] if len(h1s) >= 1 else ""
-
-    meta: Dict[str, str] = {}
+    legacy_meta: Dict[str, str] = {}
     for line in lines:
         m = re.match(r"^\*\*([^*]+)\*\*:\s*(.*?)(?:\s*\\\s*)?$", line.strip())
         if not m:
             continue
-        k = (m.group(1) or "").strip()
-        v = (m.group(2) or "").strip()
-        if k:
-            meta[k] = v
+        k = (m.group(1) or "").strip().lower()
+        legacy_meta[k] = (m.group(2) or "").strip()
 
-    # Tags：正文里是 HTML span，导出时提供纯文本版本 + typed 版本（keyword/query/paper）
-    tags_html = meta.get("Tags") or ""
+    # 标题：优先 front matter title，次选正文 H1，其次旧式 meta 行
+    title_en = (str(fm_meta.get("title") or "").strip() if fm_meta else "")
+    if not title_en:
+        h1s: List[str] = []
+        for line in lines:
+            m = re.match(r"^#\s+(.*)$", line)
+            if not m:
+                break
+            h1s.append((m.group(1) or "").strip())
+            if len(h1s) >= 1:
+                break
+        if h1s:
+            title_en = h1s[0]
+    if not title_en:
+        title_en = legacy_meta.get("title", "")
+
+    # tags：优先 front matter tags，次选旧式 HTML
     tags_typed: List[Dict[str, str]] = []
-    if tags_html:
+    raw_tags = fm_meta.get("tags") if "tags" in fm_meta else fm_meta.get("Tags")
+    if isinstance(raw_tags, list):
+        tag_items = [str(i).strip() for i in raw_tags if str(i).strip()]
+    elif isinstance(raw_tags, str):
+        candidate = raw_tags.strip()
+        if candidate.startswith("[") and candidate.endswith("]"):
+            tag_items = _parse_simple_yaml_list(candidate)
+        else:
+            tag_items = [t.strip() for t in re.split(r",|，", candidate) if t.strip()]
+    else:
+        tag_items = []
+
+    if tag_items:
+        for t in tag_items:
+            if ":" in t:
+                kind, label = t.split(":", 1)
+                tags_typed.append({"kind": (kind or "paper").strip(), "label": (label or "").strip()})
+            else:
+                tags_typed.append({"kind": "paper", "label": t})
+    else:
+        # 兼容旧式 markdown 的 HTML tag span
+        tags_html = str(fm_meta.get("tags") or legacy_meta.get("tags") or "")
         for m in re.finditer(
             r'<span\s+class="tag-label\s+([^"]+)"[^>]*>(.*?)</span>',
             tags_html,
@@ -2052,10 +2168,30 @@ def _parse_generated_md_to_meta(md_path: str, paper_id: str, section: str) -> Di
 
     abstract_en = _extract_md_section(text, "Abstract")
 
-    # 作者：兼容英文逗号与中文逗号
-    authors_raw = meta.get("Authors") or ""
-    authors = [a.strip() for a in re.split(r",|，", authors_raw) if a.strip()]
-    authors_line = ", ".join(authors)
+    # 作者：front matter authors 优先，次选旧式 meta 行
+    raw_authors = fm_meta.get("authors") if "authors" in fm_meta else fm_meta.get("Authors")
+    if isinstance(raw_authors, list):
+        authors_line = ", ".join(str(i).strip() for i in raw_authors if str(i).strip())
+    elif isinstance(raw_authors, str):
+        authors_line = ", ".join(a.strip() for a in re.split(r",|，", raw_authors) if a.strip())
+    else:
+        authors_line = legacy_meta.get("authors", "")
+
+    # 日期、PDF、分数、Evidence、TLDR：front matter 优先，次选旧式 meta
+    def _fallback_meta(*names: str) -> str:
+        for name in names:
+            if name in fm_meta and fm_meta[name] is not None:
+                return str(fm_meta[name]).strip()
+            legacy = legacy_meta.get(name.lower())
+            if legacy:
+                return legacy
+        return ""
+
+    date_value = _fallback_meta("date", "Date")
+    pdf_value = _fallback_meta("pdf", "PDF")
+    score_value = _fallback_meta("score", "Score")
+    evidence_value = _fallback_meta("evidence", "Evidence")
+    tldr_value = _fallback_meta("tldr", "TLDR")
 
     # tags：输出为更“短”的一行形式（字符串），避免 JSON pretty-print 时每个 tag 独占一行
     tags_compact: List[str] = []
@@ -2071,11 +2207,11 @@ def _parse_generated_md_to_meta(md_path: str, paper_id: str, section: str) -> Di
         "section": section,
         "title_en": title_en,
         "authors": authors_line,
-        "date": (meta.get("Date") or "").strip(),
-        "pdf": (meta.get("PDF") or "").strip(),
-        "score": (meta.get("Score") or "").strip(),
-        "evidence": (meta.get("Evidence") or "").strip(),
-        "tldr": (meta.get("TLDR") or "").strip(),
+        "date": str(date_value or "").strip(),
+        "pdf": str(pdf_value or "").strip(),
+        "score": str(score_value or "").strip(),
+        "evidence": str(evidence_value or "").strip(),
+        "tldr": str(tldr_value or "").strip(),
         "tags": ", ".join(tags_compact),
         "abstract_en": abstract_en,
     }
