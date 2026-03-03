@@ -24,53 +24,49 @@ subscriptions:
     diff_threshold_pct: 15
   keyword_recall_mode: or
   intent_profiles:
-    - tag: SR
-      description: 符号回归
+    - tag: RL TS
+      description: 强化学习，教师学生框架，外推误差，Q高估问题相关的论文查找
       enabled: true
       keywords:
-        - keyword: symbolic regression
-          keyword_cn: 符号回归
-          query: fundamental principles and methods of symbolic regression
-        - keyword: genetic programming
-          keyword_cn: 遗传编程
-          query: evolutionary algorithms and genetic programming for symbolic regression
-        - keyword: mathematical expression discovery
-          keyword_cn: 数学表达式发现
-          query: automated discovery of mathematical expressions from data
-        - keyword: equation discovery
-          keyword_cn: 方程发现
-          query: algorithms for scientific equation discovery and modeling
-        - keyword: interpretable machine learning
-          keyword_cn: 可解释机器学习
-          query: interpretability and transparency of symbolic regression models
-        - keyword: PySR
-          keyword_cn: PySR库
-          query: high-performance symbolic regression libraries and tools
-        - keyword: symbolic transformer
-          keyword_cn: 符号Transformer
-          query: neural symbolic regression using transformer architectures
-        - keyword: physics-informed regression
-          keyword_cn: 物理启发回归
-          query: incorporating physical constraints into symbolic regression
+        - keyword: reinforcement learning
+          keyword_cn: 强化学习
+          query: reinforcement learning algorithms and methods
+        - keyword: teacher-student framework
+          keyword_cn: 教师学生框架
+          query: teacher-student framework in reinforcement learning
+        - keyword: extrapolation error
+          keyword_cn: 外推误差
+          query: extrapolation error in offline reinforcement learning
+        - keyword: Q-value overestimation
+          keyword_cn: Q值高估
+          query: addressing Q-value overestimation in deep reinforcement learning
+        - keyword: knowledge distillation
+          keyword_cn: 知识蒸馏
+          query: knowledge distillation for reinforcement learning
       intent_queries:
-        - query: state of the art symbolic regression algorithms
-          query_cn: 最先进的符号回归算法
+        - query: papers on teacher student framework for reinforcement learning
+          query_cn: 关于强化学习中教师学生框架的论文
           enabled: true
           source: manual
           note: ''
-        - query: comparison between symbolic regression and neural networks
-          query_cn: 符号回归与神经网络的对比
+        - query: how to solve extrapolation error in offline reinforcement learning
+          query_cn: 如何解决离线强化学习中的外推误差
           enabled: true
           source: manual
           note: ''
-        - query: applications of symbolic regression in physics and engineering
-          query_cn: 符号回归在物理与工程中的应用
+        - query: methods to mitigate Q value overestimation in deep RL
+          query_cn: 缓解深度强化学习中Q值高估的方法
           enabled: true
           source: manual
           note: ''
-        - query: how to handle noisy data in symbolic regression
-          query_cn: 符号回归如何处理噪声数据
+        - query: relationship between teacher student distillation and extrapolation error
+          query_cn: 教师学生蒸馏与外推误差之间的关系
           enabled: true
           source: manual
           note: ''
-      updated_at: '2026-03-02T03:40:27.571Z'
+        - query: state of the art reinforcement learning using teacher student models
+          query_cn: 使用教师学生模型的前沿强化学习研究
+          enabled: true
+          source: manual
+          note: ''
+      updated_at: '2026-03-03T05:59:57.901Z'
