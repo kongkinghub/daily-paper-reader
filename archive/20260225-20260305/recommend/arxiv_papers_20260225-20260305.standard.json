@@ -1,0 +1,802 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-05T19:46:03.090985+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 24,
+    "deep_cap": 6,
+    "deep_selected": 6,
+    "quick_candidates": 51,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2601.22475v1",
+      "title": "Continual Policy Distillation from Distributed Reinforcement Learning Teachers",
+      "abstract": "Continual Reinforcement Learning (CRL) aims to develop lifelong learning agents to continuously acquire knowledge across diverse tasks while mitigating catastrophic forgetting. This requires efficiently managing the stability-plasticity dilemma and leveraging prior experience to rapidly generalize to novel tasks. While various enhancement strategies for both aspects have been proposed, achieving scalable performance by directly applying RL to sequential task streams remains challenging. In this paper, we propose a novel teacher-student framework that decouples CRL into two independent processes: training single-task teacher models through distributed RL and continually distilling them into a central generalist model. This design is motivated by the observation that RL excels at solving single tasks, while policy distillation -- a relatively stable supervised learning process -- is well aligned with large foundation models and multi-task learning. Moreover, a mixture-of-experts (MoE) architecture and a replay-based approach are employed to enhance the plasticity and stability of the continual policy distillation process. Extensive experiments on the Meta-World benchmark demonstrate that our framework enables efficient continual RL, recovering over 85% of teacher performance while constraining task-wise forgetting to within 10%.",
+      "authors": [
+        "Yuxuan Li",
+        "Qijun He",
+        "Mingqi Yuan",
+        "Wen-Tse Chen",
+        "Jeff Schneider",
+        "Jiayu Chen"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-01-30T02:40:34+00:00",
+      "link": "https://arxiv.org/pdf/2601.22475v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "teacher-student framework for continual reinforcement learning",
+      "llm_evidence_cn": "持续强化学习的师生框架",
+      "llm_evidence": "持续强化学习的师生框架",
+      "llm_tldr_en": "Proposes a teacher-student framework that distills single-task RL teachers into a central generalist model.",
+      "llm_tldr_cn": "提出一种师生框架，将单任务强化学习教师模型蒸馏到中央通用模型中。",
+      "llm_tldr": "提出一种师生框架，将单任务强化学习教师模型蒸馏到中央通用模型中。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "teacher-student framework in reinforcement learning",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2602.22495v1",
+      "title": "Reinforcement-aware Knowledge Distillation for LLM Reasoning",
+      "abstract": "Reinforcement learning (RL) post-training has recently driven major gains in long chain-of-thought reasoning large language models (LLMs), but the high inference cost of such models motivates distillation into smaller students. Most existing knowledge distillation (KD) methods are designed for supervised fine-tuning (SFT), relying on fixed teacher traces or teacher-student Kullback-Leibler (KL) divergence-based regularization. When combined with RL, these approaches often suffer from distribution mismatch and objective interference: teacher supervision may not align with the student's evolving rollout distribution, and the KL regularizer can compete with reward maximization and require careful loss balancing. To address these issues, we propose RL-aware distillation (RLAD), which performs selective imitation during RL -- guiding the student toward the teacher only when it improves the current policy update. Our core component, Trust Region Ratio Distillation (TRRD), replaces the teacher-student KL regularizer with a PPO/GRPO-style likelihood-ratio objective anchored to a teacher--old-policy mixture, yielding advantage-aware, trust-region-bounded distillation on student rollouts and naturally balancing exploration, exploitation, and imitation. Across diverse logic reasoning and math benchmarks, RLAD consistently outperforms offline distillation, standard GRPO, and KL-based on-policy teacher-student knowledge distillation.",
+      "authors": [
+        "Zhaoyang Zhang",
+        "Shuli Jiang",
+        "Yantao Shen",
+        "Yuting Zhang",
+        "Dhananjay Ram",
+        "Shuo Yang",
+        "Zhuowen Tu",
+        "Wei Xia",
+        "Stefano Soatto"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-02-26T00:20:39+00:00",
+      "link": "https://arxiv.org/pdf/2602.22495v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "reinforcement-aware knowledge distillation for LLM reasoning",
+      "llm_evidence_cn": "针对大语言模型推理的强化学习感知知识蒸馏",
+      "llm_evidence": "针对大语言模型推理的强化学习感知知识蒸馏",
+      "llm_tldr_en": "Introduces a distillation method that aligns teacher supervision with the student's evolving RL rollout distribution.",
+      "llm_tldr_cn": "引入一种蒸馏方法，使教师监督与学生不断演变的强化学习展开分布保持一致。",
+      "llm_tldr": "引入一种蒸馏方法，使教师监督与学生不断演变的强化学习展开分布保持一致。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2602.03635v1",
+      "title": "TRE: Encouraging Exploration in the Trust Region",
+      "abstract": "Entropy regularization is a standard technique in reinforcement learning (RL) to enhance exploration, yet it yields negligible effects or even degrades performance in Large Language Models (LLMs). We attribute this failure to the cumulative tail risk inherent to LLMs with massive vocabularies and long generation horizons. In such environments, standard global entropy maximization indiscriminately dilutes probability mass into the vast tail of invalid tokens rather than focusing on plausible candidates, thereby disrupting coherent reasoning. To address this, we propose Trust Region Entropy (TRE), a method that encourages exploration strictly within the model's trust region. Extensive experiments across mathematical reasoning (MATH), combinatorial search (Countdown), and preference alignment (HH) tasks demonstrate that TRE consistently outperforms vanilla PPO, standard entropy regularization, and other exploration baselines. Our code is available at https://github.com/WhyChaos/TRE-Encouraging-Exploration-in-the-Trust-Region.",
+      "authors": [
+        "Chao Huang",
+        "Yujing Lu",
+        "Quangang Li",
+        "Shenghe Wang",
+        "Yan Wang",
+        "Yueyang Zhang",
+        "Long Xia",
+        "Jiashu Zhao",
+        "Zhiyuan Sun",
+        "Daiting Shi",
+        "Tingwen Liu"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-02-03T15:21:49+00:00",
+      "link": "https://arxiv.org/pdf/2602.03635v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "reinforcement learning exploration and entropy regularization",
+      "llm_evidence_cn": "强化学习探索与熵正则化",
+      "llm_evidence": "强化学习探索与熵正则化",
+      "llm_tldr_en": "Introduces Trust Region Entropy to improve exploration in reinforcement learning for large language models.",
+      "llm_tldr_cn": "引入信任区域熵以改进大语言模型强化学习中的探索。",
+      "llm_tldr": "引入信任区域熵以改进大语言模型强化学习中的探索。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2602.05327v1",
+      "title": "ProAct: Agentic Lookahead in Interactive Environments",
+      "abstract": "Existing Large Language Model (LLM) agents struggle in interactive environments requiring long-horizon planning, primarily due to compounding errors when simulating future states. To address this, we propose ProAct, a framework that enables agents to internalize accurate lookahead reasoning through a two-stage training paradigm. First, we introduce Grounded LookAhead Distillation (GLAD), where the agent undergoes supervised fine-tuning on trajectories derived from environment-based search. By compressing complex search trees into concise, causal reasoning chains, the agent learns the logic of foresight without the computational overhead of inference-time search. Second, to further refine decision accuracy, we propose the Monte-Carlo Critic (MC-Critic), a plug-and-play auxiliary value estimator designed to enhance policy-gradient algorithms like PPO and GRPO. By leveraging lightweight environment rollouts to calibrate value estimates, MC-Critic provides a low-variance signal that facilitates stable policy optimization without relying on expensive model-based value approximation. Experiments on both stochastic (e.g., 2048) and deterministic (e.g., Sokoban) environments demonstrate that ProAct significantly improves planning accuracy. Notably, a 4B parameter model trained with ProAct outperforms all open-source baselines and rivals state-of-the-art closed-source models, while demonstrating robust generalization to unseen environments. The codes and models are available at https://github.com/GreatX3/ProAct",
+      "authors": [
+        "Yangbin Yu",
+        "Mingyu Yang",
+        "Junyou Li",
+        "Yiming Gao",
+        "Feiyu Liu",
+        "Yijun Yang",
+        "Zichuan Lin",
+        "Jiafei Lyu",
+        "Yicheng Liu",
+        "Zhicong Lu",
+        "Deheng Ye",
+        "Jie Jiang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-02-05T05:45:16+00:00",
+      "link": "https://arxiv.org/pdf/2602.05327v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Grounded LookAhead Distillation (GLAD) for agent training",
+      "llm_evidence_cn": "用于智能体训练的落地前瞻蒸馏 (GLAD)",
+      "llm_evidence": "用于智能体训练的落地前瞻蒸馏 (GLAD)",
+      "llm_tldr_en": "Uses knowledge distillation to internalize search-based lookahead reasoning into LLM agents.",
+      "llm_tldr_cn": "利用知识蒸馏将基于搜索的前瞻推理内化到大语言模型智能体中。",
+      "llm_tldr": "利用知识蒸馏将基于搜索的前瞻推理内化到大语言模型智能体中。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.01891v1",
+      "title": "SEAR: Sample Efficient Action Chunking Reinforcement Learning",
+      "abstract": "Action chunking can improve exploration and value estimation in long horizon reinforcement learning, but makes learning substantially harder since the critic must evaluate action sequences rather than single actions, greatly increasing approximation and data efficiency challenges. As a result, existing action chunking methods, primarily designed for the offline and offline-to-online settings, have not achieved strong performance in purely online reinforcement learning. We introduce SEAR, an off policy online reinforcement learning algorithm for action chunking. It exploits the temporal structure of action chunks and operates with a receding horizon, effectively combining the benefits of small and large chunk sizes. SEAR outperforms state of the art online reinforcement learning methods on Metaworld, training with chunk sizes up to 20.",
+      "authors": [
+        "C. F. Maximilian Nagy",
+        "Onur Celik",
+        "Emiliyan Gospodinov",
+        "Florian Seligmann",
+        "Weiran Liao",
+        "Aryan Kaushik",
+        "Gerhard Neumann"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-02T14:11:53+00:00",
+      "link": "https://arxiv.org/pdf/2603.01891v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "off-policy online reinforcement learning algorithm for action chunking",
+      "llm_evidence_cn": "用于动作分块的离策在线强化学习算法",
+      "llm_evidence": "用于动作分块的离策在线强化学习算法",
+      "llm_tldr_en": "Introduces SEAR, an online RL algorithm using action chunking to improve exploration and value estimation.",
+      "llm_tldr_cn": "提出SEAR算法，通过动作分块优化在线强化学习的探索与价值估计。",
+      "llm_tldr": "提出SEAR算法，通过动作分块优化在线强化学习的探索与价值估计。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2601.05607v1",
+      "title": "Orchestrating Tokens and Sequences: Dynamic Hybrid Policy Optimization for RLVR",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) offers a promising framework for optimizing large language models in reasoning tasks. However, existing RLVR algorithms focus on different granularities, and each has complementary strengths and limitations. Group Relative Policy Optimization (GRPO) updates the policy with token-level importance ratios, which preserves fine-grained credit assignment but often suffers from high variance and instability. In contrast, Group Sequence Policy Optimization (GSPO) applies single sequence-level importance ratios across all tokens in a response that better matches sequence-level rewards, but sacrifices token-wise credit assignment. In this paper, we propose Dynamic Hybrid Policy Optimization (DHPO) to bridge GRPO and GSPO within a single clipped surrogate objective. DHPO combines token-level and sequence-level importance ratios using weighting mechanisms. We explore two variants of the mixing mechanism, including an averaged mixing and an entropy-guided mixing. To further stabilize training, we employ a branch-specific clipping strategy that constrains token-level and sequence-level ratios within separate trust regions before mixing, preventing outliers in either branch from dominating the update. Across seven challenging mathematical reasoning benchmarks, experiments on both dense and MoE models from the Qwen3 series show that DHPO consistently outperforms GRPO and GSPO. We will release our code upon acceptance of this paper.",
+      "authors": [
+        "Zijun Min",
+        "Bingshuai Liu",
+        "Ante Wang",
+        "Long Zhang",
+        "Anxiang Zeng",
+        "Haibo Zhang",
+        "Jinsong Su"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-01-09T07:57:40+00:00",
+      "link": "https://arxiv.org/pdf/2601.05607v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Reinforcement Learning with Verifiable Rewards (RLVR) algorithms",
+      "llm_evidence_cn": "具有可验证奖励的强化学习 (RLVR) 算法",
+      "llm_evidence": "具有可验证奖励的强化学习 (RLVR) 算法",
+      "llm_tldr_en": "Proposes DHPO to balance token-level and sequence-level policy optimization in RL reasoning tasks.",
+      "llm_tldr_cn": "提出 DHPO 算法，在强化学习推理任务中平衡 Token 级和序列级的策略优化。",
+      "llm_tldr": "提出 DHPO 算法，在强化学习推理任务中平衡 Token 级和序列级的策略优化。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2601.06794v1",
+      "title": "No More Stale Feedback: Co-Evolving Critics for Open-World Agent Learning",
+      "abstract": "Critique-guided reinforcement learning (RL) has emerged as a powerful paradigm for training LLM agents by augmenting sparse outcome rewards with natural-language feedback. However, current methods often rely on static or offline critic models, which fail to adapt as the policy evolves. In on-policy RL, the agent's error patterns shift over time, causing stationary critics to become stale and providing feedback of diminishing utility. To address this, we introduce ECHO (Evolving Critic for Hindsight-Guided Optimization)}, a framework that jointly optimizes the policy and critic through a synchronized co-evolutionary loop. ECHO utilizes a cascaded rollout mechanism where the critic generates multiple diagnoses for an initial trajectory, followed by policy refinement to enable group-structured advantage estimation. We address the challenge of learning plateaus via a saturation-aware gain shaping objective, which rewards the critic for inducing incremental improvements in high-performing trajectories. By employing dual-track GRPO updates, ECHO ensures the critic's feedback stays synchronized with the evolving policy. Experimental results show that ECHO yields more stable training and higher long-horizon task success across open-world environments.",
+      "authors": [
+        "Zhicong Li",
+        "Lingjie Jiang",
+        "Yulan Hu",
+        "Xingchen Zeng",
+        "Yixia Li",
+        "Xiangwen Zhang",
+        "Guanhua Chen",
+        "Zheng Pan",
+        "Xin Li",
+        "Yong Liu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-11T07:29:08+00:00",
+      "link": "https://arxiv.org/pdf/2601.06794v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "co-evolving critics for agent learning and feedback",
+      "llm_evidence_cn": "协同演化的评论家模型用于智能体学习与反馈",
+      "llm_evidence": "协同演化的评论家模型用于智能体学习与反馈",
+      "llm_tldr_en": "Introduces ECHO to jointly optimize policy and critic through a synchronized co-evolutionary loop.",
+      "llm_tldr_cn": "引入ECHO框架，通过同步演化循环共同优化策略和评论家模型。",
+      "llm_tldr": "引入ECHO框架，通过同步演化循环共同优化策略和评论家模型。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "teacher-student framework in reinforcement learning",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.05465v1",
+      "title": "PRISMA: Reinforcement Learning Guided Two-Stage Policy Optimization in Multi-Agent Architecture for Open-Domain Multi-Hop Question Answering",
+      "abstract": "Answering real-world open-domain multi-hop questions over massive corpora is a critical challenge in Retrieval-Augmented Generation (RAG) systems. Recent research employs reinforcement learning (RL) to end-to-end optimize the retrieval-augmented reasoning process, directly enhancing its capacity to resolve complex queries. However, reliable deployment is hindered by two obstacles. 1) Retrieval Collapse: iterative retrieval over large corpora fails to locate intermediate evidence containing bridge answers without reasoning-guided planning, causing downstream reasoning to collapse. 2) Learning Instability: end-to-end trajectory training suffers from weak credit assignment across reasoning chains and poor error localization across modules, causing overfitting to benchmark-specific heuristics that limit transferability and stability. To address these problems, we propose PRISMA, a decoupled RL-guided framework featuring a Plan-Retrieve-Inspect-Solve-Memoize architecture. PRISMA's strength lies in reasoning-guided collaboration: the Inspector provides reasoning-based feedback to refine the Planner's decomposition and fine-grained retrieval, while enforcing evidence-grounded reasoning in the Solver. We optimize individual agent capabilities via Two-Stage Group Relative Policy Optimization (GRPO). Stage I calibrates the Planner and Solver as specialized experts in planning and reasoning, while Stage II utilizes Observation-Aware Residual Policy Optimization (OARPO) to enhance the Inspector's ability to verify context and trigger targeted recovery. Experiments show that PRISMA achieves state-of-the-art performance on ten benchmarks and can be deployed efficiently in real-world scenarios.",
+      "authors": [
+        "Yu Liu",
+        "Wenxiao Zhang",
+        "Cong Cao",
+        "Wenxuan Lu",
+        "Fangfang Yuan",
+        "Diandian Guo",
+        "Kun Peng",
+        "Qiang Sun",
+        "Kaiyan Zhang",
+        "Yanbing Liu",
+        "Jin B. Hong",
+        "Bowen Zhou",
+        "Zhiyuan Ma"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-09T01:38:38+00:00",
+      "link": "https://arxiv.org/pdf/2601.05465v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "reinforcement learning guided two-stage policy optimization",
+      "llm_evidence_cn": "强化学习引导的两阶段策略优化",
+      "llm_evidence": "强化学习引导的两阶段策略优化",
+      "llm_tldr_en": "Proposes a two-stage RL framework to stabilize multi-agent retrieval-augmented reasoning.",
+      "llm_tldr_cn": "提出一种两阶段强化学习框架，以稳定多智能体检索增强推理。",
+      "llm_tldr": "提出一种两阶段强化学习框架，以稳定多智能体检索增强推理。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.06801v1",
+      "title": "Thinking with Deltas: Incentivizing Reinforcement Learning via Differential Visual Reasoning Policy",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) has significantly advanced reasoning capabilities in Large Language Models. However, adapting RLVR to multimodal domains suffers from a critical \\textit{perception-reasoning decoupling}. Existing paradigms, driven by text-centric outcome rewards, reasoning in language medium, inadvertently encourage models to bypass visual perception. We empirically validate this through blind experiments: state-of-the-art policies maintain or surprisingly improve performance even when visual inputs are entirely removed. This reveals that these models degenerate into \\textit{blind reasoners}, exploiting linguistic priors to generate plausible answers instead of attending to visual evidence. In response, we propose \\textbf{Thinking with Deltas}, a framework driven by a \\textbf{Differential Visual Reasoning Policy (DVRP)}. DVRP introduces intrinsic supervision via visual triplets, comprising original, masked, and perturbed inputs. It optimizes the model to maximize reasoning divergence from masked inputs (enforcing \\textit{visual sensitivity}) while minimizing divergence from perturbed inputs (ensuring \\textit{visual robustness}). By aligning reasoning variations strictly with the \\textit{Delta} of visual information, DVRP inherently bolsters visual understanding capabilities and significantly outperforms state-of-the-art methods on both general and medical benchmarks, without requiring external annotations or auxiliary tools.",
+      "authors": [
+        "Shujian Gao",
+        "Yuan Wang",
+        "Jiangtao Yan",
+        "Zuxuan Wu",
+        "Yu-Gang Jiang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-01-11T08:25:34+00:00",
+      "link": "https://arxiv.org/pdf/2601.06801v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "reinforcement learning with verifiable rewards",
+      "llm_evidence_cn": "具有可验证奖励的强化学习",
+      "llm_evidence": "具有可验证奖励的强化学习",
+      "llm_tldr_en": "Investigates multimodal RL to prevent models from ignoring visual inputs during reasoning tasks.",
+      "llm_tldr_cn": "研究多模态强化学习，防止模型在推理任务中忽略视觉输入。",
+      "llm_tldr": "研究多模态强化学习，防止模型在推理任务中忽略视觉输入。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2601.09253v1",
+      "title": "RIFT: Repurposing Negative Samples via Reward-Informed Fine-Tuning",
+      "abstract": "While Supervised Fine-Tuning (SFT) and Rejection Sampling Fine-Tuning (RFT) are standard for LLM alignment, they either rely on costly expert data or discard valuable negative samples, leading to data inefficiency. To address this, we propose Reward Informed Fine-Tuning (RIFT), a simple yet effective framework that utilizes all self-generated samples. Unlike the hard thresholding of RFT, RIFT repurposes negative trajectories, reweighting the loss with scalar rewards to learn from both the positive and negative trajectories from the model outputs. To overcome the training collapse caused by naive reward integration, where direct multiplication yields an unbounded loss, we introduce a stabilized loss formulation that ensures numerical robustness and optimization efficiency. Extensive experiments on mathematical benchmarks across various base models show that RIFT consistently outperforms RFT. Our results demonstrate that RIFT is a robust and data-efficient alternative for alignment using mixed-quality, self-generated data.",
+      "authors": [
+        "Zehua Liu",
+        "Shuqi Liu",
+        "Tao Zhong",
+        "Mingxuan Yuan"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-01-14T07:41:03+00:00",
+      "link": "https://arxiv.org/pdf/2601.09253v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reinforcement learning fine-tuning using reward-informed weights",
+      "llm_evidence_cn": "利用奖励信息权重的强化学习微调",
+      "llm_evidence": "利用奖励信息权重的强化学习微调",
+      "llm_tldr_en": "Proposes RIFT to repurpose negative samples in RL fine-tuning for better data efficiency.",
+      "llm_tldr_cn": "提出RIFT框架，通过重新利用强化学习微调中的负样本来提高数据效率。",
+      "llm_tldr": "提出RIFT框架，通过重新利用强化学习微调中的负样本来提高数据效率。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.05509v1",
+      "title": "How Exploration Breaks Cooperation in Shared-Policy Multi-Agent Reinforcement Learning",
+      "abstract": "Multi-agent reinforcement learning in dynamic social dilemmas commonly relies on parameter sharing to enable scalability. We show that in shared-policy Deep Q-Network learning, standard exploration can induce a robust and systematic collapse of cooperation even in environments where fully cooperative equilibria are stable and payoff dominant. Through controlled experiments, we demonstrate that shared DQN converges to stable but persistently low-cooperation regimes. This collapse is not caused by reward misalignment, noise, or insufficient training, but by a representational failure arising from partial observability combined with parameter coupling across heterogeneous agent states. Exploration-driven updates bias the shared representation toward locally dominant defection responses, which then propagate across agents and suppress cooperative learning. We confirm that the failure persists across network sizes, exploration schedules, and payoff structures, and disappears when parameter sharing is removed or when agents maintain independent representations. These results identify a fundamental failure mode of shared-policy MARL and establish structural conditions under which scalable learning architectures can systematically undermine cooperation. Our findings provide concrete guidance for the design of multi-agent learning systems in social and economic environments where collective behavior is critical.",
+      "authors": [
+        "Yi-Ning Weng",
+        "Hsuan-Wei Lee"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "physics.soc-ph"
+      ],
+      "published": "2026-01-09T03:30:17+00:00",
+      "link": "https://arxiv.org/pdf/2601.05509v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Deep Q-Network (DQN) learning and representational failure",
+      "llm_evidence_cn": "深度 Q 网络 (DQN) 学习与表示失效",
+      "llm_evidence": "深度 Q 网络 (DQN) 学习与表示失效",
+      "llm_tldr_en": "Analyzes how exploration and parameter coupling cause cooperation collapse in shared-policy multi-agent DQN.",
+      "llm_tldr_cn": "分析了共享策略多智能体 DQN 中探索和参数耦合导致合作崩溃的原因。",
+      "llm_tldr": "分析了共享策略多智能体 DQN 中探索和参数耦合导致合作崩溃的原因。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "addressing Q-value overestimation in deep reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.08584v1",
+      "title": "Ministral 3",
+      "abstract": "We introduce the Ministral 3 series, a family of parameter-efficient dense language models designed for compute and memory constrained applications, available in three model sizes: 3B, 8B, and 14B parameters. For each model size, we release three variants: a pretrained base model for general-purpose use, an instruction finetuned, and a reasoning model for complex problem-solving. In addition, we present our recipe to derive the Ministral 3 models through Cascade Distillation, an iterative pruning and continued training with distillation technique. Each model comes with image understanding capabilities, all under the Apache 2.0 license.",
+      "authors": [
+        "Alexander H. Liu",
+        "Kartik Khandelwal",
+        "Sandeep Subramanian",
+        "Victor Jouault",
+        "Abhinav Rastogi",
+        "Adrien Sadé",
+        "Alan Jeffares",
+        "Albert Jiang",
+        "Alexandre Cahill",
+        "Alexandre Gavaudan",
+        "Alexandre Sablayrolles",
+        "Amélie Héliou",
+        "Amos You",
+        "Andy Ehrenberg",
+        "Andy Lo",
+        "Anton Eliseev",
+        "Antonia Calvi",
+        "Avinash Sooriyarachchi",
+        "Baptiste Bout",
+        "Baptiste Rozière",
+        "Baudouin De Monicault",
+        "Clémence Lanfranchi",
+        "Corentin Barreau",
+        "Cyprien Courtot",
+        "Daniele Grattarola",
+        "Darius Dabert",
+        "Diego de las Casas",
+        "Elliot Chane-Sane",
+        "Faruk Ahmed",
+        "Gabrielle Berrada",
+        "Gaëtan Ecrepont",
+        "Gauthier Guinet",
+        "Georgii Novikov",
+        "Guillaume Kunsch",
+        "Guillaume Lample",
+        "Guillaume Martin",
+        "Gunshi Gupta",
+        "Jan Ludziejewski",
+        "Jason Rute",
+        "Joachim Studnia",
+        "Jonas Amar",
+        "Joséphine Delas",
+        "Josselin Somerville Roberts",
+        "Karmesh Yadav",
+        "Khyathi Chandu",
+        "Kush Jain",
+        "Laurence Aitchison",
+        "Laurent Fainsin",
+        "Léonard Blier",
+        "Lingxiao Zhao",
+        "Louis Martin",
+        "Lucile Saulnier",
+        "Luyu Gao",
+        "Maarten Buyl",
+        "Margaret Jennings",
+        "Marie Pellat",
+        "Mark Prins",
+        "Mathieu Poirée",
+        "Mathilde Guillaumin",
+        "Matthieu Dinot",
+        "Matthieu Futeral",
+        "Maxime Darrin",
+        "Maximilian Augustin",
+        "Mia Chiquier",
+        "Michel Schimpf",
+        "Nathan Grinsztajn",
+        "Neha Gupta",
+        "Nikhil Raghuraman",
+        "Olivier Bousquet",
+        "Olivier Duchenne",
+        "Patricia Wang",
+        "Patrick von Platen",
+        "Paul Jacob",
+        "Paul Wambergue",
+        "Paula Kurylowicz",
+        "Pavankumar Reddy Muddireddy",
+        "Philomène Chagniot",
+        "Pierre Stock",
+        "Pravesh Agrawal",
+        "Quentin Torroba",
+        "Romain Sauvestre",
+        "Roman Soletskyi",
+        "Rupert Menneer",
+        "Sagar Vaze",
+        "Samuel Barry",
+        "Sanchit Gandhi",
+        "Siddhant Waghjale",
+        "Siddharth Gandhi",
+        "Soham Ghosh",
+        "Srijan Mishra",
+        "Sumukh Aithal",
+        "Szymon Antoniak",
+        "Teven Le Scao",
+        "Théo Cachet",
+        "Theo Simon Sorg",
+        "Thibaut Lavril",
+        "Thiziri Nait Saada",
+        "Thomas Chabal",
+        "Thomas Foubert",
+        "Thomas Robert",
+        "Thomas Wang",
+        "Tim Lawson",
+        "Tom Bewley",
+        "Tom Bewley",
+        "Tom Edwards",
+        "Umar Jamil",
+        "Umberto Tomasini",
+        "Valeriia Nemychnikova",
+        "Van Phung",
+        "Vincent Maladière",
+        "Virgile Richard",
+        "Wassim Bouaziz",
+        "Wen-Ding Li",
+        "William Marshall",
+        "Xinghui Li",
+        "Xinyu Yang",
+        "Yassine El Ouahidi",
+        "Yihan Wang",
+        "Yunhao Tang",
+        "Zaccharie Ramzi"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-01-13T14:06:03+00:00",
+      "link": "https://arxiv.org/pdf/2601.08584v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Cascade Distillation for model training",
+      "llm_evidence_cn": "级联蒸馏模型训练",
+      "llm_evidence": "级联蒸馏模型训练",
+      "llm_tldr_en": "Introduces Ministral 3 models using Cascade Distillation for efficient parameter-dense language modeling.",
+      "llm_tldr_cn": "介绍通过级联蒸馏技术训练的 Ministral 3 系列高效语言模型。",
+      "llm_tldr": "介绍通过级联蒸馏技术训练的 Ministral 3 系列高效语言模型。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2601.14716v1",
+      "title": "PCL-Reasoner-V1.5: Advancing Math Reasoning with Offline Reinforcement Learning",
+      "abstract": "We present PCL-Reasoner-V1.5, a 32-billion-parameter large language model (LLM) for mathematical reasoning. The model is built upon Qwen2.5-32B and refined via supervised fine-tuning (SFT) followed by reinforcement learning (RL). A central innovation is our proposed offline RL method, which provides superior training stability and efficiency over standard online RL methods such as GRPO. Our model achieves state-of-the-art performance among models post-trained on Qwen2.5-32B, attaining average accuracies of 90.9% on AIME 2024 and 85.6% on AIME 2025. Our work demonstrates offline RL as a stable and efficient paradigm for advancing reasoning in LLMs. All experiments were conducted on Huawei Ascend 910C NPUs.",
+      "authors": [
+        "Yao Lu",
+        "Dengdong Fan",
+        "Jianzheng Nie",
+        "Fan Xu",
+        "Jie Chen",
+        "Bin Zhou",
+        "Yonghong Tian"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-01-21T07:11:40+00:00",
+      "link": "https://arxiv.org/pdf/2601.14716v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "offline RL method for superior training stability and efficiency",
+      "llm_evidence_cn": "离线强化学习方法，提供卓越的训练稳定性和效率",
+      "llm_evidence": "离线强化学习方法，提供卓越的训练稳定性和效率",
+      "llm_tldr_en": "Applies offline RL to improve mathematical reasoning in LLMs, offering better stability than online methods.",
+      "llm_tldr_cn": "利用离线强化学习提升大语言模型的数学推理能力，比在线方法更稳定高效。",
+      "llm_tldr": "利用离线强化学习提升大语言模型的数学推理能力，比在线方法更稳定高效。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.06021v1",
+      "title": "Chaining the Evidence: Robust Reinforcement Learning for Deep Search Agents with Citation-Aware Rubric Rewards",
+      "abstract": "Reinforcement learning (RL) has emerged as a critical technique for enhancing LLM-based deep search agents. However, existing approaches primarily rely on binary outcome rewards, which fail to capture the comprehensiveness and factuality of agents' reasoning process, and often lead to undesirable behaviors such as shortcut exploitation and hallucinations. To address these limitations, we propose \\textbf{Citation-aware Rubric Rewards (CaRR)}, a fine-grained reward framework for deep search agents that emphasizes reasoning comprehensiveness, factual grounding, and evidence connectivity. CaRR decomposes complex questions into verifiable single-hop rubrics and requires agents to satisfy these rubrics by explicitly identifying hidden entities, supporting them with correct citations, and constructing complete evidence chains that link to the predicted answer. We further introduce \\textbf{Citation-aware Group Relative Policy Optimization (C-GRPO)}, which combines CaRR and outcome rewards for training robust deep search agents. Experiments show that C-GRPO consistently outperforms standard outcome-based RL baselines across multiple deep search benchmarks. Our analysis also validates that C-GRPO effectively discourages shortcut exploitation, promotes comprehensive, evidence-grounded reasoning, and exhibits strong generalization to open-ended deep research tasks. Our code and data are available at https://github.com/THUDM/CaRR.",
+      "authors": [
+        "Jiajie Zhang",
+        "Xin Lv",
+        "Ling Feng",
+        "Lei Hou",
+        "Juanzi Li"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-01-09T18:57:53+00:00",
+      "link": "https://arxiv.org/pdf/2601.06021v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "robust reinforcement learning for deep search agents",
+      "llm_evidence_cn": "深度搜索智能体的鲁棒强化学习",
+      "llm_evidence": "深度搜索智能体的鲁棒强化学习",
+      "llm_tldr_en": "Develops a fine-grained reward framework to enhance the reasoning and factuality of RL-trained search agents.",
+      "llm_tldr_cn": "开发了一种细粒度的奖励框架，以增强经强化学习训练的搜索智能体的推理能力和真实性。",
+      "llm_tldr": "开发了一种细粒度的奖励框架，以增强经强化学习训练的搜索智能体的推理能力和真实性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2601.08731v1",
+      "title": "Learning from Demonstrations via Capability-Aware Goal Sampling",
+      "abstract": "Despite its promise, imitation learning often fails in long-horizon environments where perfect replication of demonstrations is unrealistic and small errors can accumulate catastrophically. We introduce Cago (Capability-Aware Goal Sampling), a novel learning-from-demonstrations method that mitigates the brittle dependence on expert trajectories for direct imitation. Unlike prior methods that rely on demonstrations only for policy initialization or reward shaping, Cago dynamically tracks the agent's competence along expert trajectories and uses this signal to select intermediate steps--goals that are just beyond the agent's current reach--to guide learning. This results in an adaptive curriculum that enables steady progress toward solving the full task. Empirical results demonstrate that Cago significantly improves sample efficiency and final performance across a range of sparse-reward, goal-conditioned tasks, consistently outperforming existing learning from-demonstrations baselines.",
+      "authors": [
+        "Yuanlin Duan",
+        "Yuning Wang",
+        "Wenjie Qiu",
+        "He Zhu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-13T17:03:31+00:00",
+      "link": "https://arxiv.org/pdf/2601.08731v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "imitation learning and curriculum-based goal sampling in RL",
+      "llm_evidence_cn": "强化学习中的模仿学习和基于课程的目标采样",
+      "llm_evidence": "强化学习中的模仿学习和基于课程的目标采样",
+      "llm_tldr_en": "Introduces Cago to improve imitation learning by dynamically tracking agent competence and sampling intermediate goals.",
+      "llm_tldr_cn": "引入Cago通过动态跟踪智能体能力和采样中间目标来改进模仿学习。",
+      "llm_tldr": "引入Cago通过动态跟踪智能体能力和采样中间目标来改进模仿学习。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2601.15953v1",
+      "title": "Decoupling Return-to-Go for Efficient Decision Transformer",
+      "abstract": "The Decision Transformer (DT) has established a powerful sequence modeling approach to offline reinforcement learning. It conditions its action predictions on Return-to-Go (RTG), using it both to distinguish trajectory quality during training and to guide action generation at inference. In this work, we identify a critical redundancy in this design: feeding the entire sequence of RTGs into the Transformer is theoretically unnecessary, as only the most recent RTG affects action prediction. We show that this redundancy can impair DT's performance through experiments. To resolve this, we propose the Decoupled DT (DDT). DDT simplifies the architecture by processing only observation and action sequences through the Transformer, using the latest RTG to guide the action prediction. This streamlined approach not only improves performance but also reduces computational cost. Our experiments show that DDT significantly outperforms DT and establishes competitive performance against state-of-the-art DT variants across multiple offline RL tasks.",
+      "authors": [
+        "Yongyi Wang",
+        "Hanyu Liu",
+        "Lingfeng Li",
+        "Bozhou Chen",
+        "Ang Li",
+        "Qirui Zheng",
+        "Xionghui Yang",
+        "Wenxin Li"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-22T13:42:08+00:00",
+      "link": "https://arxiv.org/pdf/2601.15953v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "sequence modeling approach to offline reinforcement learning",
+      "llm_evidence_cn": "离线强化学习的序列建模方法",
+      "llm_evidence": "离线强化学习的序列建模方法",
+      "llm_tldr_en": "Introduces Decoupled Decision Transformer to improve efficiency and performance in offline RL.",
+      "llm_tldr_cn": "引入解耦决策Transformer以提高离线强化学习的效率和性能。",
+      "llm_tldr": "引入解耦决策Transformer以提高离线强化学习的效率和性能。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.08763v2",
+      "title": "Rewarding the Rare: Uniqueness-Aware RL for Creative Problem Solving in LLMs",
+      "abstract": "Reinforcement learning (RL) has become a central paradigm for post-training large language models (LLMs), particularly for complex reasoning tasks, yet it often suffers from exploration collapse: policies prematurely concentrate on a small set of dominant reasoning patterns, improving pass@1 while limiting rollout-level diversity and gains in pass@k. We argue that this failure stems from regularizing local token behavior rather than diversity over sets of solutions. To address this, we propose Uniqueness-Aware Reinforcement Learning, a rollout-level objective that explicitly rewards correct solutions that exhibit rare high-level strategies. Our method uses an LLM-based judge to cluster rollouts for the same problem according to their high-level solution strategies, ignoring superficial variations, and reweights policy advantages inversely with cluster size. As a result, correct but novel strategies receive higher rewards than redundant ones. Across mathematics, physics, and medical reasoning benchmarks, our approach consistently improves pass@$k$ across large sampling budgets and increases the area under the pass@$k$ curve (AUC@$K$) without sacrificing pass@1, while sustaining exploration and uncovering more diverse solution strategies at scale.",
+      "authors": [
+        "Zhiyuan Hu",
+        "Yucheng Wang",
+        "Yufei He",
+        "Jiaying Wu",
+        "Yilun Zhao",
+        "See-Kiong Ng",
+        "Cynthia Breazeal",
+        "Anh Tuan Luu",
+        "Hae Won Park",
+        "Bryan Hooi"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-01-13T17:48:43+00:00",
+      "link": "https://arxiv.org/pdf/2601.08763v2",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "reinforcement learning for post-training LLMs and exploration objectives",
+      "llm_evidence_cn": "用于大语言模型后训练的强化学习及探索目标",
+      "llm_evidence": "用于大语言模型后训练的强化学习及探索目标",
+      "llm_tldr_en": "Proposes Uniqueness-Aware RL to improve rollout diversity and reasoning in LLMs.",
+      "llm_tldr_cn": "提出唯一性感知强化学习，旨在提高大语言模型推理的多样性和效果。",
+      "llm_tldr": "提出唯一性感知强化学习，旨在提高大语言模型推理的多样性和效果。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}

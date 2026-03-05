@@ -1,0 +1,664 @@
+Title: Continual Policy Distillation from Distributed Reinforcement Learning Teachers
+
+URL Source: https://arxiv.org/pdf/2601.22475v1
+
+Published Time: Mon, 02 Feb 2026 01:28:34 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Yuxuan Li * 1 Qijun He * 2 Mingqi Yuan 3 Wen-Tse Chen 4 Jeff Schneider 4 Jiayu Chen 5 6 
+
+# Abstract 
+
+Continual Reinforcement Learning (CRL) aims to develop lifelong learning agents to continuously acquire knowledge across diverse tasks while mit-igating catastrophic forgetting. This requires effi-ciently managing the stability-plasticity dilemma and leveraging prior experience to rapidly gen-eralize to novel tasks. While various enhance-ment strategies for both aspects have been pro-posed, achieving scalable performance by directly applying RL to sequential task streams remains challenging. In this paper, we propose a novel teacher-student framework that decouples CRL into two independent processes: training single-task teacher models through distributed RL and continually distilling them into a central generalist model. This design is motivated by the observa-tion that RL excels at solving single tasks, while policy distillation – a relatively stable supervised learning process – is well aligned with large foun-dation models and multi-task learning. Moreover, a mixture-of-experts (MoE) architecture and a replay-based approach are employed to enhance the plasticity and stability of the continual pol-icy distillation process. Extensive experiments on the Meta-World benchmark demonstrate that our framework enables efficient continual RL, re-covering over 85% of teacher performance while constraining task-wise forgetting to within 10%. 
+
+# 1. Introduction 
+
+Recent progress in reinforcement learning (RL) has shifted attention from high-performance single-task agents toward generalist agents that can continually learn skills across a long sequence of tasks (Reed et al., 2022; Pu et al., 2025). 
+
+> *
+
+Equal contribution 1Zhejiang University, Zhejiang, China 
+
+> 2
+
+South University of Science and Technology, Guangdong, China 
+
+> 3
+
+The Hong Kong Polytechnic University, Hong Kong, China 
+
+> 4
+
+School of Computer Science, Carnegie Mellon University 5Hong Kong University, Hong Kong, China 6INFIFORCE Intelligent Technology Co., Ltd., Hangzhou, China. Correspondence to: Ji-ayu Chen <jiayuc@hku.hk >.
+
+Preprint. February 2, 2026. 
+
+Figure 1. We propose a teacher-student framework where single-task experts are initially trained on the Meta-World benchmark to generate demonstration trajectories. These trajectories are then used to distill a central, Transformer-based student model with a Mixture-of-Experts (MoE) architecture. We freeze the shared parameters (e.g., embeddings, attention) after the first stage, while expanding the model’s capacity by adding one new expert to every layer per stage. 
+
+However, two significant challenges remain central to this transition. One is the sample complexity, which influences the capacity of the policy model for learning new tasks (i.e., plasticity (Dohare et al., 2023)). The other is catastrophic forgetting of previously acquired skills, which decreases the learning stability. As shown in (Hendawy et al., 2023; Yu et al., 2020), multi-task RL methods on MetaWorld MT10 require 10 million interaction steps to reach an average success rate of roughly 82% and about 20 million steps to reach 88%, imposing substantial computational and storage burdens; concurrently, as agents acquire new tasks, previ-ously learned capabilities tend to degrade unless explicit memory-preservation mechanisms are employed. In this paper, we propose a novel teacher–student training framework for continual RL for improved plasticity and sta-bility (See Figure 1). Given a task stream in which multiple task requirements may arrive at once, we assign distributed RL workers to each task. Then, we treat these single-task agents as teachers and distill their policy into a generalist stu-dent to aggregate their expertise. Since the policy distillation continues as new tasks arrive, we call this process contin-ual distillation. The student employs a Transformer back-bone augmented with a Mixture-of-Experts (MoE) module, which is highly scalable and enables increased plasticity through the expansion of experts. Knowledge from multi-1 
+
+> arXiv:2601.22475v1 [cs.LG] 30 Jan 2026 Continual Policy Distillation from Distributed Reinforcement Learning Teachers
+> Figure 2. Two main steps explaining how continual policy distillation helps maintain the stability of the central model: 1) expert expansion and parameter-wise masking to help retain memory; 2) replay-based approach to mitigate forgetting. Less than 10% of the distill data is selected through the DPP algorithm as the replay buffer.
+
+ple teachers is integrated via distillation, and we introduce mechanisms to mitigate task interference during distillation, thereby preserving per-task performance while enabling cross-task generalization. Empirically, after collecting up to 70,000 teacher experience steps and applying imitation learning (IL), the student recovers more than 95% of the corresponding teachers’ task performance. Further, to incre-mentally incorporate new teacher knowledge while resisting forgetting of previously learned tasks, we evaluate several anti-forgetting strategies and ultimately adopt a hybrid solu-tion that combines replay-based techniques with parameter-regularization methods to jointly reduce forgetting. In summary, our contributions are threefold: (i) We develop a teacher–student learning framework that enables a cen-tralized student model to continually aggregate knowledge from distributed RL teachers. By leveraging distributed RL to handle multiple tasks in parallel and distilling the resulting policies into a high-capacity foundation model, this framework effectively transforms the challenge of con-tinual RL into a continual supervised learning task, which offers significantly greater scalability and stability. (ii) We implement a Transformer-based Mixture-of-Experts (MoE) architecture for the student model, incorporating an expert expansion mechanism to sustain long-term plasticity. (iii) We propose a hybrid anti-forgetting strategy—combining experience replay with parameter regularization—that suc-cessfully constrains task-wise performance degradation to within 10% during continual distillation. Ultimately, given that traditional RL algorithms (particularly actor-critic meth-ods) often face optimization challenges when paired with high-capacity architectures (Bjorck et al., 2021; Wang et al., 2025), our framework represents a promising direction for scalable continual RL and pretraining with RL. 
+
+# 2. Related Work 
+
+2.1. Class Incremental Learning 
+
+Continual policy distillation can be viewed as an incremental learning problem, where the model must preserve previously learned behaviors while incorporating new ones. Following the taxonomy established in (van de Ven et al., 2024; Van de Ven et al., 2022), incremental learning is typically catego-rized into Task (TIL), Domain (DIL), and Class Incremental Learning (CIL). In the CIL paradigm, the model must learn to map task-specific observations to a latent context space (task identity). In our work, we utilize the Meta-World benchmark (McLean et al., 2025) but deliberately remove standard one-hot task identifiers. Instead, we employ a task embedding method, detailed in Section 4.3, to infer task rep-resentations directly from state sequences, thereby framing our approach as a CIL problem. This design is critical, as one-hot identifiers predefine the task space, making them unsuitable for settings where tasks are revealed incremen-tally. 2Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+2.2. Plasticity-Stability Dilemma in Continual Learning 
+
+As models sequentially acquire multiple tasks, the loss of plasticity can severely limit their ability to integrate new information. While recent research (Dohare et al., 2023) has introduced strategic reset-based optimization to preserve plasticity, these methods are primarily designed for fully-connected architectures and are not readily compatible with modern foundation models. To address this, we utilize a highly scalable Transformer as our generalist agent. To in-crease capacity without a proportional rise in computational overhead, we replace dense feed-forward layers with sparse Mixture-of-Experts (MoE) modules (Fedus et al., 2022). These experts can be expanded over time (Chen et al., 2023b; Shazeer et al., 2017), thereby sustaining plasticity and miti-gating inter-task interference by isolating gradients across distinct experts during the multi-task distillation process (Aljundi et al., 2017). Catastrophic forgetting – the precipitous decline in perfor-mance on previously mastered tasks when acquiring new ones – remains a fundamental obstacle in continual learning. Empirically, we find that standard KL-divergence regular-ization, which is often used to prevent policy drift in Large Language Models (Rafailov et al., 2023), is insufficient in our setting because the policy outputs are continuous. Exist-ing strategies for mitigating this forgetting typically fall into two categories: replay-based methods and regularization-based methods, such as EWC (Kirkpatrick et al., 2017b). Through an in-depth analysis of their underlying principles, we observe that both share a common objective: regularizing the loss function to constrain parameter updates that would otherwise degrade prior knowledge. This insight suggests that a hybrid approach – integrating experience replay with parameter-based regularization – could yield synergistic benefits, significantly enhancing the model’s stability. 
+
+# 3. Background 
+
+3.1. Continual Reinforcement Learning 
+
+Typically, we define reinforcement learning based on a discrete-time MDP (Puterman, 2014) M = ⟨S , A, p, r, γ ⟩.where S is the set of states, A is the set of actions, and 
+
+r : S × A → R is the reward function. The goal of RL is to learn a policy π which maximizes the expected return 
+
+G = Eτ ∼π [P∞ 
+
+> t=0
+
+γtRt], where Rt = r(st, a t) and τ is a trajectory of state-action pairs. We consider a series of tasks that share the same state-action distribution but differ in rewards to represent dif-ferent task features. We model this task stream as M =
+
+{M (1) , M (2) , · · · } . Our objective is to optimize a sin-gle generalist policy πθ to maximize average performance across all tasks encountered in the stream thus far. Rather than interacting directly with the environment, a centralized student agent distills knowledge from a set of specialized teacher policies. These teachers are trained in parallel via distributed RL to achieve expert-level proficiency in their respective tasks. This multi-task distillation process oc-curs sequentially over the model’s lifespan, analogous to human lifelong learning. The fundamental challenge lies in preserving the performance of early tasks while efficiently integrating expertise from new teachers. 
+
+3.2. Continual Policy Distillation 
+
+πθ is trained to clone the behavior of expert teachers. For a specific task k, given a dataset of teacher demonstrations 
+
+Dk = {(τi)}Nk
+
+> i=1
+
+, the student minimizes the discrepancy between its action distribution and the teacher’s. The loss for multi-task distillation, i.e., Ldistill (θ), is defined as: 
+
+> K
+
+X
+
+> k=1
+
+Es∼D k
+
+h
+
+∥μθ (s) − μ(k) 
+
+> E
+
+(s)∥22
+
+i
+
++ λLaux (1) where μθ and μ(k) 
+
+> E
+
+denote the action means of the student and the k-th teacher, respectively. Inspired by load balancing loss of switch(Fedus et al., 2022), Laux represents auxiliary regularization terms: 
+
+Laux = 12 ·
+
+" PNi=1 (ci − ¯c)2
+
+(¯ c)2 + ϵ +
+
+PNi=1 (Pi − ¯P )2
+
+( ¯P )2 + ϵ
+
+#
+
+(2) Here, N denotes the total number of experts. ci and Pi
+
+represent the expert load (assigned tokens) and importance (gating probability) for each expert i, while ¯c, ¯P denote the average of the corresponding variable. ϵ is a small constant for numerical stability. Empirically, we observe that incorporating teachers’ stan-dard deviations into the loss function (e.g., via KL diver-gence) tends to degrade learning performance, with research showing that the MSE loss is superior in distillation con-texts (Kim et al., 2021). So we focus on matching the action means. Continual Policy Distillation faces several challenges: First, at each stage, the centralized agent must distill knowledge from multiple teachers simultaneously, which can lead to conflicting update gradients and inter-task interference. Sec-ond, because this distillation occurs sequentially across dif-ferent stages, as previously noted, an optimal continual learning agent must strike a delicate balance between stabil-ity and plasticity, effectively acquiring new skills without degrading established capabilities. 
+
+# 4. Methodology 
+
+In this section, we present Continual Policy Distillation, ex-plicitly designed to navigate the stability-plasticity dilemma 3Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+through two complementary perspectives. To accommodate the growing complexity of sequential tasks, we first employ a Transformer-based Mixture-of-Experts (MoE) backbone (4.1), augmented with an Incremental Expert Expansion strategy (4.2) and a Contrastive Task Embedding module (4.3) to dynamically scale capacity and infer latent contexts. Complementing this scalable architecture, we mitigate catas-trophic forgetting via a hybrid regularization mechanism, which combines Diversity-Aware Trajectory Replay (4.4) with a Hierarchical Parameter Masking schedule (4.5) to rigorously isolate the consolidation of old knowledge from the acquisition of new skills. 
+
+4.1. Central Model: Transformer-based MoE 
+
+For scalability, we implement the central generalist model as a transformer, which is also the backbone of mainstream LLMs. At timestep t, the policy takes all the history as input, i.e., at ∼ πθ (·| s0, a 0, · · · , s t). Further, in a continual learn-ing scenario involving multiple distinct tasks, monolithic networks struggle to concurrently maintain plasticity and stability (as conflicting gradient updates from disparate tasks can lead to inter-task interference). Inspired by the design of Switch Transformer (Fedus et al., 2022), we integrate a Mixture-of-Experts (MoE) mechanism. The Transformer-MoE Block replaces the standard feed-forward network (FFN) with a sparsely gated expert layer, as illustrated in Figure 2. The gating network in MoE dynamically routes each input token to a subset of expert networks, enabling sparse, specialized computations. The computation flow for layer l is defined as: 
+
+h0 = Embedding (ot) (3) 
+
+h′ 
+
+> l
+
+= MSA (LN (hl−1)) + hl−1 (4) 
+
+hl = MoE (LN (h′
+
+> l
+
+)) + h′ 
+
+> l
+
+(5) Here, ot = ( s0, a 0, · · · , s t) represents the input at time t,
+
+L is the number of stacked Transformer-MoE blocks, and 
+
+at denotes the predicted continuous action. The MoE layer consists of a gating network G(·) and N expert networks 
+
+Ei(·)Ni=1 . MSA denotes Multi-Head Self-Attention and LN denotes Layer Normalization. The MoE layer dynamically routes tokens to a subset of experts {Ei}Ni=1 via a gating network G(·):MoE (x) = X
+
+> i∈Top-k (G(x))
+
+pi(x)Ei(x) (6) where G(x) is the gating score of all experts, p1: k is the nor-malized gating score of the selected top-k experts. Coupled with the load-balancing loss (Eq. (2) ), this design aligns naturally with the multi-task nature of continual learning: shared experts can capture common skills across tasks, while task-specific experts can specialize, thus reducing interfer-ence. 
+
+4.2. Incremental MoE 
+
+A static MoE model with a fixed number of experts limits the maximal knowledge capacity over a lifespan. To en-sure sustained plasticity when learning from an open-ended stream of tasks, we propose an Incremental MoE strategy, as illustrated in Figure 2. Let Et = {E1, . . . , E Nt } be the set of experts at stage t.Upon entering stage t + 1 , we expand the capacity by adding K (can be 0) new experts, resulting in Et+1 =
+
+Et ∪ { ENt+1 , . . . , E Nt+K }. To ensure smooth training dynamics, we employ a function-preserving initialization strategy inspired by Net2WiderNet (Chen et al., 2016). : 
+
+θnew = θsource + ξ, ξ ∼ N (0 , σ 2
+
+> init
+
+) (7) where θsource are parameters sampled from the existing experts, and ξ is small Gaussian noise. This ensures the new experts start with a valid policy latent space. Further, simply adding experts poses a “cold-start” problem for the gating network. To prevent untrained experts from destabilizing the policy, we employ a Cold-Start Bias Ini-tialization . We initialize the bias terms of the new expert gates, bnew , to a large negative value (e.g., −5.0). This en-sures that initially pnew (x) ≈ 0, allowing the router to grad-ually incorporate new experts as they acquire task-specific competence through the auxiliary load-balancing loss. 
+
+4.3. Contrastive Task Embedding 
+
+Standard one-hot task identifiers lack semantic relation and flexibility for continual learning, particularly as the total number of tasks is typically unknown a priori. To provide the central model with rich task-specific context without hard-coding task IDs, we introduce a learnable, lightweight Task Embedding Module. This module encodes trajectory statistics (triplets of states, actions, and rewards from the PPO teacher) into a compact latent vector z, explicitly conditioning the policy on the current task context, i.e., 
+
+at ∼ πθ (·| s0, a 0, · · · , s t). It is trained using the InfoNCE (Rusak et al., 2025) loss function: 
+
+LInfoNCE = −EB
+
+"
+
+log 
+
+P 
+
+> j∈P (i)
+
+exp( sim (zi, zj )/τ )
+
+P  
+
+> k̸=i
+
+exp( sim (zi, zk)/τ )
+
+#
+
+(8) where P(i) denotes the set of positive samples (generated from the same task) for trajectory i, and sim (·) is the cosine similarity. This learned embedding serves as a context token for the Transformer, enabling the agent to infer task identity. We visualize the learned embeddings of the 25 Meta-World tasks with PCA in Figure 3. The embeddings cluster tasks that share similar manipulation primitives, suggesting the module captures task semantics rather than arbitrary iden-tities. For example, vertical pressing tasks ( Button Press Topdown and Button Press Topdown Wall ) appear nearby, 4Continual Policy Distillation from Distributed Reinforcement Learning Teachers      
+
+> Figure 3. PCA projection of task embeddings on Meta-World MT25 . The visualization highlights representative pairs of tasks that share similar manipulation primitives and reveals that the learned embeddings cluster according to manipulation mechanics (e.g., Button Press group, Pick Place group), validating the effec-tiveness of the contrastive objective in capturing task similarity.
+
+so do relocation tasks ( Pick Place and Pick Place Wall )and closing behaviors ( Drawer Close and Window Close ). Such a structure can help the central policy exploit shared mechanical features and promote positive transfer during continual distillation. 
+
+4.4. Trajectory Replay 
+
+To mitigate catastrophic forgetting without the prohibitive memory overhead of storing all historical training data, we employ Prioritized Trajectory Replay (PTR) (Liu et al., 2023). This method prioritizes the diversity and representa-tiveness of the selected trajectories, providing a high-fidelity yet compact representation of prior tasks for policy distilla-tion. Determinantal Point Processes (DPPs) are highly effective for selecting diverse subsets from large datasets (Kulesza et al., 2012; Chen et al., 2023a). A DPP characterizes the probability of a subset through a kernel matrix that captures the similarity between elements. Specifically, we project the collected trajectories into a high-dimensional feature space to construct this kernel matrix; we then apply a DPP-based selection algorithm to identify a representative and diverse subset of trajectories for our replay buffer. To select a subset of m trajectories from a total of n, we first partition each trajectory τ into non-overlapping slices of length l, where l corresponds to the maximum sequence length of the central model. For each slice, we compute the mean vector, resulting in a sequence of slice-wise means 
+
+Esτ = (¯ s1, ¯s2, . . . ). A representative feature vector v for the trajectory is then constructed by concatenating the ele-ments of Esτ . By aggregating these vectors for all n trajec-tories, we construct the kernel matrix L as follows: 
+
+L = V V ⊤, where V = [ v1, . . . , v n] (9) This kernel matrix serves as the input for the Determinantal Point Process (DPP) algorithm, which identifies m diverse trajectories for the replay dataset. In our implementation, m
+
+is no more than 10% of the total distillation data (from the teacher model), to maintain a compact memory footprint. 
+
+4.5. Parameter-wise Masking on Incremental MoE 
+
+As described in Section 4.2, we implement an incremental MoE to preserve the plasticity of the central model. To mitigate forgetting, we introduce Parameter-wise Masking to ensure that historical tasks preserve their original routing patterns while allowing new tasks to leverage both novel experts and shared features from earlier stages. Specifi-cally, new tasks can be routed to new experts if the model identifies new features, or to previous experts if it detects similarities with features from prior tasks. The masking strategy operates at two levels: a global backbone freeze and a dynamic schedule for the experts, as shown in Fig.2. 
+
+Global Backbone Freezing. We posit that the fundamen-tal feature extraction capabilities of the Transformer can be established early. Therefore, after the initial distillation stage (Stage 1), we permanently freeze all shared com-ponents of the architecture, including Input Embeddings, Layer Normalization, and Self-Attention layers. For all sub-sequent stages, gradient updates are restricted exclusively to the MoE layers and the Task Embedding module. This pre-vents representation drift in the lower layers, ensuring that the feature space remains consistent for previously learned tasks. 
+
+Two-Phase Expert Masking. With a frozen backbone, the incremental addition of experts still requires careful rout-ing management. Inspired by (Li et al., 2024), suggesting an early halt to gating updates can help maintain the dis-tinctions between experts and reduce errors in routing, we design a two-phase training strategy for the MoE layers within each continual learning stage: • Phase 1: Expert Specialization. We freeze all previ-ously learned experts Eold while training the expanded gating network and new experts Enew . This forces the model to route replay data (old tasks) to stable old ex-perts, while new task data activates and trains the new experts. • Phase 2: Cooperative Integration . Once the new experts are initialized, we freeze the gating network to stabilize routing paths. We then unfreeze all expert parameters. This allows the experts to fine-tune their specialized functions cooperatively without altering the established task-to-expert assignment. 5Continual Policy Distillation from Distributed Reinforcement Learning Teachers  
+
+> Figure 4. Joint distillation results: (a) using different algorithms for replay trajectory selection; (b) selecting a different number of trajectories for the replay buffer.
+
+# 5. Experiments 
+
+In this section, we conduct extensive experiments to address the following research questions: Q1 : How effective is our framework in continual learning across multiple learning stages? Q2 : Can the central generalist model maintain its plasticity as the task sequence progresses through multi-ple stages? Q3 : How robustly does our approach mitigate catastrophic forgetting and preserve knowledge of previ-ously mastered tasks? Q4 : What are the individual con-tributions of each anti-forgetting mechanism to the overall performance? 
+
+5.1. Experimental Setup 
+
+We utilize the Metaworld (McLean et al., 2025) benchmark, specifically adopting the MT25 task set, which comprises 25 diverse robotic manipulation tasks equipped with the standardized V2 reward functions (see Appendix A.4 for the task list). To evaluate continual learning capabilities, we have two primary experiment settings. The first is a two-phase distillation protocol, where the model initially learns 10 tasks followed by the remaining 15 tasks. The second is a more challenging five-phase distillation procedure in which the model sequentially acquires 25 tasks, 5 at a time. The overall pseudo code is shown in appendix B, more details about parameter settings listed in appendix C and E. 5.1.1. B ASELINE APPROACHES 
+
+We compare our method against the following baselines: 
+
+(1) Sequential Finetuning (Finetune): The agent learns tasks sequentially without any explicit mechanism to prevent forgetting. This serves as a lower bound on performance. 
+
+(2) Sequential Finetuning with Trac (Trac): Trac ((Mup-pidi et al., 2024)) is a parameter-free optimizer designed for lifelong RL, requiring no tuning or prior knowledge about the distribution shifts. We replace the AdamW ((Loshchilov & Hutter, 2019)) optimizer in sequential finetuning with Trac to evaluate its performance. (3) Independent Net-works (Independent): We train five separate models inde-pendently for each task group, initializing a fresh network for each stage. This approach eliminates inter-task inter-ference and catastrophic forgetting by design. It serves as an upper bound on plasticity (learning capability at the current stage), but Backward Transfer (BWT) is not appli-cable because there is no continuity between models. (4) Elastic Weight Consolidation (EWC): A regularization-based method (Kirkpatrick et al., 2017a) that penalizes changes to important network parameters, identified via the Fisher Information Matrix; (5) KL-Divergence Constraint (KL): A functional regularization baseline that applies a KL-divergence penalty between the current model and the previ-ous model to restrict the policy distribution from deviating significantly (commonly used for LLMs). (6) Experience Replay Only (Replay): An ablation that uses Prioritized Trajectory Replay only, without expert expanding. (7) Ex-pert Expansion Only (Expert): An ablation that adds new experts for new tasks without the proposed trajectory replay components. Among them, (1) and (2) serve as continual learning base-lines; (3) provides a reference for plasticity maintenance; (4) and (5) are baselines focused on forgetting mitigation; and finally, (6) and (7) constitute ablation studies for our proposed anti-forgetting mechanisms. 5.1.2. E VALUATION METRICS 
+
+We report two metrics: Average Accuracy (Acc) defined as AA = 1
+
+> K
+
+PKj=1 aK,j , which measures final performance over all tasks; and Backward Transfer (BWT) defined as 
+
+BW T = 1
+
+> K−1
+
+PK−1 
+
+> j=1
+
+(aK,j − aj,j ), where negative values imply forgetting of past tasks. Here, ak,j denotes the test performance on task j after learning task k. High Acc indicates strong overall capability, while a BWT close to zero implies minimal forgetting. 5.2. Results Analysis 
+
+5.2.1. T WO -S TAGE DISTILLATION 
+
+To validate our design choices, we first conduct a two-stage continual policy distillation, from MT10 (10 tasks) to MT25 (the other 15 tasks), the results of which are shown in Fig-ure 4. 
+
+Architecture Optimization: We identify that a Decoder-only architecture significantly outperforms Encoder-based 6Continual Policy Distillation from Distributed Reinforcement Learning Teachers    
+
+> (a) (b) Figure 5. Comparative analysis of continual policy distillation performance. (a) Overall performance; (b) Backward transfer (BWT). Our method outperforms all other baselines on average accuracy and backward transfer.
+> Table 1. The comparison of average accuracy between our frame-work (1M training steps per teacher and 3M training steps for distillation) and multi-task learning baselines (20M training steps) on MT10.
+
+Methods Average Accuracy 
+
+SAC (Yu et al., 2020) 61.9 ± 3.3 
+
+MTSAC (Yu et al., 2020) 62.9 ± 8.0 
+
+Soft-Module (Yang et al., 2020) 63.0 ± 4.2 
+
+CARE (Sodhani et al., 2021) 76.0 ± 6.9 
+
+PaCo (Sun et al., 2022) 85.4 ± 4.5 
+
+MOORE (Hendawy et al., 2023) 88.7 ± 5.6 
+
+AvgTeachers (ours) 90.8 ± 1.4 
+
+Central Model (ours) 88.9 ± 1.9 
+
+variants (65% vs. 55% success rate on MT10 multi-task dis-tillation). Also, compared with Post-Norm implementation, Pre-Norm normalizes inputs before sublayers (i.e., Atten-tion and MoE), improving performance (61.7% vs. 83.7%) on MT10. Further, integrating an annealed auxiliary loss (i.e., linearly decaying the coefficient λ in Eq. (2) from 0.01 
+
+to 0.0001 ) is critical for stabilizing the learning of latent task embeddings, boosting the MT10 peak success rate to 88.9% (Table 1). As presented in Table1, this result outperforms all other multi-task RL baselines (e.g., MOORE at 88.7%) and recovers approximately 98% of the expert teachers’ average performance (90.8%). 
+
+Stability Validation via Trajectory Replay: To construct the prioritized replay buffer, we employ a trajectory selec-tion mechanism and evaluate three distinct strategies: a random baseline, Farthest-First Selection (FFS), and the Determinantal Point Process (DPP). Our results show that, with a proper trajectory embedder, DPP outperforms other algorithms in terms of stability. Moreover, we test the re-play data ratio by comparing the performance of selecting 5/10/20 trajectories over 65536 distill data (about 131 trajec-tories). Considering the results (Figure 4), we speculate that building a replay buffer with less than 10% of the distill data can achieve a promising effect on preventing forgetting. 
+
+Plasticity Enhancement via Expert Expansion: Another finding of stage 1 is the efficacy of the MoE expansion. By scaling the number of experts (e.g., adding 8 experts initialized via noisy copies of pre-trained ones), the central model achieved an 89% success rate on MT10 and a 76.5% success rate on MT25 under joint training conditions, while the teacher models have a mean success rate of 90% and 81% on MT10 and MT25, respectively. Our framework is effective on continual policy distillation, as the results show that our central model can learn over 85% of the performance from teacher models at phase 2, while constraining forgetting to 10% at 2-phase distillation. To further evaluate our framework, we extend our experiments to a more challenging five-phase distillation protocol. 5.2.2. M ULTI -S TAGE DISTILLATION 
+
+We present the 5-stage continual learning results in Table 2 and Figure 5. 
+
+Overall Effectiveness (Q1): Our framework demonstrates robust capability in acquiring new tasks across multiple stages. As shown in Table 2, our method achieves a final Average Accuracy of 69.4% at Stage 5, significantly outper-forming the Sequential Fine-tuning baseline (26.1%) and other baseline approaches (in Section 5.1.1). 
+
+Plasticity (Q2): To evaluate plasticity, we compare our framework against the Independent baseline, which repre-sents an ideal scenario for plasticity as it learns an indepen-dent model for each stage. By Stage 5, our method achieves a success rate of 69.4%, surpassing the 62.8% average of the Independent models. This result suggests that the con-7Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Table 2. Average Accuracy (Acc) and Backward Transfer (BWT) of our algorithm and all the baselines discussed above, on the 5-phase Continual Learning of Meta-world MT25. Our framework consistently outperforms baselines, achieving a final accuracy of 69.4% with positive backward transfer, demonstrating robust stability and plasticity. 
+
+Method Stage 1 Stage 2 Stage 3 Stage 4 Stage 5 Acc Acc BWT Acc BWT Acc BWT Acc BWT No Freeze-Gating 54.7 ±3.1 74.3 ±7.2 2.7 ±5.0 59.3 ±5.3 -1.0 ±7.5 61.2 ±7.8 1.3 ±7.0 64.5 ±1.2 0.8 ±1.4 
+
+No Shared-Frozen 57.3 ±4.2 67.3 ±5.1 -8.0 ±2.0 55.3 ±1.8 -1.3 ±0.6 60.0 ±2.8 1.1 ±2.0 64.5 ±2.2 2.8 ±3.3 
+
+No TE 39.3 ±5.8 68.3 ±6.4 11.3 ±11.7 48.4 ±5.2 -5.3 ±5.1 54.3 ±4.5 -2.2 ±4.4 57.9 ±2.4 -0.7 ±4.5 
+
+Replay 61.0 ±8.2 66.5 ±1.9 -18.0 ±9.5 45.6 ±5.6 -22.0 ±7.5 56.2 ±3.2 -10.4 ±3.3 57.2 ±1.4 -11.0 ±2.8 
+
+Expert 50.7 ±2.3 52.0 ±2.0 -44.0 ±4.0 16.9 ±3.4 -67.3 ±4.2 24.0 ±1.0 -55.1 ±3.4 28.0 ±3.5 -51.3 ±4.0 
+
+EWC 39.3 ±35.2 60.3 ±9.5 -35.8 ±8.5 29.7 ±14.5 -55.4 ±18.1 28.8 ±12.8 -40.9 ±9.8 35.9 ±17.3 -37.9 ±11.0 
+
+Finetune 60.0 ±12.0 50.7 ±1.2 -57.3 ±14.0 20.0 ±5.8 -67.3 ±10.3 23.3 ±7.5 -58.2 ±12.1 26.1 ±2.6 -55.3 ±3.8 
+
+KL 20.0 ±13.9 44.7 ±1.2 -20.0 ±13.9 4.4 ±2.8 -48.0 ±9.2 12.3 ±2.5 -29.8 ±5.0 21.6 ±2.1 -24.7 ±8.3 
+
+Trac 35.0 ±10.5 51.0 ±1.2 -33.0 ±9.5 17.7 ±4.1 -57.5 ±7.7 16.2 ±1.7 -52.3 ±4.3 21.4 ±1.8 -47.8 ±3.1 
+
+Independent 47.0 ±2.0 72.5 ±2.0 ⧸ 55.0 ±0.9 ⧸ 58.0 ±2.6 ⧸ 62.8 ±2.9 ⧸
+
+Ours 59.3 ±11.0 80.7 ±8.4 6.0 ±8.7 62.3 ±2.6 -0.3 ±4.9 65.3 ±1.8 2.0 ±2.7 69.4 ±1.5 2.3 ±2.8 
+
+straints imposed to preserve prior knowledge do not impede the acquisition of new skills. Further, our performance cap-tures over 90% of the Joint Distillation baseline (76.5%), which involves distilling all 25 tasks simultaneously. This indicates that our sequential learning approach maintains plasticity nearly comparable to single-stage training. Adetailed per-task success rate comparison is provided in Appendix D. 
+
+Anti-forgetting (Q3): We compare different strategy com-binations to identify the most effective approach. In this challenging RL setting, EWC and KL fail to prevent forget-ting, yielding negative BWT (-17.2% and -24.7%), while Re-play Only improves stability but still forgets (BWT -11.0%). In contrast, Ours combines Diversity-Aware Replay with Hierarchical Parameter Masking and achieves the lowest forgetting with a positive BWT of 2.3% , indicating the hybrid strategy is most effective in our framework. 5.2.3. A BLATION STUDY 
+
+To understand the contributions of each component ( Q4 ), we analyze the ablation variants’ performance, which are reported in Table 2. 
+
+Impact of Parameter Masking: Removing the freeze-gating mechanism ( No Freeze-Gating ) causes the BWT to drop from 2.3% to 0.8%, while removing the shared-backbone freezing ( No Shared-Frozen ) drops the Stage 2 BWT significantly to -8.0%. This highlights the importance of parameter-wise masking for isolating old knowledge from new interference. 
+
+Impact of Task Embedding: The removal of the Task Em-bedding module ( No TE ) results in a significant drop in Average Accuracy (from 69.4% to 57.9%). This demon-strates that explicit task context is essential for the MoE router to specialize effectively across diverse tasks. 
+
+Impact of Expert Expansion: Comparing Replay (no ex-pansion) with Ours , we see a rise in Acc from 57.2% to 69.4% and a significant improvement in BWT (-11.0% vs 2.3%). This proves that static capacity leads to severe inter-ference, whereas our incremental MoE effectively resolves the stability-plasticity dilemma. 
+
+Impact of Replay: Comparing Expert (Expert Expansion Only, no replay) with Ours , we observe a catastrophic col-lapse in performance. Acc decreased to 28.0%, and BWT decreased to -51.3%. This result shows that structural expan-sion alone is insufficient for stability. Without rehearsing past experiences, the model exhibits severe representation drift, rendering the incremental capacity ineffective. 
+
+# 6. Conclusion 
+
+In this paper, we investigate the current paradigm of con-tinual learning and some of the fundamental approaches that help prevent catastrophic forgetting. Based on these insights, we propose a novel teacher-student architecture that decomposes continual reinforcement learning into two stages: training multiple teachers on single tasks and se-quentially distilling them into a central model. This central model ultimately achieves promising results across all tasks while experiencing minimal forgetting. Therefore, we con-clude that this teacher-student architecture can serve as an effective framework for class-incremental reinforcement learning. However, there are still limitations within this framework that we aim to address. Our experiments were conducted solely on a single benchmark, Meta-World, and have not yet been validated on other benchmarks, such as Atari. Fur-thermore, this paradigm relies heavily on the quality of the teacher models. If the teachers fail to learn a particular policy effectively, it creates a bottleneck in the distillation process of the central model. 8Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# Impact Statement 
+
+This paper presents a teacher-student continual reinforce-ment learning framework that decouples complex learning into parallel expert training and stable policy distillation. This approach reduces computational costs and effectively mitigates catastrophic forgetting, providing a scalable solu-tion for developing generalist embodied AI. 
+
+# References 
+
+Aljundi, R., Chakravarty, P., and Tuytelaars, T. Expert gate: Lifelong learning with a network of experts, 2017. URL 
+
+https://arxiv.org/abs/1611.06194 .Bjorck, N., Gomes, C. P., and Weinberger, K. Q. Towards deeper deep reinforcement learning with spectral nor-malization. Advances in neural information processing systems , 34:8242–8255, 2021. Chen, J., Aggarwal, V., and Lan, T. A unified algorithm framework for unsupervised discovery of skills based on determinantal point process. Advances in Neural Infor-mation Processing Systems , 36:67925–67947, 2023a. Chen, T., Goodfellow, I., and Shlens, J. Net2net: Ac-celerating learning via knowledge transfer, 2016. URL 
+
+https://arxiv.org/abs/1511.05641 .Chen, W., Zhou, Y., Du, N., Huang, Y., Laudon, J., Chen, Z., and Cu, C. Lifelong language pretraining with distribution-specialized experts, 2023b. URL https: //arxiv.org/abs/2305.12281 .Dohare, S., Hernandez-Garcia, J. F., Rahman, P., Mahmood, A. R., and Sutton, R. S. Maintaining plasticity in deep continual learning. arXiv preprint arXiv:2306.13812 ,2023. Fedus, W., Zoph, B., and Shazeer, N. Switch transformers: Scaling to trillion parameter models with simple and ef-ficient sparsity. Journal of Machine Learning Research ,23(120):1–39, 2022. Hendawy, A., Peters, J., and D’Eramo, C. Multi-task rein-forcement learning with mixture of orthogonal experts. 
+
+arXiv preprint arXiv:2311.11385 , 2023. Kim, T., Oh, J., Kim, N., Cho, S., and Yun, S.-Y. Com-paring kullback-leibler divergence and mean squared error loss in knowledge distillation. arXiv preprint arXiv:2105.08919 , 2021. Kirkpatrick, J., Pascanu, R., Rabinowitz, N., Veness, J., Desjardins, G., Rusu, A. A., Milan, K., Quan, J., Ramalho, T., Grabska-Barwinska, A., Hassabis, D., Clopath, C., Kumaran, D., and Hadsell, R. Overcom-ing catastrophic forgetting in neural networks. Pro-ceedings of the National Academy of Sciences , 114 (13):3521–3526, March 2017a. ISSN 1091-6490. doi: 10.1073/pnas.1611835114. URL http://dx.doi. org/10.1073/pnas.1611835114 .Kirkpatrick, J., Pascanu, R., Rabinowitz, N., Veness, J., Des-jardins, G., Rusu, A. A., Milan, K., Quan, J., Ramalho, T., Grabska-Barwinska, A., et al. Overcoming catastrophic forgetting in neural networks. Proceedings of the national academy of sciences , 114(13):3521–3526, 2017b. Kulesza, A., Taskar, B., et al. Determinantal point pro-cesses for machine learning. Foundations and Trends® in Machine Learning , 5(2–3):123–286, 2012. Li, H., Lin, S., Duan, L., Liang, Y., and Shroff, N. B. The-ory on mixture-of-experts in continual learning. arXiv preprint arXiv:2406.16437 , 2024. Liu, J., Ma, Y., Hao, J., Hu, Y., Zheng, Y., Lv, T., and Fan, C. Prioritized trajectory replay: A replay memory for data-driven reinforcement learning. arXiv preprint arXiv:2306.15503 , 2023. Loshchilov, I. and Hutter, F. Decoupled weight decay regu-larization, 2019. URL https://arxiv.org/abs/ 1711.05101 .McLean, R., Chatzaroulas, E., McCutcheon, L., R ¨oder, F., Yu, T., He, Z., Zentner, K., Julian, R., Terry, J. K., Woun-gang, I., Farsad, N., and Castro, P. S. Meta-world+: An improved, standardized, RL benchmark. In The Thirty-ninth Annual Conference on Neural Information Processing Systems Datasets and Benchmarks Track ,2025. URL https://openreview.net/forum? id=1de3azE606 .Muppidi, A., Zhang, Z., and Yang, H. Fast trac: Aparameter-free optimizer for lifelong reinforcement learn-ing, 2024. URL https://arxiv.org/abs/2405. 16642 .Pu, Y., Niu, Y., Tang, J., Xiong, J., Hu, S., and Li, H. One model for all tasks: Leveraging efficient world models in multi-task planning. arXiv preprint arXiv:2509.07945 ,2025. Puterman, M. L. Markov decision processes: discrete stochastic dynamic programming . John Wiley & Sons, 2014. Rafailov, R., Sharma, A., Mitchell, E., Manning, C. D., Ermon, S., and Finn, C. Direct preference optimiza-tion: Your language model is secretly a reward model. 
+
+Advances in neural information processing systems , 36: 53728–53741, 2023. 9Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Reed, S., Zolna, K., Parisotto, E., Colmenarejo, S. G., Novikov, A., Barth-Maron, G., Gimenez, M., Sulsky, Y., Kay, J., Springenberg, J. T., et al. A generalist agent. 
+
+arXiv preprint arXiv:2205.06175 , 2022. Rusak, E., Reizinger, P., Juhos, A., Bringmann, O., Zim-mermann, R. S., and Brendel, W. Infonce: Identify-ing the gap between theory and practice, 2025. URL 
+
+https://arxiv.org/abs/2407.00143 .Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algo-rithms, 2017. URL https://arxiv.org/abs/ 1707.06347 .Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q., Hinton, G., and Dean, J. Outrageously large neural net-works: The sparsely-gated mixture-of-experts layer, 2017. URL https://arxiv.org/abs/1701.06538 .Sodhani, S., Zhang, A., and Pineau, J. Multi-task reinforce-ment learning with context-based representations. In 
+
+International conference on machine learning , pp. 9767– 9779. PMLR, 2021. Sun, L., Zhang, H., Xu, W., and Tomizuka, M. Paco: Parameter-compositional multi-task reinforcement learn-ing. Advances in Neural Information Processing Systems ,35:21495–21507, 2022. Van de Ven, G. M., Tuytelaars, T., and Tolias, A. S. Three types of incremental learning. Nature Machine Intelli-gence , 4(12):1185–1197, 2022. van de Ven, G. M., Soures, N., and Kudithipudi, D. Contin-ual learning and catastrophic forgetting. arXiv preprint arXiv:2403.05175 , 2024. Wang, K., Javali, I., Bortkiewicz, M., Eysenbach, B., et al. 1000 layer networks for self-supervised rl: Scaling depth can enable new goal-reaching capabilities. arXiv preprint arXiv:2503.14858 , 2025. Yang, R., Xu, H., Wu, Y., and Wang, X. Multi-task rein-forcement learning with soft modularization. Advances in Neural Information Processing Systems , 33:4767–4777, 2020. Yu, T., Quillen, D., He, Z., Julian, R., Hausman, K., Finn, C., and Levine, S. Meta-world: A benchmark and evalua-tion for multi-task and meta reinforcement learning. In 
+
+Conference on robot learning , pp. 1094–1100. PMLR, 2020. 10 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# A. Benchmark Details 
+
+A.1. Overview 
+
+We evaluate our method on the Meta-World benchmark (McLean et al., 2025), a widely used platform for multi-task and meta-reinforcement learning. The environment is built upon the MuJoCo physics engine and features a simulated Sawyer robotic arm. We employ the MT25 benchmark  
+
+> Figure 6. A Snapshot of the training process of MT10 tasks
+
+A.2. Observation and Action Space 
+
+The observation space S ∈ R39 consists of the 3D position of the end-effector, the gripper state (open/close), the 3D position of the object, the 3D position of the goal, and their relative distances. To incorporate task-specific information, we concatenate this observation with a 16-dimensional vector generated by our Task Embedding module (see Section 4.3). Consequently, the final input state passed to the central model has a dimension of 55 .The action space A ∈ R4 represents the change in the end-effector’s 3D position (∆ x, ∆y, ∆z) and the gripper actuation force. The action values are normalized to the range [−1, 1] .
+
+A.3. Reward Function and Success Metric 
+
+For each of the 50 available tasks in Meta-World, there are 2 dense reward functions. We use the latest version of the reward function(V2). A task is considered successful if the object’s distance to the goal position is within a specific threshold at the end of the episode. Each training episode has a fixed horizon of T = 500 time steps. As we collect expert trajectories from the expert policies, we also set terminate on success as false to get a complete episode. The environment includes randomized initialization: at the beginning of each episode, the object and goal positions are sampled from a predefined distribution to ensure the agent learns robust policies rather than memorizing trajectories. 
+
+A.4. Task List 
+
+Our evaluation on the MT25 benchmark encompasses a diverse set of manipulation skills. We categorize these tasks into 2 primary groups based on the required manipulation type (See Table 3). 11 Continual Policy Distillation from Distributed Reinforcement Learning Teachers  
+
+> Table 3. List of tasks in the MT25 benchmark, their corresponding Worker IDs, and the results after 10M training steps using the PPO algorithm.
+
+Worker ID Task Name Success Rate Returns 
+
+0 reach-v3 1.0000 140.1236 1 push-v3 0.3200 162.2003 2 pick-place-v3 0.8200 139.3596 3 door-open-v3 1.0000 264.4244 4 drawer-open-v3 1.0000 441.4997 5 drawer-close-v3 1.0000 10.0000 6 button-press-topdown-v3 1.0000 122.8903 7 peg-insert-side-v3 0.9800 123.7811 8 window-open-v3 1.0000 125.6251 9 window-close-v3 1.0000 117.3541 10 coffee-pull-v3 0.7000 58.6285 11 pick-out-of-hole-v3 0.9400 69.9379 12 disassemble-v3 0.0000 203.7822 13 pick-place-wall-v3 0.4800 1786.6363 14 basketball-v3 0.2200 121.0556 15 stick-pull-v3 0.4800 493.3507 16 button-press-wall-v3 0.7400 796.8207 17 faucet-open-v3 1.0000 216.3948 18 door-lock-v3 1.0000 110.0367 19 lever-pull-v3 1.0000 282.9568 20 sweep-into-v3 0.7400 38.9711 21 faucet-close-v3 1.0000 192.7584 22 coffee-button-v3 1.0000 32.5933 23 button-press-topdown-wall-v3 1.0000 152.3181 24 dial-turn-v3 0.9800 108.1518 12 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# B. Pseudo Code of the Training Framework 
+
+Algorithm 1 Continual Policy Distillation 
+
+Require: number of phase s, batch number of teacher in each phase b {recommend that s×b equals the number of teachers } 
+
+> 1:
+
+Input: teachers M [25], student Mstu , environment E[25]  
+
+> 2:
+
+Initialize replayBuf f er =[ ]  
+
+> 3:
+
+for i = 1 to s do  
+
+> 4:
+
+if i ≥ 2 then  
+
+> 5:
+
+expert expand( Mstu , n) {From phase 2 on, expert expansion } 
+
+> 6:
+
+freeze shared layers and MoE previous experts in Mstu  
+
+> 7:
+
+end if  
+
+> 8:
+
+Initialize distillData =[ ], replayData =[ ]  
+
+> 9:
+
+for j = 1 to b do  
+
+> 10:
+
+d ← collect distill data( Mi∗b+j , Ei∗b+j ) 
+
+> 11:
+
+distillData .append( d) 
+
+> 12:
+
+dDP P ← select trajectory( d) 
+
+> 13:
+
+replayData .append( dDP P ) 
+
+> 14:
+
+end for  
+
+> 15:
+
+distillData ← distillData + replayBuf f er  
+
+> 16:
+
+if i ≥ 2 then  
+
+> 17:
+
+for j = 1 to epochs do  
+
+> 18:
+
+if j = 2 then  
+
+> 19:
+
+unfreeze shared layers and MoE previous experts in Mstu {From phase 2 on, after epoch 1, freeze gate } 
+
+> 20:
+
+freeze MoE gating in Mstu  
+
+> 21:
+
+end if  
+
+> 22:
+
+Mstu ← train( Mstu , distillData ) 
+
+> 23:
+
+end for  
+
+> 24:
+
+end if  
+
+> 25:
+
+replayBuf f er ← replayBuf f er + replayData  
+
+> 26:
+
+end for 
+
+13 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# C. Expert Policy Training 
+
+C.1. Settings 
+
+To obtain expert policies, we employed the Proximal Policy Optimization (PPO) algorithm(Schulman et al., 2017). Our implementation is based on the open-source repository metaworld-algorithms 1. The relevant hyperparameter configurations are listed in Table 4. We also employed early stop , which terminates training if a high success rate( >= 98% ) is achieved after evaluation. 
+
+C.2. Results 
+
+We record the learning curves of the expert policies(Figure 7, 8). In total, MT10 expert policies achieve an average success rate of 91.2%, while MT25 expert policies achieve 81.3%(Table 3).  
+
+> Table 4. Hyperparameters for Worker PPO and Training Configuration
+
+Parameter Value Parameter Value 
+
+PPO Configuration 
+
+Discount Factor ( γ) 0.99 Baseline Type linear GAE Smoothing ( λ) 0.97 Normalize Advantages True Number of Epochs 20 Clip Value Loss False Gradient Steps 64 Target KL None 
+
+Policy & Optimization 
+
+Optimizer Adam Max Gradient Norm 1.0 Learning Rate 5 × 10 −5 Std Type MLP HEAD Squash Tanh True 
+
+Training Loop 
+
+Total Steps 1 × 10 7 Evaluation Frequency 1 × 10 5
+
+Rollout Steps 20 , 000 
+
+> 1https://github.com/rainx0r/metaworld-algorithms
+
+14 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Figure 7. Learning curves of PPO expert(MT10) 
+
+15 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Figure 8. Learning curves of PPO expert(MT25 besides MT10) 
+
+16 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# D. Detailed Results 
+
+Here, we present the detailed per-task success rates for the MT25 benchmark, produced by joint distillation (section 5.2.1) and our multi-stage continual learning method (section 5.2.2). Joint distillation was performed on three random seeds, whereas our method was run on five seeds. 
+
+Table 5. List of tasks in the MT25 benchmark, comparing the performance of Teacher (PPO), Joint Training, and Our Central Model (Continual Distillation). 
+
+## ID Task Name Teacher Success Joint (Mean ± Std) Ours (Mean ± Std) 
+
+## 0 reach-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 1 push-v3 0.3200 0.47 ±0.09 0.44 ±0.27 
+
+## 2 pick-place-v3 0.8200 0.67 ±0.09 0.16 ±0.17 
+
+## 3 door-open-v3 1.0000 1.00 ±0.00 0.96 ±0.09 
+
+## 4 drawer-open-v3 1.0000 1.00 ±0.00 0.52 ±0.46 
+
+## 5 drawer-close-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 6 button-press-topdown-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 7 peg-insert-side-v3 0.9800 1.00 ±0.00 0.68 ±0.27 
+
+## 8 window-open-v3 1.0000 0.93 ±0.09 1.00 ±0.00 
+
+## 9 window-close-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 10 coffee-pull-v3 0.7000 0.40 ±0.16 0.60 ±0.31 
+
+## 11 pick-out-of-hole-v3 0.9400 1.00 ±0.00 0.76 ±0.26 
+
+## 12 disassemble-v3 0.0000 0.00 ±0.00 0.00 ±0.00 
+
+## 13 pick-place-wall-v3 0.4800 0.40 ±0.16 0.08 ±0.10 
+
+## 14 basketball-v3 0.2200 0.00 ±0.00 0.00 ±0.00 
+
+## 15 stick-pull-v3 0.4800 0.20 ±0.28 0.00 ±0.00 
+
+## 16 button-press-wall-v3 0.7400 0.60 ±0.00 0.84 ±0.17 
+
+## 17 faucet-open-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 18 door-lock-v3 1.0000 0.93 ±0.09 0.92 ±0.11 
+
+## 19 lever-pull-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 20 sweep-into-v3 0.7400 0.80 ±0.00 0.50 ±0.19 
+
+## 21 faucet-close-v3 1.0000 0.73 ±0.25 0.88 ±0.11 
+
+## 22 coffee-button-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 23 button-press-topdown-wall-v3 1.0000 1.00 ±0.00 1.00 ±0.00 
+
+## 24 dial-turn-v3 0.9800 1.00 ±0.00 0.80 ±0.00 
+
+17 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+# E. Hyperparameters 
+
+E.1. Central Model Hypterparameters 
+
+Here is the final set of hyperparameters used in training our central model.  
+
+> Table 6. Hyperparameters for the Central Model
+
+Hyperparameter Value 
+
+Optimization & Training 
+
+Optimizer AdamW(Trac for sepcific baseline) Learning Rate 1 × 10 −4
+
+Distillation Loss pureMSE Distillation Epochs 2Distill Batch Size 128 
+
+λaux at beginning 0.01 
+
+λaux ′s decrease by step 0.00005 
+
+λaux at last 0.0001 
+
+Transformer Architecture ( based on Switch Transformer) 
+
+Hidden Dimension (Dim) 256 Block Depth (Layers) 5Number of Experts 8MLP Multiplier 4Causal Masking True Use Aux Loss True Layer Norm Expansion False Use Tanh False 
+
+Input & Context 
+
+Sequence Length 20 Use Task Embedding (TE) True Use Action History False Use Demo False 
+
+E.2. Hyperparameters tuning 
+
+We tested different block depths for our central mode(Table7). Since a block depth of 6 doesn’t yield a significant improvement but incurs additional computational cost, we ultimately choose a block depth of 5 for our central model. We also tested different input sequence lengths for our transformer model, as shown in Table 8. Input sequence length of 50 showed a decrease in all scenarios, and required tremendous extra computational cost, so we chose a sequence length of 20, which is also the default length in switch transformer((Fedus et al., 2022)) We compare MoE routing with and without auxiliary loss over the same number of training steps. By visualizing the results (Table9), we find that auxiliary loss significantly promotes a more even distribution of input among experts.  
+
+> Table 7. MT10 training success rate of different block depth, evaluated on 3 random seeds.
+
+Depth Success Rate 
+
+4 0.75 ± 0.03 
+
+5 0.85 ± 0.02 
+
+6 0.84 ± 0.02 
+
+18 Continual Policy Distillation from Distributed Reinforcement Learning Teachers 
+
+Table 8. Success rates (mt10 / mt25) for different depths and sequence lengths. Sequence length of 20 outperforms 50. 
+
+Condition Depth 
+
+4 5 6Seq len = 20 0.63 / 0.368 0.76 / 0.416 0.73 / 0.384 Seq len = 50 0.41 / 0.34 0.51 / 0.25 0.60 / 0.32 
+
+Table 9. Comparison of visualizations with and without auxiliary loss function of the same training steps. 4 layers of MoE in total. Without auxiliary loss, inputs tend to be assigned to one or two experts, especially evidenced by layers 0 and 3. With auxiliary loss, the input can be evenly distributed among experts, ensuring that each expert receives approximately the same amount of input. 
+
+Without Auxiliary Loss 
+
+layer 0 layer 1 layer 2 layer 3 
+
+With Auxiliary Loss 
+
+layer 0 layer 1 layer 2 layer 3 19

@@ -1,0 +1,608 @@
+Title: TRE: Encouraging Exploration in the Trust Region
+
+URL Source: https://arxiv.org/pdf/2602.03635v1
+
+Published Time: Wed, 04 Feb 2026 02:40:01 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# TRE: Encouraging Exploration in the Trust Region 
+
+Chao Huang 1 2 Yujing Lu 3 Quangang Li 1 2 Shenghe Wang 3 Yan Wang 3 Yueyang Zhang 3 Long Xia 3
+
+Jiashu Zhao 4 Zhiyuan Sun 3 Daiting Shi 3 Tingwen Liu 1 2 
+
+{huangchao, liquangang, liutingwen }@iie.ac.cn, jzhao@wlu.ca 
+
+{luyujing, wangshenghe01, wangyan78, zhangyueyang, xialong01, sunzhiyuan01, shidaiting01 }@baidu.com 
+
+## Abstract 
+
+Entropy regularization is a standard technique in reinforcement learning (RL) to enhance explo-ration, yet it yields negligible effects or even de-grades performance in Large Language Models (LLMs). We attribute this failure to the cumu-lative tail risk inherent to LLMs with massive vocabularies and long generation horizons. In such environments, standard global entropy maxi-mization indiscriminately dilutes probability mass into the vast tail of invalid tokens rather than fo-cusing on plausible candidates, thereby disrupting coherent reasoning. To address this, we propose 
+
+Trust Region Entropy (TRE) , a method that en-courages exploration strictly within the model’s trust region. Extensive experiments across mathe-matical reasoning (MATH), combinatorial search (Countdown), and preference alignment (HH) tasks demonstrate that TRE consistently outper-forms vanilla PPO, standard entropy regulariza-tion, and other exploration baselines. Our code is available at github.com/WhyChaos/TRE. 
+
+## 1. Introduction 
+
+Reinforcement Learning (RL) has emerged as a cornerstone paradigm for aligning Large Language Models (LLMs) with human intent and enhancing their capabilities in complex reasoning tasks (Guo et al., 2025; Ouyang et al., 2022). Whether fine-tuning for helpfulness or optimizing for cor-rect mathematical derivation, the central challenge remains the efficient exploration of the policy space. In classical RL domains—such as robotics or grid-world navigation—this exploration-exploitation trade-off is typically managed via 
+
+entropy regularization , which penalizes deterministic poli-
+
+> 1
+
+Institute of Information Engineering, Chinese Academy of Sci-ences 2School of Cyber Security, University of Chinese Academy of Sciences 3Baidu Inc. 4Wilfrid Laurier University. Preprint. 
+
+cies and encourages the agent to sample a diverse range of actions (Ashlag et al., 2025; Ahmed et al., 2019; Haarnoja et al., 2018). However, despite its ubiquity in standard control problems, the direct application of entropy regularization to LLMs has shown limited benefits and often degrades performance (Cui et al., 2025). We posit that this failure stems from the distinct interaction between the sparsity of valid manifolds 
+
+and the cumulative risk in long-horizon generation . Un-like classical RL environments where random exploration often remains within a valid state space, the valid tokens in LLM generation constitute an infinitesimally sparse mani-fold within a massive vocabulary. Standard entropy regular-ization, by encouraging global uniformity, indiscriminately shifts probability mass from plausible candidates into the vast tail of syntactically or logically invalid tokens. While this local noise might be negligible in single-step decisions, LLM reasoning requires maintaining coherence over long sequences. As the generation horizon extends, this injected noise accumulates exponentially, rendering the maintenance of a valid Chain-of-Thought statistically impossible. Con-sequently, global entropy maximization functions less as structured exploration and more as a disruptor of long-chain reasoning.We provide a detailed empirical analysis of these failure modes and their correlation with generation length in Section 4. To address this dimensionality mismatch, we propose Trust Region Entropy (TRE) , a novel regularization framework designed specifically for the sparse nature of language gen-eration. TRE operates on the intuition that valid exploration should be constrained to a trust region—the subset of tokens that the pre-trained model considers plausible. Rather than flattening the entire distribution, TRE maximizes entropy strictly within this high-confidence subset(see Section 5). Our contributions are summarized as follows: • We provide an empirical analysis revealing that the failure of standard entropy regularization is driven by cumulative tail risk in long-horizon generation. 1
+
+> arXiv:2602.03635v1 [cs.CL] 3 Feb 2026 TRE: Encouraging Exploration in the Trust Region
+
+We demonstrate that while regularization may offer marginal benefits in short-horizon settings, it becomes increasingly detrimental as the generation budget ex-tends, explaining why reasoning tasks are particularly vulnerable to global entropy maximization. • We introduce Trust Region Entropy (TRE) , a method that encourages exploration strictly within a trust re-gion via local entropy maximization. • We demonstrate through extensive experiments on mathematical reasoning (MATH), combinatorial search (Countdown), and preference alignment (HH) that TRE consistently outperforms vanilla PPO, standard entropy regularization, and other exploration baselines. 
+
+## 2. Related Work 
+
+RL for LLM Alignment Reinforcement Learning (RL) has become indispensable for aligning Large Language Models (LLMs) with complex human values and reasoning requirements. Following the standard Reinforcement Learn-ing from Human Feedback (RLHF) pipeline (Ouyang et al., 2022), models initially trained via supervised fine-tuning are further optimized using algorithms such as Proximal Policy Optimization (PPO) (Schulman et al., 2017) to maxi-mize non-differentiable reward signals. This paradigm has proven effective across various domains, from improving helpfulness and safety (Bai et al., 2022) to enhancing math-ematical reasoning capabilities (Guo et al., 2025; Yu et al., 2025). 
+
+Entropy Regularization Entropy regularization is a cor-nerstone technique in modern RL, encouraging exploration via the entropy term. While highly effective in low-dimensional continuous control, naive entropy maximiza-tion proves problematic for LLMs due to massive vocabulary sizes (Cui et al., 2025). To mitigate this, contemporaneous works have proposed selective constraint mechanisms. For instance, Wang et al. (2025) propose Forking-Tokens , which restricts optimization to steps with high entropy to preserve exploratory potential. Similarly, Cui et al. (2025) introduces 
+
+KL-Cov , which identifies steps with high covariance be-tween advantage estimates and log-probabilities, selectively imposing a strong KL penalty on these critical steps to sta-bilize training dynamics. Specific implementation details of these baselines are provided in Section 6. 
+
+Trust Region The concept of a Trust Region is foun-dational to stable optimization in reinforcement learning. Trust Region Policy Optimization (TRPO) (Schulman et al., 2015) constrains the policy update by enforcing a strict KL-divergence constraint on a surrogate objective, ensur-ing monotonic improvement while maintaining stability. This surrogate objective is designed to approximate the true objective while keeping the updates within a trust region defined by the KL-divergence. In contrast, PPO (Schul-man et al., 2017) simplifies this approach by introducing a clipped surrogate objective that penalizes large policy de-viations, making it more tractable and efficient, while still achieving similar stability to TRPO. In the context of language generation, inference strategies like top-k or Nucleus Sampling (top-p) truncate the low-probability tail during decoding. As Holtzman et al. (2020) note, this truncation strategy can be interpreted as deter-mining the model’s trust region. Our Trust Region Entropy (TRE) adapts this established trust region concept to the 
+
+training-time exploration objective .
+
+## 3. Preliminaries 
+
+RL for LLMs We formulate the Large Language Model (LLM) generation process as a sequential decision-making problem. The LLM functions as a parameterized softmax policy πθ over a discrete action space A (the vocabulary), with size |A| .At each time step t, given the current context st (comprising the prompt q and history a<t ), the underlying neural net-work fθ maps the state to a logit vector zt = fθ (st) ∈ R|A| .The policy distribution is defined by applying the softmax function to these logits: 
+
+πθ (a | st) = exp( zt,a )
+
+P 
+
+> a′∈A
+
+exp( zt,a ′ ) , (1) where zt,a denotes the logit value associated with token a.For a complete response sequence a = ( a1, . . . , a T ), the joint probability is factorized autoregressively: 
+
+πθ (a | q) = 
+
+> T
+
+Y
+
+> t=1
+
+πθ (at | st). (2) We model this process as an episodic Markov Decision Process (MDP): • State st = ( q, a <t ), representing the prompt and gen-erated tokens. • Action at ∈ A , the token selected at step t.• Transition st+1 = st ∪ { at}, deterministic concatena-tion. Given a reward function r(q, a ) that evaluates the complete sequence (e.g., correctness or helpfulness), the standard RL objective is to maximize the expected reward: 
+
+J(θ) = Eq∼D , a ∼πθ (·| q)
+
+r(q, a ). (3) 2TRE: Encouraging Exploration in the Trust Region 48        
+
+> 50
+> 52
+> 54
+> 56
+> 58
+> 60
+> Vanilla Pass@1 (%)
+> 512 1024 2048 4096 8192
+> Max Generation Length ( T)
+> −0.75
+> −0.50
+> −0.25
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> Δ Pass@1 (%)
+> Ent α= 0.01
+> Ent α= 0.001
+> Ent α= 0.0001
+> Vanilla (Right Axis)
+
+(a) MATH Task 20          
+
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> Vanilla Pass@1 (%)
+> 32 64 128 256 512
+> Max Generation Length ( T)
+> −25
+> −20
+> −15
+> −10
+> −5
+> 0
+> 5
+> 10
+> Δ Pass@1 (%)
+> -30.0% -64.1%
+> Ent α= 0.01
+> Ent α= 0.001
+> Ent α= 0.0001
+> Vanilla (Right Axis)
+
+(b) Countdown Task 
+
+Figure 1. Impact of Maximum Generation Length ( T ) on Entropy Regularization Efficacy. Experiments are conducted using Qwen2.5-1.5B-Instruct. The left y-axis displays the performance difference ( ∆) between entropy-regularized PPO and the vanilla baseline. The grey dashed line (corresponding to the right y-axis) depicts the absolute accuracy of the vanilla baseline. Across both domains, mild entropy regularization helps in short-horizon settings but becomes detrimental as the horizon extends, showing its incompatibility with long-context reasoning. 
+
+Entropy-regularized RL Standard RL methods often suf-fer from premature convergence to suboptimal deterministic policies. To mitigate this, the objective is typically aug-mented with an entropy regularization term. We define the entropy of the policy distribution over the action space A at step t as: 
+
+H(πθ (· | st)) := − X
+
+> a∈A
+
+πθ (a | st) log πθ (a | st). (4) To incorporate this into the loss minimization framework, we define the entropy regularization loss Lent ,t at step t as the negative entropy of the policy: 
+
+Lent ,t (θ) = −H (πθ (· | st)) . (5) The training objective at each step t minimizes the combined loss: 
+
+Ltotal ,t (θ) = Lsurr ,t (θ) + αLent ,t (θ), (6) where Lsurr ,t (θ) represents the step-level surrogate loss de-signed to maximize the expected reward J(θ) (e.g., PPO), and α is a hyperparameter controlling the strength of the regularization. This formulation encourages the policy to maintain stochasticity globally across the action space A at each generation step. 
+
+## 4. Why Standard Entropy Regularization Fails in LLM RL 
+
+While entropy regularization has demonstrated significant success in encouraging exploration for standard reinforce-ment learning benchmarks, such as continuous control or grid-world navigation, recent findings suggest it yields neg-ligible effects or even degrades performance in the context of LLMs (Cui et al., 2025). In this section, we analyze this phenomenon, attributing the failure to the interaction be-tween the sparsity of valid manifolds and the cumulative risk in long-horizon generation .
+
+The Curse of Dimensionality and Cumulative Risk The fundamental objective of entropy regularization is to pre-vent premature convergence by penalizing deterministic policies. While theoretically sound, its efficacy depends on the structural properties of the MDP. We highlight two critical disparities between classical RL and LLMs: 
+
+Sparse Manifolds and Tail Leakage. In classical domains (e.g., Atari), the action space is low-dimensional ( |A| ≈ 10 ). A random walk often results in valid state transitions, allow-ing the agent to stumble upon rewards. In contrast, LLMs operate over a massive vocabulary ( |A| ≈ 150 , 000 ). The valid tokens that maintain syntactic coherence and logical continuity constitute an extremely sparse manifold. Stan-dard entropy regularization indiscriminately flattens the dis-tribution. It shifts probability mass not just among plausible candidates, but explicitly leaks significant aggregate mass into the vast heavy tail of syntactically or logically invalid tokens. While the probability increase for any single invalid token is negligible, the sum of probability mass over 10 5
+
+invalid candidates becomes substantial. This functionally injects high-variance noise into the decision process, rather than structured exploration. 
+
+The Survival Rate of Reasoning Chains. This leakage is exacerbated by the generation horizon T . Let ϵ be the aggre-gate probability mass leaked to invalid tokens at each step 3TRE: Encouraging Exploration in the Trust Region 0 |TR | ... ...         
+
+> Token Rank
+> 0
+> Probability
+> Trust Region Boundary
+> Safe Exploration
+> (Smoothed within TR )
+> Tail Risk
+> (Leakage)
+> Pre-trained (Base)
+> Standard Entropy
+> Trust Region Entropy (Ours)
+> Trust Region ( TR )
+> p
+> g
+> g′=g−proj p(g)
+> Subspace ⟂p
+> ⟨g′,p⟩ ≈ 0
+
+Figure 2. Overview of Trust Region Entropy (TRE). Standard entropy regularization (red line) indiscriminately flattens the distri-bution, causing significant probability mass to leak into the vast tail of invalid tokens (Tail Risk). In contrast, TRE (green line) increases diversity exclusively within the Trust Region ATR while maintaining the suppression of the Tail. 
+
+due to entropy regularization. The probability of generating a coherent reasoning chain of length T scales as (1 − ϵ)T .In grid-worlds, a bad action is often recoverable. In LLM reasoning, a single semantic error in a Chain-of-Thought often renders the entire subsequent trajectory invalid. For large T , even a minuscule ϵ guarantees that the policy will diverge from the valid reasoning manifold. 
+
+Impact of Generation Length: A Budget Constraint Analysis To empirically verify the correlation between horizon length and regularization failure, we conduct an analysis using Qwen2.5-1.5B-Instruct on the Maximum Generation Length ( T ) across MATH and Countdown tasks. Here, T represents the generation budget. The results in Fig-ure 1 reveal a crossover in efficacy governed by the interplay between noise intensity and sequence length. 
+
+High Error Tolerance Regime (Short Horizon). When the generation budget is constrained ( T = 512 for MATH; 
+
+T = 32 for Countdown), we observe that mild entropy regularization ( α ∈ { 0.001 , 0.0001 }) consistently yields performance gains. In this regime, the trajectory is suffi-ciently short such that the cumulative probability of devia-tion remains low, allowing the model to benefit from local exploration. However, the fragility of this balance is evident in the Countdown task: overly aggressive regularization (α = 0 .01 ) causes immediate degradation ( ∆ = −30 .0% )even at the shortest horizon ( T = 32 ). 
+
+Reasoning Collapse Regime (Long Horizon). As the gen-eration budget extends to accommodate complex reason-ing, a critical divergence emerges. The vanilla baseline (grey dashed line) effectively utilizes the extended context, showing a monotonic performance increase as T grows (reaching 57 .04% on MATH and 64 .12% on Countdown). 
+
+However, entropy regularization fails to capitalize on this expanded capacity, effectively negating the benefits of the longer horizon . On the MATH task, while mild regularization was beneficial at short horizons, it becomes detrimental as the sequence lengthens, and at T ≥ 4096 , ∆
+
+turns negative for all α values, indicating that the cumula-tive risk accumulation outweighs any exploration benefit. This collapse is even more pronounced in the Countdown task. At T = 512 , the cumulative risk of deviation leads to a catastrophic failure for the strong regularization setting (α = 0 .01 ), resulting in a ∆ of −64 .1% . Crucially, even the mildest regularization ( α = 0 .0001 ), which yielded signifi-cant gains at T = 32 , fails to maintain positive contribution at T = 512 . This confirms that in long-context reasoning, the survival rate of a coherent chain under global en-tropy maximization drops precipitously, rendering valid reasoning statistically impossible .
+
+## 5. Method 
+
+Standard entropy regularization indiscriminately promotes a uniform probability distribution across the entire vocabulary 
+
+A. In the context of LLMs, however, the vast majority of the token space comprises syntactically or semantically invalid options. As illustrated in Figure 2(red curve), standard regularization forces the model to shift probability mass toward this tail, creating noise that degrades the stability and quality of the generation process. To address this, we propose a targeted exploration mech-anism inspired by the principles of Trust Region Policy Optimization (TRPO). In TRPO, policy updates are strictly confined within a geometric region where the local approxi-mation is trustworthy. Analogously, and consistent with the insight that truncation strategies isolate the reliable nucleus of a distribution (Holtzman et al., 2020), we define a Trust Region (TR) , denoted as ATR (st) ⊂ A . This region com-prises only the most plausible candidate tokens identified by the model. We then encourage exploration exclusively within this trust region (see Figure 2, green curve). 
+
+Defining the Trust Region The trust region ATR (st) can be constructed using different filtering strategies. In this work, we consider two primary variants: • TRE-K: A size-based strategy where the trust region consists of the fixed K tokens with the highest logit values at step t. This enforces a constant region size 
+
+|A TR (st)| = K.• TRE-P: A nucleus-based strategy where the trust region is the smallest set of tokens whose cumula-tive probability mass reaches a threshold P ∈ (0 , 1] .4TRE: Encouraging Exploration in the Trust Region 
+
+Unlike TRE-K , this defines a dynamic region size 
+
+|A TR (st)| that varies across time steps based on model confidence. 
+
+Trust Region Entropy (TRE) Given the full logits zt
+
+and the identified trust region ATR (st), we extract the corre-sponding sub-vector of logits ˜zt ∈ R|A TR (st)|. To assess the diversity within this region, we compute a local probability distribution πlocal by applying the softmax function strictly over ATR (st):
+
+πlocal (a | st) = exp( zt,a )
+
+P 
+
+> a′∈A TR (st)
+
+exp( zt,a ′ ) , ∀a ∈ A TR (st).
+
+(7) We compute the entropy of this local distribution as: 
+
+H(πlocal (· | st)) = − X
+
+> a∈A TR (st)
+
+πlocal (a | st) log πlocal (a | st).
+
+(8) Notably, if the trust region contains only a single token (|A TR (st)| = 1 ), which can occur in TRE-P when the model is highly confident, the local entropy naturally becomes zero, effectively disabling regularization for that step. To align the regularization magnitude with the full vocab-ulary entropy scale ( log |A| ), we introduce a scaling factor. For a trust region of size |A TR (st)|, the TRE loss at step t
+
+is defined as: 
+
+LTRE ,t (θ) = 
+
+
+
+− log |A|   
+
+> log |A TR (st)|
+
+H(πlocal ) if |A TR | > 1,
+
+0 if |A TR | = 1 
+
+(9) For TRE-K , |A TR (st)| is a constant K. For TRE-P ,
+
+|A TR (st)| is the number of tokens in the nucleus. The final training objective at step t is: 
+
+Ltotal ,t (θ) = Lsurr ,t (θ) + αLTRE ,t (θ). (10) The complete computational procedure is summarized in Algorithm 1. 
+
+## 6. Experimental Setup 
+
+Models and Implementation Details We conduct our experiments using the Qwen2.5-1.5B-Instruct and Qwen2.5-7B-Instruct as the base language models (Team, 2024). For the post-training alignment phase, we employ PPO algo-rithm, implemented within the VeRL framework (Sheng et al., 2024). The training is performed with a global batch size of 512. During the reinforcement learning sampling 
+
+Algorithm 1 Trust Region Entropy (TRE)  
+
+> 1:
+
+Input: Logits z ∈ R|A| , Strategy (TRE-K or TRE-P), Hyperparameter ( K or P ) 
+
+> 2:
+
+Output: Loss LTRE ,t  
+
+> 3:
+
+if Strategy is TRE-K then  
+
+> 4:
+
+I ← Indices of top K values in z 
+
+> 5:
+
+else if Strategy is TRE-P then  
+
+> 6:
+
+π ← Softmax (z) 
+
+> 7:
+
+I ← Smallest set of indices s.t. P 
+
+> i∈I
+
+πi ≥ P 
+
+> 8:
+
+end if  
+
+> 9:
+
+if |I| ≤ 1 then  
+
+> 10:
+
+return 0 
+
+> 11:
+
+end if  
+
+> 12:
+
+˜z ← z[I] 
+
+> 13:
+
+πlocal ← Softmax (˜ z) 
+
+> 14:
+
+γ ← log |A| / log |I|  
+
+> 15:
+
+LTRE ,t ← γ · P|I|  
+
+> i=1
+
+−πlocal ,i log πlocal ,i  
+
+> 16:
+
+return LTRE ,t 
+
+process, we set the temperature to 1.0 and the top-p to 1.0. For our proposed TRE, we evaluate two variants: TRE-K 
+
+with a fixed trust region size of K = 2 , and TRE-P with a cumulative probability threshold of P = 0 .99 . We set the regularization coefficient at α = 0 .001 for both vari-ants across all tasks. Further implementation details and hyperparameter settings are provided in Appendix A.1. 
+
+Tasks and Datasets To evaluate the model’s performance across diverse capabilities, we conduct experiments on three distinct tasks: mathematical reasoning, combinato-rial search, and general preference alignment. We curate specific training and testing splits for each task as follows: • MATH Task: We utilize the MATH dataset (Hendrycks et al., 2021), which com-piles problems from various mathematics competitions (e.g., AMC, AIME). The dataset covers seven subject areas: Algebra, Intermediate Algebra, Prealgebra, Geometry, Number Theory, Counting & Probability, and Precalculus. It consists of 7,500 examples for training and 5,000 examples for testing. For this task, the maximum generation length is set to 8,192 tokens. • Countdown Task: The objective is to generate math-ematical equations using N given numbers to reach a specific target value. We source the data from the Countdown Tasks dataset (Pan et al., 2025). From this source, we randomly sample 7,500 instances to con-struct the training set and 5,000 instances for the test set. The maximum generation length for this task is limited to 512 tokens. • HH (Helpful and Harmless) Task: For general in-5TRE: Encouraging Exploration in the Trust Region               
+
+> Table 1. Main Results. Comparison of different methods on Qwen2.5-1.5B-Instruct and Qwen2.5-7B-Instruct. Base refers to the base model before reinforcement learning. Vanilla denotes the standard PPO baseline. Values in parentheses indicate the relative performance change ( ∆) compared to the Vanilla baseline. Bold and underline indicate the best and second-best performance, respectively. Note that the Base model is provided for context and is not included in the ranking or ∆calculation.
+
+Method Qwen2.5-1.5B-Instruct Qwen2.5-7B-Instruct MATH Countdown HH MATH Countdown HH      
+
+> Pass@1 (%) Pass@1 (%) Reward Pass@1 (%) Pass@1 (%) Reward
+
+Base 51.06 2.54 0.0036 71.42 31.66 2.0749 
+
+Vanilla (PPO) 57.04 64.12 3.24 73.52 72.38 2.8839 Ent 56.64 (-0.4) 63.20 (-0.92) 3.1913 (-0.0487) 73.66 (+0.14) 72.60 (+0.22) 2.8718 (-0.0121) 
+
+Forking-Tokens 57.16 (+0.12) 62.82 (-1.3) 3.3184 (+0.0784) 73.59 (+0.07) 72.94 (+0.56) 2.8490 (-0.0349) 
+
+KL-Cov 58.23 (+1.19) 66.5 (+2.38) 3.3931 (+0.1531) 73.79 (+0.27) 73.4 (+1.02) 2.9529 (+0.069) 
+
+TRE-K (Ours) 58.26 (+1.22) 66.28 (+2.16) 3.8209 (+0.5809) 74.29 (+0.77) 74.76 (+2.38) 2.9715 (+0.0876) 
+
+TRE-P (Ours) 58.28 (+1.24) 66.96 (+2.84) 3.8764 (+0.6364) 74.27 (+0.75) 75.3 (+2.92) 3.0331 (+0.1492) 
+
+struction following and human preference alignment, we employ the UltraFeedback dataset (Cui et al., 2023). From this source, we randomly select 7,500 samples for the training set and 5,000 samples for the test set to evaluate the model’s alignment performance. The maximum generation length is set to 1,024 tokens. 
+
+Reward and Evaluation We maintain strict consistency between the judging mechanisms used during training and evaluation. For MATH and Countdown , we employ a rule-based evaluator that checks the output format and extracts the final answer. We assign a binary reward of 1 for a correct answer and 0 for an incorrect one. For HH , we utilize the scalar score provided by a learned reward model. We trained separate reward models on the full dataset for each backbone model, and specific training details are provided in Appendix A.1. To obtain reliable performance estimates, we independently sample 8 responses per prompt for all test sets, utilizing a temperature of 1.0 and a top-p of 0.7. We report the Pass@1 metric for the MATH and Countdown tasks, while the average reward score for the HH tasks. It is worth noting that our experiments focus on analyzing the performance of reinforcement learning algorithms within a controlled environment. Consequently, we treat the reward signals as the ground-truth objective and consider the analysis of reward hacking to be beyond the scope of this work. 
+
+Comparison 
+
+• Vanilla / Ent : These variants follow the entropy-regularized objective defined in Eq. 6. Vanilla rep-resents the standard PPO algorithm without entropy regularization ( α = 0 ). Ent incorporates entropy regu-larization to encourage exploration and prevent prema-ture convergence; we set the coefficient α = 0 .001 , as evidence in Section 4 and prior work (Cui et al., 2025) demonstrates this value yields optimal performance. • Forking-Tokens (Wang et al., 2025): concentrates optimization strictly on Forking Tokens by applying policy updates only to the top γ = 20% of steps with the highest entropy within a batch. The step-level loss is defined as: Ltotal ,t (θ) = I(H(πθ (· | st)) ∈
+
+Top γ ) · L surr ,t (θ).• KL-Cov (Cui et al., 2025): selectively imposes a strong KL penalty ( β = 1 .0) solely on the top γ = 20% 
+
+of tokens that exhibit the highest covariance between advantage estimates and log-probabilities. The step-level loss is defined as: Ltotal ,t (θ) = Lsurr ,t (θ) + I(t ∈
+
+Top γ (Cov (A, log π))) · βD KL (πold ∥ πθ )t.
+
+## 7. Results 
+
+7.1. Main Results 
+
+Table 1 presents the primary performance comparison across three diverse tasks. Our proposed Trust Region Entropy (TRE) methods, specifically TRE-K and TRE-P , consistently outperform the Vanilla baseline and existing regularization techniques across both the 1.5B and 7B model scales. 
+
+Limitations of Ent and Forking-Tokens As shown in Table 1, both standard entropy regularization ( Ent ) and the selective update scheme Forking-Tokens exhibit limited and inconsistent gains across tasks and model scales. 
+
+Ent shows mixed behavior. While it brings slight improve-ments in some settings, such as gains of 0.14% on 7B MATH and 0.22% on 7B Countdown, it degrades performance in four out of six cases. These failures include a 0.92% drop on 1.5B Countdown and a reduction of 0.0487 in the 1.5B 6TRE: Encouraging Exploration in the Trust Region 0 50 100 150 200 250 300 
+
+> Training Steps
+> 0.88
+> 0.90
+> 0.92
+> 0.94
+> 0.96
+> 0.98
+> Avg. Peak Probability ( ̄ Pmax )
+> Vanilla PPO
+> TRE-K (Ours)
+> TRE-P (Ours)
+
+(a) MATH Task 0 50 100 150 200 250 300 350 400  
+
+> Training Steps
+> 0.70
+> 0.75
+> 0.80
+> 0.85
+> 0.90
+> 0.95
+> 1.00
+> Avg. Peak Probability ( ̄ Pmax )
+> Vanilla PPO
+> TRE-K (Ours)
+> TRE-P (Ours)
+
+(b) Countdown Task 0 50 100 150 200 250 300  
+
+> Training Steps
+> 0.70
+> 0.75
+> 0.80
+> 0.85
+> Avg. Peak Probability (̄ Pmax )
+> Vanilla PPO
+> TRE-K (Ours)
+> TRE-P (Ours)
+
+(c) HH Task 
+
+Figure 3. Evolution of Average Peak Probability ( ¯Pmax ) on Qwen2.5-1.5B-Instruct. The curves illustrate the policy’s confidence level during training across three tasks. The Vanilla PPO baseline (Red) consistently trends toward saturation (high confidence), while TRE-K 
+
+(Blue) and TRE-P (Gold) maintain a lower peak probability. A smoothing factor of 0.8 is applied for visualization clarity. 
+
+HH reward. This results indicates that global entropy regu-larization introduces significant tail risk that often offsets or even outweighs the benefits of exploration, particularly in long-horizon reasoning where cumulative errors are ampli-fied. In contrast, Forking-Tokens does not introduce an explicit en-tropy loss. It instead restricts optimization to the top-γ high-entropy steps and exempts low-entropy steps from surrogate loss. Although this selective surrogate-loss strategy yields marginal gains in some scenarios, it also underperforms the Vanilla baseline in others, such as a 1.3% regression on 1.5B Countdown and a 0.0349 decrease in the 7B HH reward. These results indicate that maintaining exploratory behav-ior solely through surrogate loss by exempting low-entropy steps cannot stably achieve performance improvements. 
+
+TRE vs. the Strongest Baseline (KL-Cov) KL-Cov 
+
+serves as the most competitive baseline, particularly on reasoning tasks at the 1.5B scale. In the 1.5B MATH task, 
+
+KL-Cov achieves a gain of +1.19%, which is closely compa-rable to our +1.24%. Notably, on the 1.5B Countdown task, 
+
+KL-Cov (+2.38%) achieves the second-best performance, even surpassing our TRE-K variant (+2.16%). However, the superiority of our TRE framework becomes markedly more pronounced in the alignment task and at larger model scales. Specifically, in the 1.5B HH task, TRE-P delivers a reward gain approximately 4.1 times larger than that of KL-Cov (+0.6364 vs. +0.1531). This trend continues across all 7B tasks, where TRE-P consistently produces improvements over the Vanilla baseline that are 
+
+2 to 3 times greater than those of KL-Cov (e.g., +2.92% vs. +1.02% on Countdown, and +0.1492 vs. +0.069 on HH). This demonstrates that by explicitly regularizing the trust region, TRE provides a much more robust and scalable exploration signal than methods relying on covariance-based step selection. 
+
+Comparison between TRE-K and TRE-P Among the two proposed variants, TRE-P emerges as the overall top-performing method, achieving the best results in five out of six evaluation categories. By dynamically adjusting the trust region size based on cumulative probability, TRE-P adapts more flexibly to varying levels of model confidence. In the 7B MATH task, while TRE-K (74.29%) marginally outper-forms TRE-P (74.27%), the difference is a negligible 0.02%. The overall stability of TRE-P across tasks—especially its significant leads in the HH reward—positions it as the most effective strategy for balancing diversity and precision. 
+
+7.2. Policy Confidence Dynamics 
+
+To more accurately diagnose the issue of premature con-vergence during RL training, we introduce the Average Peak Probability ( ¯Pmax ). This metric tracks the model’s confidence in its top-1 prediction. We define ¯Pmax as the expected maximum probability over the states st within a training batch: 
+
+¯Pmax = Est
+
+
+
+max  
+
+> a∈A
+
+πθ (a | st)
+
+
+
+. (11) 
+
+¯Pmax approaching 1.0 indicates that the policy has become nearly deterministic, effectively ceasing exploration. Figure 3 illustrates the evolution of ¯Pmax across the MATH, Countdown, and HH tasks. A distinct pattern emerges: the 
+
+Vanilla baseline (Red line) exhibits a rapid and aggressive increase in peak probability. Particularly in the MATH and Countdown tasks (Figures 3a and b), the PPO curve quickly saturates near 0.99. This trajectory indicates that the stan-dard RL objective forces the model to become overconfident early in the optimization process, prematurely locking into a narrow reasoning path. We attribute this aggressive saturation to the binary nature of the reward signals in reasoning tasks, where the strict dichotomy between correct and incorrect answers encour-ages the model to collapse its distribution onto a single valid 7TRE: Encouraging Exploration in the Trust Region Min-Ent   
+
+> K=2
+> K=5
+> K=10
+> P=0.9
+> P=0.99
+> P=0.999
+> 56.75
+> 57.00
+> 57.25
+> 57.50
+> 57.75
+> 58.00
+> 58.25
+> 58.50
+> Pass@1 (%)
+> 56.94
+> 58.26
+> 57.76 57.83
+> 57.42
+> 58.28 58.26
+> Vanilla (PPO)
+
+(a) MATH Task Min-Ent   
+
+> K=2
+> K=5
+> K=10
+> P=0.9
+> P=0.99
+> P=0.999
+> 60
+> 61
+> 62
+> 63
+> 64
+> 65
+> 66
+> 67
+> 68
+> Pass@1 (%)
+> 60.78
+> 66.28 66.2
+> 65.04
+> 66.16
+> 66.96
+> 65.7
+> Vanilla (PPO)
+
+(b) Countdown Task Min-Ent    
+
+> K=2
+> K=5
+> K=10
+> P=0.9
+> P=0.99
+> P=0.999
+> 3.0
+> 3.2
+> 3.4
+> 3.6
+> 3.8
+> 4.0
+> Reward Score
+> 3.0896
+> 3.8209
+> 3.7397 3.7722 3.7636
+> 3.8764
+> 3.7344
+> Vanilla (PPO)
+
+(c) HH Task 
+
+Figure 4. Hyperparameter Analysis on Qwen2.5-1.5B-Instruct. We compare the performance of size-based trust regions ( K), nucleus-based trust regions ( P ), and the Min-Ent baseline ( K = 1 boundary). The dashed red line represents the Vanilla (PPO) performance without entropy regularization. 
+
+path. In contrast, the HH task (Figure 3c), driven by a con-tinuous preference model, exhibits a slower and lower rise in confidence ( ∼0.88). This reflects the inherent ambiguity and nuance of human alignment, which offers a smoother optimization landscape compared to the rigid verifiability of mathematical problems. In contrast, our proposed methods effectively mitigate this confidence collapse, though with notable differences be-tween the variants: • MATH Task (Fig. 3a): Both TRE methods prevent the model from converging to a deterministic state. Notably, TRE-P (Gold) maintains a lower and more diverse confidence level ( ∼0.92) compared to TRE-K 
+
+(Blue, ∼0.96). This suggests that the dynamic nucleus approach encourages broader exploration than the fixed top-K constraint, aligning with TRE-P’s superior per-formance in Table 1. • Countdown Task (Fig. 3b): This task reveals a criti-cal stability difference. While Vanilla PPO saturates at ∼0.99, TRE-K exhibits significant instability, with confidence dropping drastically to ∼0.67 in the mid-training phase. This implies that forcing a fixed num-ber of tokens can disrupt the model’s policy when the ground-truth distribution is sharp. Conversely, TRE-P 
+
+demonstrates greater resilience, despite an initial fluc-tuation, it rapidly recovers and stabilizes at a healthy confidence level ( ∼0.9), effectively avoiding the sus-tained collapse observed in TRE-K .• HH Task (Fig. 3c): While Vanilla PPO climbs steadily to ∼0.88, both TRE variants suppress this overconfi-dence at ∼0.8. This larger gap in stochasticity is crucial for alignment tasks, as it allows the model to contin-uously explore subtle nuances in human preferences rather than greedily converging to a single response style. These results confirm that TRE effectively mitigates policy overconfidence. Furthermore, the comparison in the Count-down task highlights the structural advantage of TRE-P : by dynamically adapting the trust region size, it avoids the in-stability pitfalls of fixed-size regularization while preventing the deterministic saturation of standard PPO. 
+
+7.3. Hyperparameter Analysis 
+
+To better understand the impact of the trust region’s scope on model performance, we conduct a hyperparameter analysis on the Qwen2.5-1.5B-Instruct model. We vary the fixed trust region size K ∈ { 2, 5, 10 } for TRE-K and the cumulative probability threshold P ∈ { 0.9, 0.99 , 0.999 } for TRE-P .
+
+Min-Ent Since TRE-K achieves optimal performance at 
+
+K = 2 , we further investigate the boundary condition where exploration is constrained to the top-1 prediction (K = 1 ). To handle this case, we employ Min-Ent utilizing Min-entropy H∞(π) = − log(max a∈A π(a|st)) , which is a special case of the R ´enyi entropy. The total objective is defined as Ltotal ,t (θ) = Lsurr ,t (θ) − α · H ∞(πθ (· | st)) ,where we maintain α = 0 .001 .As illustrated in Figure 4, the choice of the trust region scope significantly influences the final performance. Our key observations are as follows: First, Min-Ent consistently underperforms the Vanilla base-line across all tasks, achieving 56.94% on MATH, 60.78% on Countdown, and 3.0896 on HH. This performance degra-dation suggests that the Min-Ent regularization, while in-tended to encourage exploration, may excessively hinder exploitation by preventing the policy from confidently com-mitting to its current best action, thereby hurting overall learning efficacy. Second, for the size-based variant TRE-K , we observe that 
+
+K = 2 consistently achieves the peak performance across 8TRE: Encouraging Exploration in the Trust Region 
+
+all three tasks. Although a strict monotonic decline is most evident in the Countdown task (where Pass@1 drops from 66.28% at K = 2 to 65.04% at K = 10 ), a similar pattern of performance degradation relative to the K = 2 peak is observed in MATH and HH. In these cases, while there are slight fluctuations as K increases from 5 to 10, the model never regains the performance level achieved at K = 2 . This demonstrates that while moderate exploration among the top candidates is beneficial, expanding the trust region too far generally re-introduces low-probability noise, which dilutes the gradient signal and hampers overall model performance. Third, for the nucleus-based variant TRE-P , the cumulative threshold P = 0 .99 emerges as the optimal configuration, consistently outperforming both the Vanilla baseline and all 
+
+TRE-K variants. Specifically, P = 0 .9 is too narrow, often performing worse than K = 2 . Conversely, P = 0 .999 
+
+begins to include invalid tail tokens that reduce scores, as seen in the drop from 66.96% to 65.7% in the Countdown task. Therefore, P = 0 .99 strikes the best balance. The fact that TRE-P (P = 0 .99 ) achieves the overall highest scores, validates the advantage of a dynamic trust region: it allows the model to explore more broadly when it is uncer-tain and focus more tightly when it is confident, effectively maximizing exploration efficiency within a valid space. 
+
+## 8. Discussion 
+
+Standard entropy regularization fails in LLMs due to the 
+
+cumulative tail risk introduced by the vast vocabulary and long generation horizons. While it encourages exploration, it indiscriminately spreads probability mass across the entire vocabulary, including syntactically or semantically invalid tokens. This results in increased noise, which accumulates over long generation steps and disrupts coherent reasoning. In contrast, our Trust Region Entropy (TRE) method fo-cuses exploration within a more manageable trust region of valid tokens, avoiding this issue and enhancing performance. 
+
+Limitations Despite these promising results, several areas warrant further investigation. First, the efficacy of TRE over 
+
+ultra-long generation horizons (e.g., 128k+ tokens) and its impact on long-range coherence in extensive CoT (Chain-of-Thought) trajectories remain to be verified. Second, while TRE scales effectively up to 7B parameters, its behavior and hyperparameter stability on massive models require further empirical study. 
+
+## References 
+
+Ahmed, Z., Le Roux, N., Norouzi, M., and Schuurmans, D. Understanding the impact of entropy on policy optimiza-tion. In International conference on machine learning ,pp. 151–160. PMLR, 2019. Ashlag, Y., Koren, U., Mutti, M., Derman, E., Bacon, P.-L., and Mannor, S. State entropy regularization for ro-bust reinforcement learning. In The Thirty-ninth Annual Conference on Neural Information Processing Systems ,2025. URL https://openreview.net/forum? id=rtG7n93Ru8 .Bai, Y., Jones, A., Ndousse, K., Askell, A., Chen, A., Das-Sarma, N., Drain, D., Fort, S., Ganguli, D., Henighan, T., et al. Training a helpful and harmless assistant with rein-forcement learning from human feedback. arXiv preprint arXiv:2204.05862 , 2022. Cui, G., Yuan, L., Ding, N., Yao, G., Zhu, W., Ni, Y., Xie, G., Liu, Z., and Sun, M. Ultrafeedback: Boosting language models with high-quality feedback, 2023. Cui, G., Zhang, Y., Chen, J., Yuan, L., Wang, Z., Zuo, Y., Li, H., Fan, Y., Chen, H., Chen, W., et al. The entropy mech-anism of reinforcement learning for reasoning language models. arXiv preprint arXiv:2505.22617 , 2025. Gao, L., Tow, J., Abbasi, B., Biderman, S., Black, S., DiPofi, A., Foster, C., Golding, L., Hsu, J., Le Noac’h, A., Li, H., McDonell, K., Muennighoff, N., Ociepa, C., Phang, J., Reynolds, L., Schoelkopf, H., Skowron, A., Sutawika, L., Tang, E., Thite, A., Wang, B., Wang, K., and Zou, A. The language model evaluation harness, 07 2024. URL 
+
+https://zenodo.org/records/12608602 .Guo, D., Yang, D., Zhang, H., Song, J., Wang, P., Zhu, Q., Xu, R., Zhang, R., Ma, S., Bi, X., et al. Deepseek-r1 incentivizes reasoning in llms through reinforcement learning. Nature , 645(8081):633–638, 2025. Haarnoja, T., Zhou, A., Abbeel, P., and Levine, S. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor, 2018. URL https: //openreview.net/forum?id=HJjvxl-Cb .Hendrycks, D., Burns, C., Kadavath, S., Arora, A., Basart, S., Tang, E., Song, D., and Steinhardt, J. Measuring math-ematical problem solving with the math dataset. arXiv preprint arXiv:2103.03874 , 2021. Holtzman, A., Buys, J., Du, L., Forbes, M., and Choi, Y. The curious case of neural text degeneration. In 
+
+International Conference on Learning Representations ,2020. URL https://openreview.net/forum? id=rygGQyrFvH .Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Gray, A., Schulman, J., Hilton, J., Kelton, F., Miller, L., Simens, M., Askell, A., Welinder, P., Christiano, P., Leike, J., and Lowe, R. Training language models to follow instruc-tions with human feedback. In Oh, A. H., Agarwal, A., 9TRE: Encouraging Exploration in the Trust Region 
+
+Belgrave, D., and Cho, K. (eds.), Advances in Neural Information Processing Systems , 2022. URL https: //openreview.net/forum?id=TG8KACxEON .Pan, J., Zhang, J., Wang, X., Yuan, L., Peng, H., and Suhr, A. Tinyzero. https://github.com/Jiayi-Pan/TinyZero, 2025. Accessed: 2025-01-24. Schulman, J., Levine, S., Abbeel, P., Jordan, M., and Moritz, P. Trust region policy optimization. In International conference on machine learning , pp. 1889–1897. PMLR, 2015. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. 
+
+arXiv preprint arXiv:1707.06347 , 2017. Sheng, G., Zhang, C., Ye, Z., Wu, X., Zhang, W., Zhang, R., Peng, Y., Lin, H., and Wu, C. Hybridflow: A flexi-ble and efficient rlhf framework. arXiv preprint arXiv: 2409.19256 , 2024. Team, Q. Qwen2.5: A party of foundation models, Septem-ber 2024. URL https://qwenlm.github.io/ blog/qwen2.5/ .von Werra, L., Belkada, Y., Tunstall, L., Beeching, E., Thrush, T., Lambert, N., Huang, S., Rasul, K., and Gallou ´edec, Q. Trl: Transformer reinforcement learn-ing. https://github.com/huggingface/trl ,2020. Wang, S., Yu, L., Gao, C., Zheng, C., Liu, S., Lu, R., Dang, K., Chen, X.-H., Yang, J., Zhang, Z., Liu, Y., Yang, A., Zhao, A., Yue, Y., Song, S., Yu, B., Huang, G., and Lin, J. Beyond the 80/20 rule: High-entropy minority tokens drive effective reinforcement learning for LLM reason-ing. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2025. URL https: //openreview.net/forum?id=yfcpdY4gMP .Yu, Q., Zhang, Z., Zhu, R., Yuan, Y., Zuo, X., YuYue, Dai, W., Fan, T., Liu, G., Liu, J., Liu, L., Liu, X., Lin, H., Lin, Z., Ma, B., Sheng, G., Tong, Y., Zhang, C., Zhang, M., Zhang, R., Zhang, W., Zhu, H., Zhu, J., Chen, J., Chen, J., Wang, C., Yu, H., Song, Y., Wei, X., Zhou, H., Liu, J., Ma, W.-Y., Zhang, Y.-Q., Yan, L., Wu, Y., and Wang, M. DAPO: An open-source LLM reinforcement learning system at scale. In The Thirty-ninth Annual Conference on Neural Information Processing Systems ,2025. URL https://openreview.net/forum? id=2a36EMSSTp .10 TRE: Encouraging Exploration in the Trust Region 
+
+## A. Appendix 
+
+A.1. Implementation details of Experiments Hyper-parameters for Training We report the detailed hyperparameters used for PPO training in Table 2. The actor and critic models use learning rates of 1 × 10 −6 and 1 × 10 −5, respectively. We set the global batch size to 512 and generate 8 rollouts per prompt. For Generalized Advantage Estimation (GAE), we set both γ and λ to 1.0.To ensure sufficient training, we run the optimization for 300 steps on the MATH task, 400 steps on the Countdown task, and 300 steps on the HH task. Regarding the generation constraints, the maximum generation length for the HH task is capped at 1,024 tokens. This choice is specifically aligned with the sequence length distribution of the training data used for our reward models, ensuring that the policy operates within the well-calibrated domain of the scalar reward functions. 
+
+Parameter Value 
+
+Actor Learning rate 1 × 10 −6
+
+Critic Learning rate 1 × 10 −5
+
+Global Batch size 512 
+
+PPO Mini-batch size 64 
+
+Number of Rollouts ( N ) 8
+
+Clip Range 0.2
+
+KL Coefficient 0.0
+
+Loss Aggregation Mode token-mean GAE Gamma ( γ) 1.0
+
+GAE Lambda ( λ) 1.0 
+
+> Table 2. Training hyperparameters for the PPO experiments.
+
+Evaluation and Reward Implementation For the MATH task, we utilize the tools provided by (Gao et al., 2024) for judgment, which involves extracting the answer within \boxed {} for rule-based matching. For the Countdown task, we employ the tools from (Pan et al., 2025) for evaluation, extracting the content within <answer >< /answer > tags to compute and verify the results. For the HH task, we employ the TRL framework (von Werra et al., 2020) to train scalar reward models on the complete UltraFeedback dataset. To ensure consistent evaluation across different model scales, we trained two separate reward models based on Qwen2.5-1.5B-Instruct and Qwen2.5-7B-Instruct, respectively. Both models were trained for 3 epochs with a learning rate of 1 × 10 −5, a cosine scheduler with a 0.1 warmup ratio, and a center rewards coefficient of 1 × 10 −2. The global batch size was set to 512. These reward models were calibrated to have an average reward score of approximately 0 on the training set. The 1.5B reward model achieves an accuracy of 96.64% with scores distributed in the interval [−3.5, 4.0] , while the 7B reward model achieves an accuracy of 98.5% with scores distributed in the interval [−3.3, 3.3] .MATH task prompt template: 
+
+User: {problem } Let’s think step by step and output the final answer within \boxed {} .Countdown task prompt template: 
+
+User: Using the numbers {numbers }, create an equation that equals {target }. You can use basic arithmetic operations (+, -, *, /) and each number can only be used once. Show your work in <think > < /think > tags. And return the final answer in <answer > < /answer > tags, for example <answer > (1 + 2) / 3 </answer >.HH task prompt template: 11 TRE: Encouraging Exploration in the Trust Region 
+
+User: {problem }
+
+Experimental Scope and Constraints for HH Task For the HH task, the maximum generation length is fixed at 1,024 tokens, aligning with the maximum sequence length used during the training of the reward models to ensure the reliability of the reward signals. Furthermore, unlike reasoning-intensive tasks (MATH and Countdown) where the final output is a concise entity (e.g., a boxed value or a single equation) preceded by a long chain-of-thought, the HH task focuses on generating human-aligned, holistic responses where the entire sequence constitutes the answer. Given that the quality of these responses is intrinsically evaluated by a scalar reward model—which may exhibit distribution shift or saturation beyond its training horizon—we do not include the HH task in the Impact of Maximum Generation Length analysis. This ablation is reserved for the reasoning domains where the performance can be objectively verified through rule-based matching across varying generation budgets. 12
