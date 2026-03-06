@@ -1,0 +1,1620 @@
+Title: When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards
+
+URL Source: https://arxiv.org/pdf/2601.15609v2
+
+Published Time: Tue, 27 Jan 2026 02:43:21 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+# When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Mingyuan Fan 1 Weiguang Han 2 Daixin Wang 2 Cen Chen 1 Zhiqiang Zhang 2 Jun Zhou 2
+
+## Abstract 
+
+Reinforcement Learning with Verifiable Rewards (RLVR) is a central paradigm for turning large language models (LLMs) into reliable problem solvers, especially in logic - heavy domains. De-spite its empirical success, it remains unclear whether RLVR elicits novel capabilities or merely sharpens the distribution over existing knowledge. We study this by formalizing over-sharpening, a phenomenon where the policy collapses onto lim-ited modes, suppressing valid alternatives. At a high level, we discover finite-batch updates in-trinsically bias learning toward sampled modes, triggering a collapse that propagates globally via semantic coupling. To mitigate this, we propose inverse-success advantage calibration to prioritize difficult queries and distribution-level calibration to diversify sampling via a memory network. Ex-tensive evaluations show that our proposed meth-ods can effectively maintain a healthy exploration-exploitation balance and achieve sustained accu-racy gains compared to state-of-the-art methods. 
+
+## 1. Introduction 
+
+Reinforcement learning with verifiable rewards (RLVR) has become a cornerstone approach for specializing large language models (LLMs) to domains where correctness is checkable (DeepSeek-AI, 2025; Yang et al., 2025). How-ever, there is still no clear consensus on what RLVR fun-damentally does to LLMs. One line of work credits RLVR with unlocking new capabilities in LLMs, pointing to emer-gent chain - of -thought reasoning and strong performance on challenging benchmarks. On the other hand, recent empiri-cal studies (Karan & Du, 2025; Yue et al., 2025; Song et al., 2025) paint a more conservative picture: when given suffi-ciently large sampling budgets, pre-trained models can often match or even surpass the performance of RL-fine-tuned 
+
+> 1
+
+School of Data Science&Engineering, East China Nor-mal University 2Ant Group. Correspondence to: Cen Chen 
+
+<cenchen@dase.ecnu.edu.cn >.
+
+Preprint. January 27, 2026. 
+
+counterparts. These observations suggest that, rather than endowing models with new skills, RLVR may primarily act to sharpen the output distribution, making the model more confident in its existing knowledge. We argue that these perspectives are not mutually exclu-sive. From a distributional perspective, pre -training and supervised fine -tuning (SFT) provide the model with a rich, low -dimensional manifold of knowledge and latent reason-ing procedures. RLVR then performs a search over this man-ifold, guided by verifiable rewards. We formalize the core mechanism of this process as sharpening and distinguish be-tween two critical regimes: moderate and over-sharpening .Moderate sharpening is beneficial, since it shifts probabil-ity mass toward high - reward semantic modes, making the model more reliable under finite sampling. However, if sharpening is too aggressive, the policy will collapse onto a narrow set of modes, prematurely discarding valid alter-native strategies. This restricts the model’s exploration to a small subset of the solution space, eventually stalling the discovery of novel reasoning chains and limiting overall capability growth. This paper is most closely related to research on entropy col-lapse, a pervasive phenomenon in RLVR where the policy’s predictive distribution becomes prematurely concentrated. In many respects, over-sharpening serves as a more rigorous and formal characterization of this collapse. Typical exam-ples to mitigate entropy collapse include token-level heuris-tics like selective updates of high-entropy tokens (Wang et al., 2025) or gradient truncation for highly confident ones (Cui et al., 2025), and batch-level interventions that discard degenerate samples (Xiong et al., 2025) or utilize curated synthetic data (Amin et al., 2025). Additionally, explicit entropy regularization and its variants (e.g., DAPO-style clipping (Yu et al., 2025; Wu et al., 2025) or direct objective penalties (Cheng et al., 2025; Prabhudesai et al., 2025)) are employed. While effective in practice, these methods primarily treat entropy as a finite resource to be preserved through technical mitigations, leaving the under-lying mechanisms of over-sharpening largely unexplored. For example, it remains unclear whether over-sharpening is an inevitable byproduct of advancing model performance or a structural artifact of algorithmic bias. 1
+
+> arXiv:2601.15609v2 [cs.LG] 26 Jan 2026 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards
+
+We identify two mechanisms that drive over -sharpening in RLVR, namely sampling bias and semantic coupling. First, practical constraints force us to sample only a small number of responses per query during training. These sam-ples are typically drawn from high-probability modes, and therefore cover only a subset of all valid solutions. This biases the model updates toward reinforcing those modes and gradually drives the policy to collapse on them. Second, because model parameters are shared across inputs, up-dates from one sample affect the behavior on other samples, i.e., semantic coupling. Thus, semantic coupling causes collapse at one point to propagate to semantically related queries. Over time, the effective solution space for many inputs shrinks, the model gains little new information from additional RLVR steps, and collapse is further reinforced. Section 3 analyzes these mechanisms in detail, both theoret-ically and empirically. To counteract these, we develop two complementary tech-niques that act on different parts of the RLVR pipeline. At the learning level, we adjust how much each sampled tra-jectory influences the update so that easy, already -solved queries do not dominate the optimization signal. At the sampling level, we tune which trajectories are even consid-ered for training so that the model is not repeatedly trained on the same high -probability patterns and is encouraged to explore alternative reasoning paths. Together, these mecha-nisms can effectively keep RLVR in a moderate sharpening regime, making the model more decisive where it matters, while avoiding the collapse of diverse, potentially useful behaviors. Our contributions can be summarized as follows: • A formal framework of sharpening in RLVR. 
+
+We formalize the distinction between moderate and over - sharpening and show that, in an ideal infinite -sample setting, the standard RLVR objective does not sup-press correct behaviors. We then analyze the realistic finite - batch regime and reveal how sampling bias and shared parameters conspire to suppress unsampled modes and propagate collapse across semantically related queries. This yields a unified picture of when RLVR behaves as a benign sharpening mechanism and when it risks destroy-ing useful diversity. • Two simple, general - purpose calibration strate-gies for RLVR. Building on this analysis, we introduce inverse - success advantage calibration and distribution - level calibration. The former one automat-ically down -weights updates from easy, high -success queries and emphasizes harder ones. The later one em-ploys a memory network to reshape the rollout distribu-tion to avoid over - training on already dominant modes and to promote exploration of alternative reasoning pat-terns. Both techniques can be plugged into existing RLVR pipelines against over-sharpening. • Extensive experiments over multiple LLMs and bench-mark datasets. The performance of the proposed meth-ods over six mathematical reasoning benchmarks consis-tently outperforms state-of-the-art baselines across both AVG@8 and PASS@8 by about 2% ∼3%. We also show that our methods are compatible with existing entropy-regularization techniques (e.g., DAPO), delivering addi-tive performance improvements. 
+
+## 2. Related Work 
+
+Since the release of OpenAI o1 (Jaech et al., 2024) and DeepSeek-R1 (DeepSeek-AI, 2025), RLVR (or GRPO and its variants) has gained particular traction for enhancing the reasoning ability of LLMs. A key driver of its effectiveness over SFT could be the explicit incorporation of negative samples (Xiong et al., 2025). To stabilize the often volatile training dynamics, a significant body of work focused on re-fining advantage estimation. Prominent techniques include RLOO (Leave-One-Out) (Kool et al., 2019), DrGRPO (Liu et al., 2025), which modifies the variance term to improve stability, and Reinforce++ with baseline (Hu et al.) that shifts from sample-level to global batch-level normaliza-tion. Moreover, Cui et al. (2025) identified an empirical law showing that performance gains are often traded for entropy, leading to predictable saturation. To prevent such premature convergence, various entropy-management strategies have been proposed. These include token-level heuristics target-ing high-entropy forking tokens (Wang et al., 2025), multi-temperature sampling for explicit exploration (Zhuang et al., 2025), and entropy-aware clipping mechanisms (Yu et al., 2025; Wu et al., 2025). RENT (Prabhudesai et al., 2025) and RPN (He et al., 2025) demonstrate that minimizing entropy on confident chains or adding explicit regularization can also drive gains. Despite these advancements, recent stud-ies (Karan & Du, 2025; Yue et al., 2025; Song et al., 2025) indicate that RLVR training can sometimes lead to a degra-dation in general capabilities. Critically, the underlying mechanics of over-sharpening remain largely unexplored and this paper aims to bridge this gap. 
+
+## 3. Analyzing Distribution Collapse 
+
+we first present that infinite -sample RLVR always yields moderate sharpening, then show how finite - batch sam-pling fundamentally alters this behavior and leads to over-sharpening on other queries via semantic coupling. 
+
+3.1. Problem Setup 
+
+We consider a policy model πθ initialized from a reference model πref . For a query q, we coarsen the sequence -level output space into K1 mutually exclusive correct modes 
+
+O+ = {o1, . . . , o K1 } and K2 incorrect modes O−. Each 2When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards               
+
+> Table 1. Summary of our theoretical findings.
+> Aspect Key findings Infinite-sample Regime
+> The ideal KL -regularized RLVR objective is inherently benign (moderate sharpening), where the probability of every correct mode is strictly increased (Corollary 3.1).
+> Sampling Bias (Finite-batch)
+> Collapse is triggered when the model becomes confident (i.e., ∆π>0), causing the partition function to explode (Z′(q)>1). This forces the suppression of all unsampled correct modes (Theorem 3.3).
+> Semantic Coupling
+> Updates do not remain local. The probability mass at q′is disproportionately drawn toward the batch -seen mode at q,thereby suppressing unseen but correct modes for q.
+
+mode can be viewed as an equivalence class of outputs that implement the same high - level reasoning pattern or solution. We focus on the RLVR setting with binary verifiable re-wards, where correct modes share a non -negative advantage 
+
+A+ ≥ 0, and incorrect modes share A− < 0. Definition 3.1 formalizes two possible behaviors of an updated policy rela-tive to πref .
+
+Definition 3.1. A policy πnew exhibits moderate sharpen-ing if the probability of every correct mode increases (i.e., 
+
+πnew (o|q) ≥ πref (o|q) for all o ∈ O +), and over-sharpening if the probability of any correct mode decreases. Moderate sharpening reflects a holistic improvement where the model gains confidence without forgetting valid rea-soning patterns. Over - sharpening instead suppresses some correct modes in favor of others, which could be problematic because the suppressed patterns might be essential for solv-ing other queries. Moreover, as suppression intensifies, the policy degenerates into a deterministic distribution. Thus, entropy collapse can be viewed as the asymptotic limit of severe over-sharpening. 
+
+3.2. Sampling Bias Infinite-sample sharpening behavior. We begin with the standard KL-regularized RL objective: 
+
+max  
+
+> θ
+
+Eq∼D [Eo∼πθ (·| q)[A(q, o )] 
+
+− βD KL (πθ (·| q)∥πref (·| q)) , (1) where D is the query distribution, A(q, o ) is the advantage of 
+
+o, and β ≥ 0 is the regularization coefficient. Theorem 3.1 provides the closed-form optimal solution of Equation (1). 
+
+Theorem 3.1. The maximizer of Equation (1) , denoted as 
+
+π∗, is given by 
+
+π∗(o|q) = 1
+
+Z(q) πref (o|q) exp 
+
+ A(q, o )
+
+β
+
+
+
+, (2) 
+
+where Z(q) is the partition function ensuring normalization. See Appendix A for proof. 
+
+Then, as can be seen in Corollary 3.1, Equation (1) guaran-tees moderate sharpening. 
+
+Corollary 3.1. Suppose A(q, o i) = A+ ≥ 0 for oi ∈ O +
+
+and A(q, o j ) = A− ≤ 0 for oj ∈ O −, then Equation (2) 
+
+yields moderate sharpening. Proof. From Equation (2), for oi ∈ O+, π∗(oi|q) =
+
+πref (oi|q) eA+/β / Z (q). Since A+ ≥ 0, we have 
+
+eA+/β ≥ 1. Moreover, Z(q) = P 
+
+> oi∈O +
+
+πref (oi|q)eA+/β +
+
+P  
+
+> oj∈O −
+
+πref (oj |q)eA−/β ≤ eA+/β because eA−/β ≤ 1.Thus π∗(oi|q) ≥ πref (oi|q) for oi ∈ O +.
+
+Finite -sample sharpening behavior. In practice, we ap-proximate Equation (1) using a finite batch of G samples 
+
+{o(1) , · · · , o (G)} ∼ πθ (·| q). This yields an empirical ob-jective where the gradient updates incrementally push the policy toward its stationary point. We characterize this sta-tionary point as the batch-optimal policy ˆπ, which admits a closed-form solution analogous to the exact case but in-corporates the empirical frequency Ni of each mode in the batch. Let Ni denote the number of times mode oi ap-pears in the batch ( P 
+
+> i
+
+Ni = G). Theorem 3.2 gives the batch-optimal policy ˆπ.
+
+Theorem 3.2. The batch-optimal policy ˆπ is given by 
+
+ˆπ(oi|q) = 1
+
+Z′(q) πref (oi|q) exp 
+
+ Ni A(q, o i)
+
+βG 
+
+
+
+, (3) 
+
+where Z′(q) = P 
+
+> j
+
+πref (oj |q) exp  Nj A(q, o j )/(βG ). See Appendix B for proof. 
+
+We emphasize that a single gradient step will generally not reach ˆπ exactly, but the update can be viewed as a geometric interpolation between the current policy and the batch-optimal target (see Theorem C.1), so the qualitative insights carry over. To understand the sharpening dynamics of Equation (3), we examine ∆i = ˆ π(oi|q) − πref (oi|q) in which P 
+
+> i
+
+∆i =0. We partition the modes ( O+ ∪ O −) into three cate-gories based on empirical frequency Ni and advantage sign 
+
+A(q, o i). Following the logic of Corollary 3.1, sampled modes ( Ni > 0) reallocate mass according to advantage signs. For any unsampled mode oi with Ni = 0 , the expo-nential term in Equation (3) becomes 1. Consequently, the 3When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+update simplifies to a uniform scaling: 
+
+ˆπ(oi|q) = πref (oi|q)
+
+Z′(q) =⇒ ∆i = πref (oi|q)( 1
+
+Z′(q) − 1) .
+
+If Z′(q) > 1, the probabilities of all unsampled modes decrease, and vice versa. Since this set may contain valid reasoning paths, Z′(q) > 1 can induce over-sharpening. 
+
+Theorem 3.3. (Proof in Appendix D.) Let S+ and S− be the indices of sampled correct and incorrect modes. Then the batch partition function Z′(q) in Theorem 3.2 satisfies: 
+
+Z′(q) ≥ 1 + 1
+
+βG 
+
+A+
+
+X
+
+> i∈S+
+
+Ni πref (oi | q)
+
+− | A−| X
+
+> j∈S−
+
+Nj πref (oj | q).
+
+For normalized binary advantages A+ = (1 −p+)/σ, A − =
+
+−p+/σ with batch accuracy p+ and standard deviation σ,this bound simplifies to: Z′(q) ≥ 1+ p+(1 −p+) 
+
+> βσ
+
+∆π . where 
+
+∆π = min i∈S+ πref (oi|q) − max j∈S− πref (oj |q).
+
+As shown in Theorem 3.3, the sharpening behavior is gov-erned by the probability gap ∆π . Whenever ∆π > 0, we see Z′(q) > 1 and therefore a uniform suppression of un-sampled modes. Intuitively, ∆π > 0 arises when the model is already performing well on the given query. In fact, this also explains many existing methods (e.g., filtering out high - confidence/easy samples (Yu et al., 2025; Xiong et al., 2025; Amin et al., 2025; Bae et al., 2025)) as implicit ways of preventing Z′(q) from becoming too large. Further-more, while the term p+(1 − p+)/σ stabilizes updates from skewed batches (vanishing as p+ → { 0, 1}), it is insuffi-cient to counteract the intrinsic optimization bias that favors suppressing unsampled modes once model confidence is established. 
+
+3.3. Semantic Coupling 
+
+We now analyze how over - sharpening propagates from a query q to a positively semantically related query q′, e.g., two math problems that rely on the same underlying theo-rem. This implies that a parameter update improving the model’s performance on q should also increase the likeli-hood of the correct response for q′. To formalize this, we absorb the sign of the advantage A(q, o ) into the gradient direction and adopt Assumption 3.1. 
+
+Assumption 3.1. For positively semantically related pairs 
+
+(q, o ) and (q′, o ′), their logit gradients are non-negatively aligned: ∇θ f (q, o )⊤∇θ f (q′, o ′) ≥ 0.
+
+The batch-optimal policy ˆπ prescribes target logit shifts 
+
+y ∈ RG, where yi = Ni|A(q,o i)|
+
+> βG
+> 1
+
+. With a sufficiently small 
+
+> 1
+
+Due to the sign-absorption convention, the advantage term 
+
+learning rate (Jacot et al., 2018), fitting these targets yields the parameter update 2:
+
+∆θ = J⊤ 
+
+> q
+
+(Jq J⊤ 
+
+> q
+
+)−1t = J⊤ 
+
+> q
+
+K−1 
+
+> qq
+
+y,
+
+where Jq is the Jacobian of the logits with respect to param-eters, and Kqq = Jq J⊤ 
+
+> q
+
+is the empirical kernel matrix on the current batch. The update induces a logit shift at (q′, o ′):
+
+∆f (q′, o ′) = ∇θ f (q′, o ′)⊤∆θ = k⊤ 
+
+> q′
+
+K−1 
+
+> qq
+
+y,
+
+where kq′ is the kernel vector with entries [kq′ ]i =
+
+k(( q′, o ′), (q, o (i))) ≜ ∇θ f (q′, o ′)⊤∇θ f (q, o (i)).Let M(λ, ρ ) = ( λ − ρ)I + ρ11 ⊤, which possesses a princi-pal eigenvalue λ + ( G − 1) ρ associated with the constant vector 1, and a (G − 1) -degenerate eigenvalue λ − ρ for the remaining subspace. Then, we can always find tight spectral bounds to encapsulate the actual spectrum of Kqq :
+
+0 ⪯ M(λmin , ρ min ) ⪯ Kqq ⪯ M(λmax , ρ max ). Here, 
+
+λmin and λmax bound the diagonal entries (self - alignment of each mode), while ρmin and ρmax bound the off - diagonal entries (cross -alignment between different modes). In typ-ical scenarios, updates meant for a particular mode influ-ence that mode more than any other, which translates to 
+
+ρmin ≤ ρmax < λ min ≤ λmax . We formalize this as As-sumption 3.3. See Appendix F for empirical validation of Assumption 3.1 and Assumption 3.3. Then, to make the analysis manageable, we make Assumption 3.2 that models the shift from a source query to a target query as a signal decay 3. Intuitively, η can be interpreted as the similarity between q′ and q from the model’s perspective. We then obtain the bound on the induced logit shifts, as shown in Theorem 3.4. 
+
+Assumption 3.2. Gradient correlations decay by a factor 
+
+η ∈ [0 , 1] when shifting from query q to q′, modeled as 
+
+k(( q′, o ′), (q, o (s))) ≈ ηK (( q, o ′), (q, o (s))) .
+
+Assumption 3.3. Self-alignment consistently exceeds cross-alignment: ρmin ≤ ρmax < λ min ≤ λmax .
+
+Theorem 3.4. Let Asum ≜ P 
+
+> i=1
+
+yi. The induced logit shift 
+
+∆f (q′, o ′) satisfies the following bounds based on whether 
+
+o′ appears in the training batch {o(i), i = 1 , · · · , G }:
+
+• If o′ /∈ { o(i)}, the logit increase is upper-bounded by: 
+
+∆f (q′, o ′) ≤ ηρ max Asum 
+
+λmin + ( G − 1) ρmin 
+
+.
+
+takes its absolute value here. 
+
+> 2
+
+For readers unfamiliar with the optimization dynamics in the linearized regime, we provide the necessary background in Appendix E. 
+
+> 3
+
+Assumption 3.2 can be relaxed to a bounded interval 
+
+[ηmin , η max ] for greater generality, which would simply introduce a scaling factor ηmin  
+
+> ηmax
+
+to the ratio derived in Corollary 3.2. 
+
+4When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards   
+
+> Figure 1. Effect of advantage estimation and group size on over-sharpening. Probability of Cat and Persian over training for raw (left), mean-shifted (mid), and normalized (right) advantages.
+> Figure 2. Semantic coupling accelerates collapse. Accuracy on the held-out Siamese class while training only on Persian. Stronger semantic coupling and larger group sizes both lead to faster degra-dation of Siamese accuracy.
+
+• If o′ = o(i) for some i ∈ { 1, . . . , G }, the logit increase is lower-bounded by 
+
+∆f (q′, o ′) = ∆ f (q′, o i) ≥
+
+ηN o′ (λmin − ρmin )
+
+λmax − ρmax 
+
+(yk − ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+).
+
+See Appendix G for proof. 
+
+We leverage Theorem 3.4 to characterize when over - sharpening occurs at q′. Consider a semanti-cally coupled pair (q, q ′) and suppose that at q′ there exists at least one mode o′ that appears in the batch (Case 2) and at least one mode ¯o that does not (Case 1). Over - sharpening at q′ occurs when the logit increase for the batch -seen mode dominates that for the batch - unseen mode, because after normalization the latter becomes suppressed. To quantify this, Corollary 3.2 compare the guaranteed minimum increase for a seen mode (the lower bound of Case 2) to the maximum possible increase for an unseen mode (the upper bound of Case 1). 
+
+Corollary 3.2. Define the ratio R of the lower bound in Case 2 to the upper bound in Case 1: 
+
+R ≜ λmin − ρmin 
+
+λmax − ρmax 
+
+[ No′ yk
+
+Asum 
+
+· ( λmin + ( G − 1) ρmin 
+
+ρmax 
+
+)
+
+− λmin + ( G − 1) ρmin 
+
+λmax + ( G − 1) ρmax 
+
+].
+
+In particular, if λmin ≈ λmax ≈ λ and ρmin ≈ ρmax ≈
+
+ρ (i.e., Kqq is nearly a diagonally dominant matrix with uniform diagonal and off - diagonal entries), R simplifies to h No′ yk
+
+> Asum
+
+ λρ + G − 1
+
+
+
+− 1
+
+i
+
+. See Appendix H for proof. 
+
+The ratio R captures the relative strength with which a batch -seen mode at q′ is reinforced compared to a seman-tically related but batch - unseen mode. A large R indicates that the guaranteed increase for the seen mode significantly outweighs the maximum possible increase for the unseen mode, leading to a disproportionate redistribution of proba-bility mass and thus over - sharpening at q′. From the explicit form, over-sharpening is promoted when: • A large value of No′ yi/Asum means that most of the up-date budget is focused on the particular mode that overlaps between q and q′.• Large λ/ρ corresponds to highly specific features: gradi-ent updates are tightly aligned with individual modes and leak only weakly to other modes. In this regime, improve-ment on q reinforces a particular mode at q′ rather than broadly supporting all semantically consistent solutions. • A larger effective batch size G amplifies the effect. 
+
+3.4. Empirical Illustration of Over-Sharpening 
+
+We use a controlled softmax classification setting to sep-arately probe sampling bias and semantic coupling. We consider two superclasses (Cat, Dog) and two subclasses (Persian, Siamese) with fixed feature embeddings: 
+
+eCat = [0 .5, 0.5, 0.5, 0.1] , ePersian = [0 .75 , 0.5, 0.25 , 0.1] ,
+
+eDog = [0 .1, 0.1, 0.1, 0.9] , eSiamese = [0 .25 , 0.5, 0.75 , 0.1] .
+
+Persian and Siamese align with the Cat superclass but differ in subclass dimensions. Treating inputs as q and labels as 
+
+o, we train this classifier on Persian inputs for 500 steps using SGD. At each step, we sample G outputs labels from the current softmax policy and assign reward 1 if the sam-pled label is Cat or Persian, and 0 otherwise, i.e., both the superclass and subclass are treated as correct for Persian. 5When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+We update the policy using various advantage estimators (raw, mean-shifted, normalized) and track the probabilities 
+
+π(o = Cat |q = Persian ) and π(o = Persian |q = Persian )
+
+for different group sizes G, as shown in Figure 1. Across all settings, the model eventually collapses onto a single label (either Cat or Persian, driven randomly by early sampling noise). Once one mode is sampled more often, it dominates subsequent updates. Increasing G can delay collapse, but does not prevent this collapse. The choice of the advantage estimator primarily modulates the rate of collapse. Raw rewards are most aggressive, while normal-ized advantages are the slowest, aligning with our theory on Z′(q) stabilization. We also evaluate advanced advan-tage estimators, including RLOO and Reinforce++ with baseline, and observe that the collapse persists. Moreover, momentum and adaptive optimizers (MI, AdamW) typically exacerbate over -sharpening by accumulating past gradients and amplifying early sampling biases, pushing the policy more quickly into the collapsed regime. See Appendix I for these results. We next study semantic coupling by monitoring the held-out Siamese subclass ( π(o = Siamese | q = Siamese )) while training on Persian. Our theory shows that the propaga-tion of collapse is governed by the interplay between the transfer intensity η (Theorem 3.4), and the relative suppres-sion ratio R. Notably, R scales with G. To test this, we vary Siamese similarity (High, Mid, Low) by progressively shifting embedding mass from Persian-specific (dim 1) to Siamese-specific (dim 3) coordinates: 
+
+[0 .25 , 0.5, 0.75 , 0.1] , [0 .1, 0.5, 0.9, 0.1] , [0 .0, 0.5, 1.0, 0.1] ,
+
+As shown in Figure 2, Siamese accuracy is strongly squeezed during training. This effect worsens with higher similarity, confirming that increased η (high similarity) ac-celerates collapse. Similarly, larger G exacerbates over-sharpening. 
+
+## 4. Approach 
+
+We introduce two complementary mechanisms to keep RLVR in a moderate sharpening regime. Inverse-success advantage calibration (IAC) adjusts how strongly each sam-pled trajectory contributes to the policy update. Distribution-level calibration (DLC) tunes the rollout distribution to pre-vent the policy from repeatedly sampling the same high-probability patterns. Appendix J details the full pipeline (Algorithm 1) and visualizations demonstrating their effec-tiveness in mitigating over-sharpening via the Softmax case used in Section 3.4. 
+
+4.1. Inverse-success Advantage Calibration (IAC) Idealized inverse - probability reweighting. A natural so-lution would be to reweight advantages inversely propor-tional to πref (·), so that the reference - probability factor in the bound cancels out. In detail, let ˜Ak = A(q, o k)/π ref (ok).Then the lower bound becomes: 
+
+Z′(q) ≥ 1 + 1
+
+βG 
+
+> G
+
+X
+
+> k=1
+
+Nk ˜Akπref (ok)= 1 + 1
+
+βG 
+
+> G
+
+X
+
+> k=1
+
+Nk
+
+ Ak
+
+πref (ok)
+
+
+
+πref (ok)= 1 + 1
+
+βG 
+
+> G
+
+X
+
+> k=1
+
+NkAk = 1 .
+
+In the last line, we use the normalization property P 
+
+> k
+
+NkAk = 0 . However, this ideal solution is not directly usable in large-scale RLVR for two reasons: • High variance in sequence probabilities. LLMs exhibit extremely high variance in sequence - level probabilities. After calibration, this variance transfers to the advantages, which in turn causes highly unstable gradient updates. • Negative samples are not purely wrong. Negative sam-ples often contain partially correct reasoning segments or are just being truncated due to a maximum length con-straint. Over -amplifying their (negative) advantages can therefore destroy useful intermediate structure and desta-bilizes training. 
+
+Inverse-success advantage calibration. Motivated by the above, we retain the spirit of inverse reweighting but replace raw probabilities by a coarse, query -level difficulty proxy. We only calibrate positive advantages and leave negative ones untouched. For each query q, let S+ be the set of positive trajectories in the batch and G the total number of trajectories. We define the calibrated advantages: 
+
+˜A(q, o + 
+
+> k
+
+) = A(q, o + 
+
+> k
+
+) · (G − | S+|)α, α ≥ 0, (4) 
+
+˜A(q, o − 
+
+> k
+
+) = A(q, o − 
+
+> k
+
+), (5) where o+ 
+
+> k
+
+and o− 
+
+> k
+
+denote positive and negative trajecto-ries, respectively. This simple heuristic enjoys two de-sirable properties: This design has two key properties. (1) (G − | S+|) serves as a difficulty proxy, assigning larger weights to harder queries where positive samples are rare. (2) The exponent α governs the overall calibration strength. α = 0 recovers the baseline, while larger values de-emphasize easy queries. Intuitively, IAC redistributes the advantage budget from easy queries to difficult ones, preventing excessive growth of Z′(q) and mitigating over-sharpening. By keeping negative advantages unchanged, we can avoid destabilizing training on partially correct or truncated trajectories. 6When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+4.2. Distribution-Level Calibration via Decoupled Sampling (DLC) 
+
+While IAC moderates how strongly each batch can inflate 
+
+Z′(q), it does not address that once certain trajectories have been suppressed and their probabilities become very small, they almost never appear again in subsequent rollouts. To mitigate this, we suggest calibrating the sampling distribu-tion itself. A vanilla approach would be to increase the global sampling temperature, thereby flattening the policy distribution. How-ever, a global temperature treats all tokens equally, some modes are already well -explored and saturated, while others remain under - explored. We instead propose a distribution-Level dalibration (DLC) based on a memory network that tracks the empirical rollout distribution. DLC introduces an auxiliary memory network mϕ with logit function fϕ(q, o ), intended to approximate the empirical frequency of (q, o ) pairs generated during training. At each training step, we update mϕ on the sampled trajectories (with a standard cross - entropy loss) so that it outputs higher logits for frequently generated outputs and lower logits for rarely seen ones. During rollout, DLC constructs a calibrated sampling dis-tribution by subtracting the memory logits from the policy logits as follows: 
+
+˜f (q, o ) = fθ (q, o ) − μ · fϕ(q, o ),πsample (o | q) ∝ exp   ˜f (q, o ).
+
+where μ ≥ 0 is a balance factor controlling how strongly the memory prior influences exploration. Intuitively, the memory network acts as a learned frequency prior. Wherein, modes that have been sampled many times receive larger 
+
+fϕ(q, o ) and are thus down - weighted in ˜f (q, o ), while under -explored modes are relatively boosted. From the perspective of Theorem 3.2 and Theorem 3.3, by explicitly discouraging repeated sampling of the same high -probability modes, it prevents any single mode from accumulating a disproportionately large empirical count Ni across updates. 
+
+Computational overhead and practical choice. Com-pared to IAC, DLC introduces non - trivial computational overhead because it requires both policy and memory for-ward passes during rollout, and training updates for mϕ. If 
+
+mϕ shares the same architecture as the policy, the theoretical cost roughly doubles. In our implementation, the dominant additional cost comes from rollout. Although integrated with high-performance rollout backends like vLLM, the lack of kernel -level support for synchronized multi -model sampling leads to approximately 5× higher rollout latency. Given this overhead, our default configuration in large - scale experiments employs IAC alone, which is compute -efficient and already substantially mitigates over -sharpening. We treat DLC as an optional augmentation that can be enabled when compute permits. Empirically, adding DLC on top of IAC yields further improvements, especially in regimes where over - exploitation of a few modes is particularly pro-nounced. 
+
+## 5. Empirical Evaluation 
+
+5.1. Experimental Setup Models, datasets, and metrics. We evaluate our meth-ods in mathematical reasoning with verifiable rewards. We use the DeepScaleR (Luo et al., 2025) corpus as our pri-mary RLVR training set, consisting of approximately 40.3k problem–answer pairs. To assess generalization, we report performance on six diverse benchmarks: GSM8K, AIME 2024, MATH 500, LightEval, Minerva (Lewkowycz et al., 2022), and O -Bench (He et al., 2024). We conduct experi-ments with three backbone models, Qwen3 -4B, Qwen3-8B and Qwen3 -14B (Yang et al., 2025). As evaluation metrics, we report PASS@8 and AVG@8. PASS@8 measures the proportion of queries for which at least one of the eight responses is correct, and AVG@8 reflects the average pro-portion of correct responses per query. Appendix K provides evaluation results on different models and datasets. 
+
+Baselines. We compare our approaches against a range of RL baselines commonly used in LLM training, including GRPO (DeepSeek-AI, 2025), DrGRPO (Liu et al., 2025), RLOO (Kool et al., 2019), Reinforce++ with baseline (Hu et al.), and DAPO (Yu et al., 2025). We also compare IAC with sample-filtering-based methods (Bae et al., 2025) in Appendix K. All baselines are run in the same setting with identical reward functions and sampling budgets for fair comparison. 
+
+Implementation details. All models (including the memory network) are optimized with AdamW using a learning rate of 
+
+10 −6. We employ a global batch size of 64 and sample G =
+
+8 responses per query. Training is run for 2000 steps, and we evaluate checkpoints every 50 steps, reporting the peak performance for each method. We employ VERL’s built-in recipes to standardize the implementation of baseline methods. For IAC, we use α = 1 by default. Due to the page limit, we leave sensitivity analysis ( α), the comparison with sample-filtering baselines, and the entropy evolution analysis in Appendix K. All experiments are conducted using 32 H200 GPUs. 
+
+5.2. Evaluation Result Comparison with state-of-the-art methods. Table 2 sum-marizes the AVG@8 and PASS@8 performance of differ-ent methods, respectively, across six mathematical reason-ing benchmarks and three Qwen3 backbones. Overall, our method attains the best AVG@8 and PASS@8 in almost 7When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Table 2. Comparison of AVG@8 and PASS@8 performance across six benchmark datasets.                                                                                                                                                                                                                                
+
+> Model Method AVG@8 (%) PASS@8 (%) GSM8K Math500 LightEval AIME24 Minerva O-Bench Avg. GSM8K Math500 LightEval AIME24 Minerva O-Bench Avg. Qwen3-4B GRPO 93.72 85.58 70.61 34.58 43.06 48.85 62.73 96.74 91.94 75.43 47.37 54.54 56.44 70.41 RLOO 93.69 86.44 70.24 32.50 43.98 47.91 62.46 96.98 92.22 75.39 43.65 55.01 56.31 69.93 Reinforce++ 94.04 85.43 70.21 36.25 45.63 48.57 63.36 96.45 91.58 74.92 50.54 55.32 56.38 70.87 DrGRPO 94.10 83.56 69.54 35.42 45.43 47.83 62.65 96.43 89.90 73.87 47.02 54.60 55.08 69.48 IAC (Ours) 94.63 86.43 72.15 37.08 47.01 48.87 64.36 97.38 92.33 77.30 52.28 57.74 56.59 72.27
+> Qwen3-8B GRPO 95.59 85.81 71.12 35.42 47.20 49.79 64.16 96.51 91.39 75.19 52.36 55.65 56.88 71.33 RLOO 95.56 86.89 72.30 36.25 46.78 49.74 64.59 97.25 92.64 76.17 50.92 55.55 57.68 71.70 Reinforce++ 95.56 87.07 72.14 40.68 47.84 50.30 65.60 96.96 92.31 75.96 55.24 56.12 57.78 72.40 DrGRPO 95.35 86.11 71.56 34.58 47.38 49.87 64.14 97.11 91.57 75.36 52.25 55.41 57.26 71.49 IAC (Ours) 95.72 87.67 73.85 35.42 50.60 50.49 65.63 97.56 94.54 78.69 52.67 60.60 58.48 73.76
+> Qwen3-14B GRPO 95.96 89.42 73.83 53.45 50.32 55.28 69.71 97.53 93.75 76.54 70.44 59.40 60.87 76.42 RLOO 96.04 90.29 73.64 54.17 50.46 55.10 69.95 97.43 93.62 76.36 73.18 59.78 61.14 76.92 Reinforce++ 95.82 90.88 73.96 54.17 50.87 56.00 70.28 97.79 94.12 76.74 71.71 60.27 61.42 77.01 DrGRPO 95.96 90.37 73.85 54.85 50.69 55.35 70.18 97.53 94.27 76.57 71.83 61.03 60.96 77.03 IAC (Ours) 96.36 90.70 74.52 56.67 52.34 56.32 71.15 98.11 94.37 77.28 78.07 62.64 62.37 78.81
+
+Table 3. Compatibility analysis using Qwen3-8B.                                      
+
+> Metric Method Math500 LightEval Minerva O-Bench AVG@8 DAPO 87.25 72.04 47.15 50.17 IAC 87.67 73.85 50.60 50.49 DAPO+IAC 87.89 74.48 51.07 50.58 DAPO+IAC+DLC 88.44 75.42 51.90 51.38
+> PASS@8 DAPO 92.96 76.62 56.38 58.28 IAC 94.54 78.69 60.60 58.48 DAPO+IAC 94.74 84.80 61.97 58.88 DAPO+IAC+DLC 95.19 85.15 62.50 60.12
+
+all settings across models and datasets, indicating that cali-brated sharpening consistently improves both average qual-ity and success probability. In contrast, different baselines occasionally excel on specific benchmarks. For example, Reinforce++ is competitive on AIME24 and MATH500, and RLOO sometimes attains strong averages. To illus-trate this in more detail, consider the Qwen3 -14B results. Here, all baselines are already strong, yet our method still delivers clear gains. In terms of AVG@8, our method can raise the overall average from roughly 70.2 (Reinforce++ / DrGRPO) to 71.15. For PASS@8, the improvement is more striking: from 77.03 (best baseline) to 78.81. In par-ticular, improvements on harder, less saturated benchmarks (AIME24, Minerva, O - Bench) are more pronounced than on easier ones such as GSM8K, suggesting that our approach is especially beneficial when reasoning requires exploring multiple reasoning modes rather than amplifying a single dominant pattern. On the smaller backbones Qwen3 - 4B and Qwen3-8B, we observe a consistent pattern. 
+
+Compatibility with other methods. We also evaluate the compatibility of the proposed methods. The results, pre-sented in Table 3, reveal three key insights. First, IAC alone outperforms DAPO on both AVG@8 and PASS@8 met-rics across most datasets. Second, when IAC is integrated into DAPO (DAPO+IAC), we observe additive performance gains. For instance, on LightEval (PASS@8), the com-bination improves performance from 76 .62% (DAPO) to 
+
+84 .80% . Third, we incorporate DLC with a memory net-work (Qwen3-1.7B) of μ = 0 .5 (DAPO+IAC+DLC). This full configuration yields the highest performance. 
+
+## 6. Conclusion 
+
+In this work, we formalized the phenomenon of over-sharpening within the RLVR framework. Our theoretical analysis identifies two fundamental drivers of distribution collapse: finite-sample bias, which causes the uniform sup-pression of unsampled correct modes, and semantic cou-pling, which allows this collapse to propagate across related tasks through shared model parameters. To mitigate these issues, we introduced two plug-and-play calibration mech-anisms IAC and DLC that stabilize the partition function and diversify the sampling process. Extensive evaluations across multiple reasoning benchmarks and model scales demonstrate that our methods effectively achieve consistent performance gains over state-of-the-art baselines. 
+
+## References 
+
+Amin, K., Babakniya, S., Bie, A., Kong, W., Syed, U., and Vassilvitskii, S. Escaping collapse: The strength of weak data for large language model training. 
+
+CoRR , abs/2502.08924, 2025. doi: 10.48550/ARXIV. 2502.08924. URL https://doi.org/10.48550/ arXiv.2502.08924 .Bae, S., Hong, J., Lee, M. Y., Kim, H., Nam, J., and Kwak, D. Online difficulty filtering for reasoning ori-ented reinforcement learning. CoRR , abs/2504.03380, 2025. doi: 10.48550/ARXIV.2504.03380. URL https: //doi.org/10.48550/arXiv.2504.03380 .Cheng, D., Huang, S., Zhu, X., Dai, B., Zhao, W. X., Zhang, Z., and Wei, F. Reasoning with exploration: An entropy 8When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+perspective. CoRR , abs/2506.14758, 2025. doi: 10.48550/ ARXIV.2506.14758. URL https://doi.org/10. 48550/arXiv.2506.14758 .Cui, G., Zhang, Y., Chen, J., Yuan, L., Wang, Z., Zuo, Y., Li, H., Fan, Y., Chen, H., Chen, W., Liu, Z., Peng, H., Bai, L., Ouyang, W., Cheng, Y., Zhou, B., and Ding, N. The entropy mechanism of reinforcement learning for reasoning language models. CoRR , abs/2505.22617, 2025. doi: 10.48550/ARXIV.2505.22617. URL https: //doi.org/10.48550/arXiv.2505.22617 .DeepSeek-AI. Deepseek-r1: Incentivizing reasoning ca-pability in llms via reinforcement learning. CoRR ,abs/2501.12948, 2025. doi: 10.48550/ARXIV.2501. 12948. URL https://doi.org/10.48550/ arXiv.2501.12948 .He, A., Fried, D., and Welleck, S. Rewarding the un-likely: Lifting GRPO beyond distribution sharpening. 
+
+CoRR , abs/2506.02355, 2025. doi: 10.48550/ARXIV. 2506.02355. URL https://doi.org/10.48550/ arXiv.2506.02355 .He, C., Luo, R., Bai, Y., Hu, S., Thai, Z. L., Shen, J., Hu, J., Han, X., Huang, Y., Zhang, Y., Liu, J., Qi, L., Liu, Z., and Sun, M. Olympiadbench: A challenging bench-mark for promoting AGI with olympiad-level bilingual multimodal scientific problems. In Ku, L., Martins, A., and Srikumar, V. (eds.), Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), ACL 2024, Bangkok, Thai-land, August 11-16, 2024 , pp. 3828–3850. Association for Computational Linguistics, 2024. doi: 10.18653/ V1/2024.ACL-LONG.211. URL https://doi.org/ 10.18653/v1/2024.acl-long.211 .Hu, J., Liu, J. K., Xu, H., and Shen, W. Reinforce++: Stabilizing critic-free policy optimization with global normalization. arXiv preprint arXiv , 2501. Jacot, A., Hongler, C., and Gabriel, F. Neural tangent kernel: Convergence and generalization in neural networks. In Bengio, S., Wallach, H. M., Larochelle, H., Grauman, K., Cesa-Bianchi, N., and Garnett, R. (eds.), Advances in Neural Information Processing Systems 31: Annual Conference on Neural Infor-mation Processing Systems 2018, NeurIPS 2018, December 3-8, 2018, Montr ´eal, Canada , pp. 8580– 8589, 2018. URL https://proceedings. neurips.cc/paper/2018/hash/ 5a4be1fa34e62bb8a6ec6b91d2462f5a-Abstract. html .Jaech, A., Kalai, A., Lerer, A., Richardson, A., El-Kishky, A., Low, A., Helyar, A., Madry, A., Beutel, A., Carney, A., Iftimie, A., Karpenko, A., Passos, A. T., Neitz, A., Prokofiev, A., Wei, A., Tam, A., Bennett, A., Kumar, A., Saraiva, A., Vallone, A., Duberstein, A., Kondrich, A., Mishchenko, A., Applebaum, A., Jiang, A., Nair, A., Zoph, B., Ghorbani, B., Rossen, B., Sokolowsky, B., Barak, B., McGrew, B., Minaiev, B., Hao, B., Baker, B., Houghton, B., McKinzie, B., Eastman, B., Lugaresi, C., Bassin, C., Hudson, C., Li, C. M., de Bourcy, C., Voss, C., Shen, C., Zhang, C., Koch, C., Orsinger, C., Hesse, C., Fischer, C., Chan, C., Roberts, D., Kappler, D., Levy, D., Selsam, D., Dohan, D., Farhi, D., Mely, D., Robinson, D., Tsipras, D., Li, D., Oprica, D., Free-man, E., Zhang, E., Wong, E., Proehl, E., Cheung, E., Mitchell, E., Wallace, E., Ritter, E., Mays, E., Wang, F., Such, F. P., Raso, F., Leoni, F., Tsimpourlas, F., Song, F., von Lohmann, F., Sulit, F., Salmon, G., Parascandolo, G., Chabot, G., Zhao, G., Brockman, G., Leclerc, G., Salman, H., Bao, H., Sheng, H., Andrin, H., Bagherinezhad, H., Ren, H., Lightman, H., Chung, H. W., Kivlichan, I., O’Connell, I., Osband, I., Gilaberte, I. C., and Akkaya, I. Openai o1 system card. CoRR , abs/2412.16720, 2024. doi: 10.48550/ARXIV.2412.16720. URL https: //doi.org/10.48550/arXiv.2412.16720 .Karan, A. and Du, Y. Reasoning with sampling: Your base model is smarter than you think. CoRR , abs/2510.14901, 2025. doi: 10.48550/ARXIV.2510.14901. URL https: //doi.org/10.48550/arXiv.2510.14901 .Kool, W., van Hoof, H., and Welling, M. Attention, learn to solve routing problems! In 7th International Con-ference on Learning Representations, ICLR 2019, New Orleans, LA, USA, May 6-9, 2019 . OpenReview.net, 2019. URL https://openreview.net/forum? id=ByxBFsRqYm .Lewkowycz, A., Andreassen, A., Dohan, D., Dyer, E., Michalewski, H., Ramasesh, V. V., Slone, A., Anil, C., Schlag, I., Gutman-Solo, T., Wu, Y., Neyshabur, B., Gur-Ari, G., and Misra, V. Solving quantitative reasoning problems with language models. In Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., and Oh, A. (eds.), Advances in Neural Infor-mation Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022 , 2022. URL http://papers. nips.cc/paper_files/paper/2022/hash/ 18abbeef8cfe9203fdf9053c9c4fe191-Abstract-Conferen html .Liu, Z., Chen, C., Li, W., Qi, P., Pang, T., Du, C., Lee, W. S., and Lin, M. Understanding r1-zero-like training: A critical perspective. CoRR , abs/2503.20783, 2025. doi: 10.48550/ARXIV.2503.20783. URL https://doi. org/10.48550/arXiv.2503.20783 .9When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Luo, M., Tan, S., Wong, J., Shi, X., Tang, W. Y., Roongta, M., Cai, C., Luo, J., Zhang, T., Li, L. E., et al. Deepscaler: Surpassing o1-preview with a 1.5 b model by scaling rl. 
+
+Notion Blog , 2025. Prabhudesai, M., Chen, L., Ippoliti, A., Fragkiadaki, K., Liu, H., and Pathak, D. Maximizing confidence alone improves reasoning. CoRR , abs/2505.22660, 2025. doi: 10.48550/ARXIV.2505.22660. URL https://doi. org/10.48550/arXiv.2505.22660 .Song, Y., Kempe, J., and Munos, R. Outcome-based ex-ploration for LLM reasoning. CoRR , abs/2509.06941, 2025. doi: 10.48550/ARXIV.2509.06941. URL https: //doi.org/10.48550/arXiv.2509.06941 .Wang, S., Yu, L., Gao, C., Zheng, C., Liu, S., Lu, R., Dang, K., Chen, X., Yang, J., Zhang, Z., Liu, Y., Yang, A., Zhao, A., Yue, Y., Song, S., Yu, B., Huang, G., and Lin, J. Beyond the 80/20 rule: High-entropy minority tokens drive effective reinforcement learning for LLM reasoning. 
+
+CoRR , abs/2506.01939, 2025. doi: 10.48550/ARXIV. 2506.01939. URL https://doi.org/10.48550/ arXiv.2506.01939 .Wu, J., Huang, K., Wu, J., Zhang, A., Wang, X., and He, X. Quantile advantage estimation for entropy-safe reasoning. 
+
+CoRR , abs/2509.22611, 2025. doi: 10.48550/ARXIV. 2509.22611. URL https://doi.org/10.48550/ arXiv.2509.22611 .Xiong, W., Yao, J., Xu, Y., Pang, B., Wang, L., Sahoo, D., Li, J., Jiang, N., Zhang, T., Xiong, C., and Dong, H. A minimalist approach to LLM reasoning: from rejection sampling to reinforce. CoRR , abs/2504.11343, 2025. doi: 10.48550/ARXIV.2504.11343. URL https://doi. org/10.48550/arXiv.2504.11343 .Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., Zheng, C., Liu, D., Zhou, F., Huang, F., Hu, F., Ge, H., Wei, H., Lin, H., Tang, J., Yang, J., Tu, J., Zhang, J., Yang, J., Yang, J., Zhou, J., Lin, J., Dang, K., Bao, K., Yang, K., Yu, L., Deng, L., Li, M., Xue, M., Li, M., Zhang, P., Wang, P., Zhu, Q., Men, R., Gao, R., Liu, S., Luo, S., Li, T., Tang, T., Yin, W., Ren, X., Wang, X., Zhang, X., Ren, X., Fan, Y., Su, Y., Zhang, Y., Zhang, Y., Wan, Y., Liu, Y., Wang, Z., Cui, Z., Zhang, Z., Zhou, Z., and Qiu, Z. Qwen3 technical report. CoRR , abs/2505.09388, 2025. doi: 10.48550/ARXIV.2505.09388. URL https:// doi.org/10.48550/arXiv.2505.09388 .Yu, Q., Zhang, Z., Zhu, R., Yuan, Y., Zuo, X., Yue, Y., Fan, T., Liu, G., Liu, L., Liu, X., Lin, H., Lin, Z., Ma, B., Sheng, G., Tong, Y., Zhang, C., Zhang, M., Zhang, W., Zhu, H., Zhu, J., Chen, J., Chen, J., Wang, C., Yu, H., Dai, W., Song, Y., Wei, X., Zhou, H., Liu, J., Ma, W., Zhang, Y., Yan, L., Qiao, M., Wu, Y., and Wang, M. DAPO: an open-source LLM reinforcement learning system at scale. 
+
+CoRR , abs/2503.14476, 2025. doi: 10.48550/ARXIV. 2503.14476. URL https://doi.org/10.48550/ arXiv.2503.14476 .Yue, Y., Chen, Z., Lu, R., Zhao, A., Wang, Z., Yue, Y., Song, S., and Huang, G. Does reinforcement learning really incentivize reasoning capacity in llms beyond the base model? CoRR , abs/2504.13837, 2025. doi: 10.48550/ ARXIV.2504.13837. URL https://doi.org/10. 48550/arXiv.2504.13837 .Zhuang, H., Zhou, Y., Guo, T., Huang, Y., Liu, F., Song, K., and Zhang, X. Exploring multi-temperature strategies for token- and rollout-level control in RLVR. 
+
+CoRR , abs/2510.08892, 2025. doi: 10.48550/ARXIV. 2510.08892. URL https://doi.org/10.48550/ arXiv.2510.08892 .10 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+## A. Proof of Theorem 3.1 
+
+Theorem A.1. The maximizer of Equation (1) , denoted as π∗, is given by 
+
+π∗(o|q) = 1
+
+Z(q) πref (o|q) exp 
+
+ A(q, o )
+
+β
+
+
+
+, (6) 
+
+where Z(q) is the partition function ensuring normalization. Proof. Because the expectation over q is linear and the policy can depend arbitrarily on q, the maximization decomposes across queries. For each fixed q, we omit it from notation for brevity and can independently maximize the per -query objective as follows: 
+
+J(π) = 
+
+Z
+
+π(o)A(o) do − β
+
+Z
+
+π(o) log π(o)
+
+πref (o) do. 
+
+We introduce a Lagrange multiplier λ for the normalization constraint: 
+
+L[π, λ ] = 
+
+Z
+
+π(o)A(o) do − β
+
+Z
+
+π(o) log π(o)
+
+πref (o) do − λ
+
+Z 
+
+π(o) do − 1
+
+
+
+.
+
+Taking the functional derivative with respect to π(o) (pointwise) yields: 
+
+δL
+
+δπ (o) = A(o) − β
+
+
+
+log π(o)
+
+πref (o) + 1 
+
+
+
+− λ. 
+
+Setting the derivative to zero for every o gives: 
+
+A(o) − β (log π(o) − log πref (o) + 1) − λ = 0 .
+
+We rearrange the above equation and obtain: 
+
+log π(o) = log πref (o) + A(o)
+
+β −
+
+
+
+1 + λβ
+
+
+
+.
+
+We then exponentiate both sides: 
+
+π(o) = πref (o) exp 
+
+ A(o)
+
+β
+
+
+
+exp 
+
+
+
+−1 − λβ
+
+
+
+.
+
+The factor exp( −1 − λ/β ) is independent of o. Due to R π(o) do = 1 , we have: 
+
+π(o) = 
+
+πref (o) exp 
+
+ A(o)
+
+> β
+
+R πref (o′) exp 
+
+ A(o′)
+
+> β
+
+
+
+do ′
+
+.
+
+Restoring the explicit dependence on q, we obtain Theorem 3.1. 
+
+## B. Proof of Theorem 3.2 
+
+Proof. We begin by re-expressing the empirical objective ˆJ(π) at the mode level. Given a query q, the objective is a combination of the sample-weighted advantage and the KL divergence relative to the reference policy: 
+
+ˆJ(π) = X
+
+> i
+
+Ni
+
+G A(q, o i) log π(oi|q) − β X
+
+> i
+
+π(oi|q) log π(oi|q)
+
+πref (oi|q) ,
+
+where we treat π as a functional optimization target over the discrete output space. 11 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+To find the maximizer ˆπ, we introduce a Lagrange multiplier λ for the normalization constraint P 
+
+> i
+
+π(oi) = 1 . The Lagrangian L is defined as: 
+
+L(π, λ ) = X
+
+> i
+
+ NiAi
+
+G log π(oi) − βπ (oi) log π(oi)
+
+πref (oi)
+
+
+
+− λ X
+
+> i
+
+π(oi) − 1
+
+!
+
+.
+
+Taking the functional derivative with respect to each π(oi) and setting it to zero yields: 
+
+∂L
+
+∂π (oi) = NiAi
+
+G · π(oi) − β
+
+
+
+log π(oi)
+
+πref (oi) + 1 
+
+
+
+− λ = 0 .
+
+Rearranging the terms to isolate the log-probability ratio: 
+
+log π(oi)
+
+πref (oi) = NiAi
+
+βG · π(oi) −
+
+
+
+1 + λβ
+
+
+
+.
+
+Then, we have: 
+
+log ˆ π(oi) = log πref (oi) + NiAi
+
+βG + C, 
+
+where C is a normalization constant independent of oi. Applying the constraint P 
+
+> i
+
+ˆπ(oi) = 1 yields Theorem 3.2. 
+
+## C. Distributional Update Geometry 
+
+Theorem C.1. Consider a single gradient ascent step θ+ = θ + η∇θ ˆJ(θ) on the empirical objective with a learning rate of 
+
+η. In the functional space of policies, let πt denote the policy at step t. Under a first-order Taylor expansion, the updated policy πt+1 relates to the current policy πt and the batch-optimal policy ˆπ as: 
+
+πt+1 (o|q) ∝ πt(o|q)1−ηβ · ˆπ(o|q)ηβ . (7) 
+
+Proof. The empirical objective ˆJ(θ) is defined as: 
+
+ˆJ(θ) = X
+
+> i
+
+Ni
+
+G Ai log πθ (oi) − βD KL (πθ ∥πref ).
+
+The batch-optimal policy ˆπ satisfies the stationary condition ∇π ˆJ = 0 , which yields ˆπ(oi) = 1 
+
+> Z′
+
+πref (oi) exp( NiAi 
+
+> βG
+
+)
+
+according to Theorem 3.2. Taking the log: 
+
+NiAi
+
+βG = log ˆ π(oi) − log πref (oi) + log Z′
+
+The gradient of ˆJ with respect to the log-probability wi = log πθ (oi) is: 
+
+∂ ˆJ∂w i
+
+= NiAi
+
+G − β(log πθ (oi) − log πref (oi) + 1) .
+
+Combining the above two equations: 
+
+∂ ˆJ∂w i
+
+= β (log ˆ π(oi) − log πref (oi) + log Z′) − β log πθ (oi) + β log πref (oi) − β = β (log ˆ π(oi) − log πθ (oi)) + constant .
+
+In functional space, the update in log-space is: 
+
+log πt+1 (oi) = log πt(oi) + η ∂ ˆJ∂w i
+
+= log πt(oi) + ηβ (log ˆ π(oi) − log πt(oi)) + C. 
+
+12 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Rearranging the terms: 
+
+log πt+1 (oi) = (1 − ηβ ) log πt(oi) + ηβ log ˆ π(oi) + C
+
+Exponentiating both sides yields the geometric mean: 
+
+πt+1 (oi) ∝ πt(oi)1−ηβ · ˆπ(oi)ηβ .
+
+## D. Proof of Theorem 3.3 
+
+Proof. We first derive the first bound. By definition of Z′(q) and partitioning modes into unsampled, correct, and incorrect sets, we have: 
+
+Z′(q) = X
+
+> k / ∈S+∪S−
+
+πref (ok | q) + X
+
+> i∈S+
+
+πref (oi | q) e NiA+ 
+
+> βG
+
++ X
+
+> j∈S−
+
+πref (oj | q) e Nj A− 
+
+> βG
+
+.
+
+Using ex ≥ 1 + x, we obtain: 
+
+Z′(q) ≥ X
+
+> k / ∈S+∪S−
+
+πref (ok | q) + X
+
+> i∈S+
+
+πref (oi | q)
+
+
+
+1 + NiA+
+
+βG 
+
+
+
++ X
+
+> j∈S−
+
+πref (oj | q)
+
+
+
+1 + Nj A−
+
+βG 
+
+
+
+= X 
+
+> all k
+
+πref (ok | q) + 1
+
+βG 
+
+h
+
+A+
+
+X
+
+> i∈S+
+
+Ni πref (oi | q) + A−
+
+X
+
+> j∈S−
+
+Nj πref (oj | q)
+
+i
+
+= 1 + 1
+
+βG 
+
+h
+
+A+
+
+X
+
+> i∈S+
+
+Ni πref (oi | q) − | A−| X
+
+> j∈S−
+
+Nj πref (oj | q)
+
+i
+
+,
+
+which proves the first bound. We now specialize to normalized binary advantages. Substitute A+ = (1 − p+)/σ and A− = −p+/σ into the above bound: 
+
+Z′(q) ≥ 1 + 1
+
+βGσ 
+
+h
+
+(1 − p+) X
+
+> i∈S+
+
+Ni πref (oi | q) − p+ X
+
+> j∈S−
+
+Nj πref (oj | q)
+
+i
+
+.
+
+Using P 
+
+> i∈S+
+
+Ni = Gp + and P 
+
+> j∈S−
+
+Nj = G(1 − p+), we can express the weighted averages: 
+
+¯π+ =
+
+P 
+
+> i∈S+
+
+Ni πref (oi | q)
+
+P 
+
+> i∈S+
+
+Ni
+
+, ¯π− =
+
+P 
+
+> j∈S−
+
+Nj πref (oj | q)
+
+P 
+
+> j∈S−
+
+Nj
+
+.
+
+Then we have: 
+
+Z′(q) ≥ 1 + 1
+
+βσ 
+
+h
+
+(1 − p+)p+ ¯π+ − p+(1 − p+) ¯ π−i
+
+= 1 + p+(1 − p+)
+
+βσ 
+
+ ¯π+ − ¯π−.
+
+By definition, 
+
+π+min ≤ ¯π+, ¯π− ≤ π−
+
+> max
+
+,
+
+so 
+
+¯π+ − ¯π− ≥ π+min − π− 
+
+> max
+
+= ∆ π .
+
+Therefore, we see: 
+
+Z′(q) ≥ 1 + p+(1 − p+)
+
+βσ ∆π .
+
+If ∆π > 0, the right-hand side is greater than 1. For any unsampled mode ok with Nk = 0 , Theorem 3.2 gives 
+
+ˆπ(ok | q) = πref (ok | q)
+
+Z′(q) < π ref (ok | q).
+
+Thus, all unsampled modes are uniformly suppressed. 13 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+## E. Background for Section 3.3 
+
+The derivation presented here is largely adapted from the Neural Tangent Kernel framework. We now provide the derivation for the parameter update form ∆θ and the induced logit shift ∆f used in the main text. This derivation relies on the local properties of the neural network function under small parameter updates. For a small optimization step, the change in the model parameters ∆θ is small. Consequently, the change in the network output can be approximated by the first-order Taylor expansion around the current parameters θ:
+
+f (x; θ + ∆ θ) ≈ f (x; θ) + ∇θ f (x; θ)⊤∆θ. 
+
+Consider a training batch with target logit shifts given by the vector y. To achieve this shift locally, the parameter update ∆θ
+
+must satisfy the linearized constraint: 
+
+Jq ∆θ = y,
+
+where Jq is the Jacobian matrix of the batch samples. Since the number of parameters is typically much larger than the batch size, this system is under-determined. Standard gradient-based optimizers naturally update the parameters within the subspace spanned by the data gradients (the row space of Jq ). This corresponds to finding the solution with the minimum Euclidean norm ∥∆θ∥2, representing the steepest direction to fit the local target: 
+
+∆θ = arg min 
+
+> δ
+
+∥δ∥22 s.t. Jq δ = y.
+
+The closed-form solution to this problem is given by the Moore-Penrose pseudoinverse: 
+
+∆θ = J⊤ 
+
+> q
+
+(Jq J⊤ 
+
+> q
+
+)−1y.
+
+Here, the matrix Kqq = Jq J⊤ 
+
+> q
+
+captures the local alignment between gradients of the batch samples. Once ∆θ is determined, the change in the logit value for any other query-output pair (q′, o ′) is governed by the same local linearization: 
+
+∆f (q′, o ′) ≈ ∇ θ f (q′, o ′)⊤∆θ. 
+
+Substituting the expression for ∆θ, we obtain: 
+
+∆f (q′, o ′) = ∇θ f (q′, o ′)⊤J⊤ 
+
+> q
+
+(Jq J⊤ 
+
+> q
+
+)−1y = k⊤ 
+
+> q′
+
+K−1 
+
+> qq
+
+y,
+
+where kq′ = Jq ∇θ f (q′, o ′) represents the vector of gradient dot products (kernel values) between the new query and the training batch. This confirms that within a small update step, the propagation of probability mass is dictated by gradient similarity. 
+
+## F. Assumption Validation 
+
+We empirically validate Assumptions 3.1 and 3.3 on Qwen3 - 0.6B. We first randomply extract 1000 pairs of questions (q, q ′)
+
+from GSM8K and, for each query, sample 8 responses. For (q, o ) and (q′, o ′), we compute the inner product of their logit gradients ∇θ f (q, o )⊤∇θ f (q′, o ′). Across all such pairs, the mean inner product is 1467.50 with a standard deviation of 363.97, indicating that gradients for semantically related outputs are strongly and consistently positively aligned, in line with Assumption 3.1. We then estimate the empirical kernel matrix Kqq = Jq J⊤ 
+
+> q
+
+for q. As shown in Figure 3, the diagonal entries (self - alignment) are substantially larger than the off -diagonal entries (cross - alignment), corroborating the diagonal - dominance condition in Assumption 3.3. 
+
+## G. Proof of Theorem 3.4 
+
+Theorem G.1. Let Asum ≜ PGs=1 ys = 1
+
+> βG
+
+PGs=1 Ns|A(q, o (s))|. The induced logit shift ∆f (q′, o ′) satisfies the following bounds based on whether o′ appears in the training batch {o(i), i = 1 , · · · , G }:
+
+• If o′ /∈ { o(s)}Gs=1 , the logit increase is upper-bounded by: 
+
+∆f (q′, o ′) ≤ ηρ max Asum 
+
+λmin + ( G − 1) ρmin 
+
+.
+
+14 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Figure 3. Empirical validation of diagonal dominance on Qwen3 - 0.6B using GSM8K. Empirical kernel matrix Kqq , where diagonal entries (self-alignment) are larger than off-diagonal entries (cross-alignment). 
+
+• If o′ = o(k) for some k ∈ { 1, . . . , G }, the logit increase is lower-bounded by 
+
+∆f (q′, o ′) = ∆ f (q′, o (k)) ≥ ηN o′ (λmin − ρmin )
+
+λmax − ρmax 
+
+
+
+yk − ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+
+
+.
+
+Proof. We define the dual coefficient vector α = K−1 
+
+> qq
+
+y. We proceed by first bounding the entries of α.
+
+Step 1: Bounds on α. Let M(λ, ρ ) = ( λ − ρ)I + ρ11 ⊤, where diagonal entries are λ > 0 and off-diagonal entries are 
+
+ρ > 0. Consider α(λ, ρ ) = M(λ, ρ )−1y. Applying the Sherman-Morrison formula 4, the inverse M(λ, ρ )−1 applied to y
+
+yields: 
+
+α(λ, ρ ) = M(λ, ρ )−1y = 1
+
+λ − ρ
+
+
+
+I − ρλ + ( G − 1) ρ 11 ⊤
+
+
+
+y.
+
+The k-th coefficient of α(λ, ρ ) is given by: 
+
+αk(λ, ρ ) = 1
+
+λ − ρ
+
+
+
+yk − ρAsum 
+
+λ + ( G − 1) ρ
+
+
+
+.
+
+Summing over all k, the interaction terms cancel out, simplifying to a dependence on the total mass: 
+
+X
+
+> s
+
+αs(λ, ρ ) = 1⊤M(λ, ρ )−1y = Asum 
+
+λ + ( G − 1) ρ .
+
+Utilizing non-negativity of yi, the spectral lower bound Kqq ⪰ M(λmin , ρ min ) ≻ 0 and the order-reversing property of the matrix inverse, the sum of the coefficients is upper-bounded: 
+
+> G
+
+X
+
+> s=1
+
+αs = 1⊤K−1 
+
+> qq
+
+y ≤ 1⊤M(λmin , ρ min )−1y = Asum 
+
+λmin + ( G − 1) ρmin 
+
+.
+
+Similarly, we have: GX
+
+> s=1
+
+αs ≥ 1⊤M(λmax , ρ max )−1y = Asum 
+
+λmax + ( G − 1) ρmax 
+
+.
+
+> 4
+
+(A + uv ⊤)−1 = A−1 − A−1uv ⊤A−1 
+
+> 1+ v⊤A−1u
+
+.
+
+15 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+For individual dual coefficients αk, we have the following two-sided bounds: 
+
+1
+
+λmax − ρmax 
+
+
+
+yk − ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+
+
+≤ αk ≤ 1
+
+λmin − ρmin 
+
+
+
+yk − ρmin Asum 
+
+λmin + ( G − 1) ρmin 
+
+
+
+.
+
+Step 2: Bounds on Logit Shift ∆f (q′, o ′). The logit change is given by: 
+
+∆f (q′, o ′) = X
+
+> s
+
+αsk(( q′, o ′), (q, o (s))) .
+
+According to Assumption 3.2, we have [kq′ ]s = k(( q′, o ′), (q, o (s))) ≈ ηK (( q, o ′), (q, o (s))) .
+
+Case 1: o′ /∈ { o(s)}Gs=1 . Intuitively, for any distinct modes oa̸ = ob, their kernel similarity is bounded by ρmax . Intuitively, the batch {o(s)} captures the densest region of the optimization landscape, i.e., the high-probability modes that share the most structural features and thus exhibit the highest gradient overlap. Consequently, any unseen mode o′ /∈ { o(s)} resides in the distribution’s tail and is expected to have a lower gradient correlation with the batch samples than the samples have with each other, ensuring the bound holds. Then, we have: 
+
+[kq′ ]s = k(( q′, o ′), (q, o (s))) ≈ ηK (( q, o ′), (q, o (s))) ≤ ηρ max .
+
+Using bounds derived in Step 1, we obtain: 
+
+∆f (q′, o ′) ≤
+
+> G
+
+X
+
+> s=1
+
+αs(ηρ max ) = ηρ max 
+
+> G
+
+X
+
+> s=1
+
+αs ≤ ηρ max Asum 
+
+λmin + ( G − 1) ρmin 
+
+.
+
+Case 2: o′ ∈ { o(s)}Gs=1 . Let So′ = {s | o(s) = o′} be the set of indices where the sample o′ appears in the batch, with cardinality |So′ | = No′ . The logit shift accumulates contributions from all No′ occurrences (self-terms) and the remaining 
+
+G − No′ samples (cross-terms): 
+
+∆f (q′, o ′) = X
+
+> s∈So′
+
+αs[kq′ ]s + X
+
+> s / ∈So′
+
+αs[kq′ ]s.
+
+To derive a lower bound, we assume the stiffest kernel parameters ( λmax , ρ max ) for α (minimizing gradient magnitude) and the loosest parameters ( λmin , ρ min ) for transfer. Substituting [kq′ ]k ≥ ηλ min and [kq′ ]j ≥ ηρ min :
+
+∆f (q′, o ′) ≥ ηλ min 
+
+X
+
+> s∈So′
+
+αs + ηρ min 
+
+X
+
+> s / ∈So′
+
+αs
+
+= ηλ min 
+
+X
+
+> s∈So′
+
+αs + ηρ min 
+
+X
+
+> all
+
+αs − X
+
+> s∈So′
+
+αs
+
+
+
+= η(λmin − ρmin ) X
+
+> s∈So′
+
+αs + ηρ min Asum .
+
+Next, we substitute the exact form of αk derived in Step 1, using the stiff parameters λmax and ρmax :
+
+αk ≥ 1
+
+λmax − ρmax 
+
+
+
+yk − ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+
+
+.
+
+Summing this over the No′ indices in So′ :
+
+X
+
+> s∈So′
+
+αs ≥ 1
+
+λmax − ρmax 
+
+ X
+
+> s∈So′
+
+ys − No′
+
+ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+ .
+
+Substituting this back into the logit shift equation and dropping the non-negative term ηρ min Asum :
+
+∆f (q′, o ′) ≥ ηN o′ (λmin − ρmin )
+
+λmax − ρmax 
+
+
+
+yk − ρmax Asum 
+
+λmax + ( G − 1) ρmax 
+
+
+
+.
+
+16 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+(a) RLOO (b) Reinforce++ with baseline 
+
+Figure 4. The effectiveness of RLOO and Reinforce++ with baseline on over-sharpening. 
+
+## H. Proof of Corollary 3.2 
+
+Corollary H.1. Define the ratio R of the lower bound in Case 2 to the upper bound in Case 1: 
+
+R ≜ λmin − ρmin 
+
+λmax − ρmax 
+
+·
+
+ No′ yk
+
+Asum 
+
+·
+
+ λmin + ( G − 1) ρmin 
+
+ρmax 
+
+
+
+− λmin + ( G − 1) ρmin 
+
+λmax + ( G − 1) ρmax 
+
+
+
+.
+
+Under the assumption of a well-conditioned kernel (where λmin ≈ λmax ≈ λ and ρmin ≈ ρmax ≈ ρ), this ratio simplifies to: 
+
+R ≈ No′
+
+ yk
+
+Asum 
+
+ λρ + G − 1
+
+
+
+− 1
+
+
+
+.
+
+Proof. Dividing the lower bound of Case 2 by the upper bound of Case 1 in Theorem 3.4: 
+
+R = 
+
+> ηN o′(λmin −ρmin )
+> λmax −ρmax
+
+
+
+yk − ρmax Asum 
+
+> λmax +( G−1) ρmax
+
+
+
+> ηρ max Asum
+> λmin +( G−1) ρmin
+
+= λmin − ρmin 
+
+λmax − ρmax 
+
+·
+
+ No′ yk
+
+Asum 
+
+·
+
+ λmin + ( G − 1) ρmin 
+
+ρmax 
+
+
+
+− λmin + ( G − 1) ρmin 
+
+λmax + ( G − 1) ρmax 
+
+
+
+.
+
+Assuming uniform parameters λ and ρ, the stiffness damping factor λ−ρλ−ρ becomes 1. The common term η cancels out. We are left with: 
+
+R ≈ 
+
+No′
+
+
+
+yk − ρAsum 
+
+> λ+( G−1) ρ
+
+
+
+> ρAsum
+> λ+( G−1) ρ
+
+= No′
+
+ yk
+
+Asum 
+
+ λρ + G − 1
+
+
+
+− 1
+
+
+
+.
+
+## I. Supplementary Experiment for Section 3.4 
+
+Advanced Advantage Estimators. To ensure that the phenomenon of over-sharpening is not an artifact of simplistic advantage estimation, we extend our analysis to include RLOO and Reinforce++ with baseline. As illustrated in Figure 4, while these methods can slightly delay the onset of collapse compared to raw rewards, the policy eventually collapses onto a single mode. 
+
+Optimizer effect. As shown in Figure 5, both Momentum optimizer and AdamW optimizer significantly accelerate the rate of collapse compared to standard SGD. We see that, for Momentum optimizer, the policy collapses almost instantaneously 17 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards     
+
+> (a) MI (b) AdamW
+> Figure 5. Effect of different optimizers on over-sharpening.
+
+(within 20 steps) regardless of group size. This occurs because the momentum buffer accumulates gradients from early samples. Once sampling bias creates a slight preference for one mode (e.g., Cat), the history buffer sustains the update direction even if subsequent batches are more balanced. For AdamW optimizer, we observe a worse trend. By normalizing updates based on the second moment of the gradients, AdamW amplifies the effective learning rate, allowing the model to maximize the likelihood of the initially sampled modes more aggressively. 
+
+## J. Supplementary Material for Section 4 
+
+Algorithm 1 summarizes the complete pipeline of our methods. We validate the efficacy of our proposed calibration mechanisms using the toy setting described in Section 3.4. Figure 6 presents the evolution of probability mass. We see that inverse-success advantage calibration alone significantly retards the rate of collapse compared to the uncalibrated baseline. Coupling this with distribution-level calibration (memory network) enables the policy to reach a stable equilibrium where diversity is maintained, effectively arresting over-sharpening. Moreover, despite AdamW’s tendency to accelerate collapse, our methods still can prevent the aggressive elimination of alternative modes. 
+
+## K. Supplementary Experiment for Section 5  
+
+> Table 4. Comparison of AVG@8 performance in DeepSeek-R1-Distill-Qwen-1.5B trained on DAPO-Math-17K.
+
+Method Math500 O-bench GRPO 80.07 42.65 DAPO 82.25 43.64 IAC (Ours) 84.61 45.54       
+
+> Table 5. Sensitivity of IAC to the calibration strength α. We report AVG@8 and PASS@8 on Math500 and O-Bench for Qwen3-8B when varying αin IAC. When α= 0 , IAC reduces to the vanilla GRPO objective. We also include a simple filtering baseline that discards the easiest and hardest 25% of training queries (by empirical success rate), retaining only the middle 50% of the difficulty spectrum.
+
+Metric Dataset 0 0.5 1 1.5 2 Filtering-based (Bae et al., 2025) AVG@8 Math500 85.81 87.45 87.67 86.64 86.29 86.13 O-Bench 49.79 50.47 50.49 52.11 50.17 50.21 PASS@8 Math500 91.39 93.79 94.54 94.37 93.85 92.06 O-Bench 56.88 57.56 58.48 59.66 58.88 57.30 18 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+Algorithm 1 Inverse-success Advantage Calibration + Distribution-Level Calibration                                                                                                                    
+
+> Require: policy πθ, reference πref , optional memory mϕ, batch size B, group size G, calibration strength α, memory weight μ
+> 1: while not converged do
+> 2: Sample a mini-batch of queries {qb}Bb=1 from D;3: for each query qbdo
+> 4: if memory mϕis used then
+> 5: Compute calibrated logits ˜f(qb,·) = fθ(qb,·)−μf ϕ(qb,·);6: Sample Gtrajectories {ob,s }Gs=1 ∼softmax ( ˜f(qb,·)) ;7: else
+> 8: Sample Gtrajectories {ob,s }Gs=1 ∼πθ(· | qb);9: end if
+> 10: Compute verifiable rewards rb,s and advantages Ab,s ;11: Identify positive indices S+
+> b={s:Ab,s >0}, negatives S−
+> b;12: Compute success count |S+
+> b|;13: for s∈S+
+> bdo ▷inverse-success calibration 14: ˜Ab,s ←Ab,s ·(G− | S+
+> b|)α;15: end for
+> 16: for s∈S−
+> bdo ▷leave negatives unscaled 17: ˜Ab,s ←Ab,s ;18: end for
+> 19: end for
+> 20: Update θusing calibrated advantages ˜Ab,s and KL regularization to πref ;21: if memory mϕis used then
+> 22: Update mϕon sampled (qb, o b,s )pairs to track empirical frequencies; 23: end if
+> 24: end while
+
+Performance comparison across different datasets and models. We further evaluate IAC on DAPO-Math-17K (Yu et al., 2025) using DeepSeek-R1-Distill-Qwen-1.5B to verify its generality. As shown in Table 4, IAC achieves the best performance, reaching 84.61% on Math500 and 45.54% on O-bench. This represents consistent improvements over GRPO (80.07% / 42.65%) and DAPO (82.25% / 43.64%), demonstrating that IAC can effectively enhance mathematical reasoning capabilities when applied to a different backbone model and training corpus. 
+
+Sensitivity to the calibration strength α. Table 5 investigates how α in IAC affects downstream performance on Math500 and O-Bench. Recall that α controls how strongly we up-weight advantages from hard, low-success queries and down-weight those from easy, high-success ones. When α = 0 , our method reduces exactly to GRPO, and the results at this setting coincide with the GRPO baseline. As α increases from 0 to 1, we observe a consistent improvement on both datasets: AVG@8 and PASS@8 on Math500 peak at α = 1 , while O-Bench attains its best PASS@8 at a slightly larger α = 1 .5.Beyond this moderate regime, further increasing α leads to mild degradation. Intuitively, small α under-corrects sampling bias, allowing easy queries to keep dominating the update and driving over-sharpening. In contrast, large α over-corrects, overly suppressing signal from already-mastered queries and making the optimization less sample-efficient. As we can see, 
+
+α = 1 appears to be a good choice in practice. Table 5 also compares IAC against a filtering strategy that discards the easiest 25% of training queries according to their empirical success rate (Bae et al., 2025). Across both Math500 and O-Bench, filtering yields only modest gains over GRPO and is consistently weaker than IAC. This gap highlights a key limitation of hard filtering: removing easy queries entirely reduces the effective training distribution and discards useful gradient information, particularly about how to maintain correctness on already-solved patterns. IAC, in contrast, keeps all queries in the optimization loop but rescales their influence on the update. Easy queries contribute a smaller—but non-zero—signal, preventing them from overwhelming the batch partition function Z′(q), while hard queries are emphasized in a smooth, data-dependent manner. From a distributional perspective, filtering crudely prunes regions of the solution space, whereas IAC gently rebalances probability mass across difficulty levels. The latter is more effective at preserving useful behaviors on easy instances while still allocating sufficient capacity to explore and stabilize difficult, low-success regimes, which explains the consistent empirical advantage of IAC over filtering-based baselines. 
+
+Entropy evolution. Figure 7 tracks the evolution of the policy entropy when applying DAPO alone versus DAPO combined with IAC. Both methods start from similar initial entropy, but their trajectories diverge markedly over training. Under plain DAPO, entropy decreases monotonically and eventually settles around 0.08 , signalling that the policy becomes almost 19 When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards 
+
+(a) Inverse-success Calibration in SGD (b) Inverse-success Calibration + Dist. Calib. in SGD 
+
+(c) Inverse-success Calibration in AdamW (d) Inverse-success Calibration + Dist. Calib. in AdamW 
+
+Figure 6. We apply our proposed mitigations to the Softmax example. The left column (a, c) employs only inverse-Success advantage calibration, showing a delayed rate of collapse. The right column (b, d) incorporates distribution-level calibration (memory network, 
+
+μ = 0 .5), which arrests collapse and maintains diversity, even under the aggressive updates of AdamW. 
+
+(a) DAPO (b) DAPO+IAC 
+
+Figure 7. Evolution of policy entropy under DAPO and DAPO+IAC. 
+
+deterministic. In contrast, for DAPO+IAC, it stabilizes at a much higher level, fluctuating between 0.20 and 0.24 throughout training. This indicates that the policy retains a substantial degree of stochasticity and continues to explore multiple semantic modes even late in optimization. 20

@@ -1,0 +1,362 @@
+Title: RePO: Bridging On-Policy Learning and Off-Policy Knowledge through Rephrasing Policy Optimization
+
+URL Source: https://arxiv.org/pdf/2602.10819v1
+
+Published Time: Thu, 12 Feb 2026 02:07:49 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# RePO: Bridging On-Policy Learning and Off-Policy Knowledge through Rephrasing Policy Optimization 
+
+Linxuan Xia 1 Xiaolong Yang 2 Yongyuan Chen 1 Enyue Zhao 1 Deng Cai 1 Yasheng Wang 2 Boxi Wu 3
+
+# Abstract 
+
+Aligning large language models (LLMs) on domain-specific data remains a fundamental chal-lenge. Supervised fine-tuning (SFT) offers a straightforward way to inject domain knowledge but often degrades the model’s generality. In con-trast, on-policy reinforcement learning (RL) pre-serves generality but fails to effectively assimi-late hard samples that exceed the model’s current reasoning level. Recent off-policy RL attempts improve hard sample utilization, yet they suffer from severe training instability due to the forced distribution shift toward off-policy knowledge. To reconcile effective off-policy knowledge absorp-tion with the stability of on-policy RL, we pro-pose Rephrasing Policy Optimization (RePO). In RePO, the policy model is prompted to first com-prehend off-policy knowledge and then rephrase it into trajectories that conform to its own stylistic and parametric distribution. RePO dynamically replaces low-reward rollouts with these rephrased, high-quality trajectories. This strategy guides the model toward correct reasoning paths while strictly preserving on-policy training dynamics. Experiments on several benchmarks demonstrate that RePO improves hard-sample utilization and outperforms existing baselines, achieving state-of-the-art performance. 
+
+# 1. Introduction 
+
+Aligning large language models (LLMs) (DeepSeek-AI, 2025a; Jaech et al., 2024) on specialized vertical domains, such as mathematics, medicine, and law, presents a fun-damental alignment challenge. The objective is to inject 
+
+This work was done during an internship at Tencent. 1State Key Laboratory of CAD&CG, the College of Computer Science and Technology, Zhejiang University. 2FiT, Tencent, Shenzhen, China. 3School of Software Technology, Zhejiang University. Correspondence to: Boxi Wu <wuboxi@zju.edu.cn >.
+
+Preprint. 
+
+Figure 1. Challenges in bridging the gap between on-policy ex-ploration and off-policy expertise. Aligning models with domain knowledge while maintaining general reasoning remains a funda-mental challenge. SFT forces the model to fit ”alien” distributions, harming its generality. Conversely, Pure RL struggles to reach unfamiliar knowledge due to the lack of guidance. Furthermore, a Naive Hybrid approach that simply mixes off-policy data results in optimization conflicts and unstable training dynamics. 
+
+precise domain knowledge while meticulously preserving the model’s inherent general reasoning and instruction-following capabilities. A prevalent approach, supervised fine-tuning (SFT) (Zhou et al., 2023; Ding et al., 2023), offers a straightforward mechanism for knowledge transfer. However, by learning to mimic a static dataset of expert demonstrations, SFT essentially performs off-policy train-ing (Chu et al., 2025). This often leads to catastrophic forgetting of general skills and a marked degradation in the model’s robust reasoning abilities, as the model overfits to the narrow distribution of the provided examples. As an alternative, on-policy reinforcement learning (RL) has emerged as a promising paradigm for preserving model generality during fine-tuning. Techniques like Group Rela-tive Policy Optimization (GRPO) (Shao et al., 2024) have been successfully applied in reasoning tasks. By generating and learning from its own outputs, the policy model under-goes updates that are constrained within its own learned distribution, thus maintaining stability and previously ac-quired skills. However, a critical limitation surfaces when confronting ”hard samples”—queries whose solution com-plexity lies just beyond the model’s current reasoning fron-tier. The on-policy paradigm, reliant on the model’s own 1
+
+> arXiv:2602.10819v1 [cs.LG] 11 Feb 2026 Bridging On-Policy Learning and Off-Policy Knowledge through RePO
+
+rollouts, struggles to generate correct trajectories for these samples. Consequently, it fails to effectively assimilate this high-value knowledge, creating a performance plateau. Recent research (Zhang et al., 2025a), such as LUFFY (Yan et al., 2025b), has explored off-policy RL to overcome this knowledge absorption barrier. By leveraging off-policy knowledge from stronger models or human experts, these methods directly expose the learner to correct solutions for hard problems. Theoretically, the reuse of high-value sam-ples can boost learning efficiency. However, in practice, forcing the current policy to fit an external, potentially dis-similar expert distribution induces a severe distributional shift. This leads to significant training instability. The core dilemma remains unresolved: how to leverage valuable off-policy knowledge without sacrificing the training stability inherent to on-policy learning. To bridge this gap, we propose Rephrasing Policy Opti-mization (RePO) , a novel framework designed to reconcile effective off-policy knowledge utilization with on-policy training stability. RePO introduces a two-stage knowledge assimilation mechanism. First, the policy model is prompted to comprehend an off-policy trajectory—an expert solu-tion to a hard problem. Subsequently, it is tasked with rephrasing this solution into its own stylistic and parametric ”voice.” This process transforms raw expert knowledge into a native, on-policy-compatible trajectory. During the RL training loop, RePO dynamically monitors the quality of model-generated rollouts. Those falling below a reward threshold are selectively replaced by these pre-assimilated, high-quality rephrased trajectories. This strategy ensures that the learning signal for hard samples consistently guides the model toward the correct reasoning path, while the train-ing dynamics strictly adhere to the model’s own parameter distribution. Therefore, RePO effectively combines the strengths of both on-policy and off-policy approaches. Extensive experiments across mathematical reasoning and general knowledge benchmarks validate the efficacy of RePO. Our results demonstrate that RePO significantly out-performs both standard on-policy RL baselines and existing off-policy methods. It achieves superior utilization of hard samples, leading to state-of-the-art performance on standard evaluation sets. This work not only advances the method-ology for vertical domain adaptation but also provides a principled approach to integrating heterogeneous knowl-edge sources in RL for language models. 
+
+# 2. Preliminaries 
+
+In this section, we establish the mathematical foundation for our framework. We first formalize the problem of fine-tuning LLMs using Reinforcement Learning with Verifi-able Rewards (RLVR). Subsequently, we review GRPO, a representative algorithm in this domain that serves as the backbone of our study. 
+
+2.1. Reinforcement Learning with Verifiable Rewards (RLVR) 
+
+The process of enhancing the reasoning capabilities of LLMs can be formulated as a token-level Markov Decision Process (MDP) (Puterman, 1994). In this setting, the Large Language Model functions as a stochastic policy πθ , param-eterized by θ, which maps states to a probability distribution over the vocabulary. Formally, a simplified token-level MDP tuple is (S, A, π, R):
+
+State ( S): At any time step t, the state st is represented by the concatenation of the original input query q and the sequence of tokens generated up to that point, denoted as 
+
+st = ( q, o 1, o 2, . . . , o t−1). The initial state s0 corresponds to the query q itself. 
+
+Action ( A): The action space corresponds to the model’s vocabulary V. An action at involves selecting the next token 
+
+ot ∈ V .
+
+Policy ( π): The policy πθ (ot|st) defines the probability of generating token ot given the current context st. A complete trajectory (or response) τ = ( o1, . . . , o T ) is generated by sequentially sampling from this policy. 
+
+Reward ( R): Unlike standard RL tasks with dense signals, RLVR typically relies on a sparse, binary reward signal determined by a verifier function at the end of the generation. Let y be the ground truth answer for query q. The reward 
+
+R(τ ) is assigned as: 
+
+R(τ ) = ⊮(verify (τ, y )) = 
+
+(
+
+1 if correct ,
+
+0 otherwise . (1) The overarching objective of RLVR is to optimize the pol-icy parameters θ to maximize the expected return over the distribution of queries D:
+
+J (θ) = Eq∼D ,τ ∼πθ (·| q)[R(τ )] . (2) Standard policy gradient methods (Williams, 1992) are often employed to estimate the gradients for this objective, though they face challenges related to high variance and sample inefficiency in sparse reward settings. 
+
+2.2. Group Relative Policy Optimization (GRPO) 
+
+GRPO has emerged as a highly effective method for rea-soning tasks, particularly in mathematics and coding. A distinguishing feature of GRPO is its elimination of the value function critic, which is computationally expensive to train. Instead, GRPO estimates the baseline for the advan-tage function using group statistics derived from multiple sampled outputs for the same query. 2Bridging On-Policy Learning and Off-Policy Knowledge through RePO  
+
+> Figure 2. Overview of the Rephrasing Policy Optimization (RePO) framework. The pipeline consists of three key phases: (1) Knowledge Internalization: A rephrasing prompt guides the policy model to comprehend external knowledge and rewrite it into its native stylistic distribution, converting off-policy data into on-policy-compatible traces. (2) Dynamic Injection: To minimize instability caused by distribution shifts, the rephrased trace selectively replaces a low-quality rollout only when the group exhibits a high failure rate. (3) Optimization: The final rollout group, potentially containing the guided trace, is updated via the standard GRPO process.
+
+Specifically, for each query q, the algorithm samples a group of G outputs {oi}Gi=1 from the old policy πθold . By leverag-ing the set of rewards G = {R(o1), . . . , R (oG)} associated with these outputs, GRPO estimates the advantage Ai,t for each token in output oi as: 
+
+Ai,t = R(oi) − mean( G)std( G) + ϵ , (3) where mean( G) and std( G) denote the mean and standard deviation of the reward group, respectively, and ϵ is a small constant for numerical stability. Notably, this advantage value is applied uniformly across all tokens in the sequence 
+
+oi. The optimization objective of GRPO adopts the clipped surrogate loss characteristic of Proximal Policy Optimiza-tion (PPO) (Schulman et al., 2017) to ensure training stabil-ity. To accommodate the group-based sampling, the objec-tive function is defined as: 
+
+JGRPO (θ) = Eq∼D ,{oi}∼ πθold 
+
+"
+
+1
+
+G
+
+> G
+
+X
+
+> i=1
+
+1
+
+|oi|
+
+> |oi|
+
+X
+
+> t=1
+
+
+
+min ( ri,t Ai,t , clip (ri,t , 1 − ϵ, 1 + ϵ)Ai,t )
+
+−βDKL (πθ || πref )
+
+#
+
+,
+
+(4) where ri,t = πθ (oi,t |q, o i,<t )/π θold (oi,t |q, o i,<t ) represents the importance sampling ratio between the current and old policies. The term DKL represents the KL-divergence penalty used to constrain the policy update relative to a reference model πref . However, in many practical imple-mentations of GRPO, the KL coefficient β is often set to 0, simplifying the optimization process (Shao et al., 2024). 
+
+# 3. Method 
+
+3.1. Rephrasing Policy Optimization (RePO) 
+
+To effectively bridge the gap between high-quality off-policy guidance and the model’s intrinsic exploration capabilities, we propose Rephrasing Policy Optimization (RePO). This framework is designed to enable the policy to ”digest” exter-nal knowledge before assimilation, ensuring that off-policy knowledge is injected while maintaining the model’s own distribution as much as possible. The methodology un-folds in two sequential phases: Joint Probability Trajectory Sampling based on Off-policy Knowledge , which generates candidate solutions by conditioning on expert information, and a Dynamic Guidance Strategy based on Group Reward Distribution , which selectively incorporates these solutions into the training set based on the difficulty of the query. 
+
+Joint Probability Trajectory Sampling based on Off-policy Knowledge. Standard RLVR methods sample tra-jectories solely based on the current policy πθ (·| q). In contrast, RePO leverages external off-policy knowledge to guide the generation process. Let k denote the off-policy knowledge (e.g., a ground-truth reasoning path or an expert hint) associated with query q. We modify the sampling paradigm to a conditional probability distribution πθ (·| q, k ),encouraging the model to reason under the guidance of k.Specifically, we construct a rephrasing prompt P(q, k ) that instructs the model to comprehend the logic within k and rewrite it in its own style. By sampling from the policy given this prompt, we obtain a rephrased rollout, denoted as: 
+
+orep ∼ πθ (·|P (q, k )) . (5) In the context of group-based training, for each query q,we first sample a standard group of G on-policy rollouts 
+
+O = {o1, o 2, . . . , o G} where oi ∼ πθ (·| q). With the addi-tion of the rephrased rollout orep , the augmented candidate 3Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+pool temporarily expands to a size of G + 1 . Before reward calculation, orep undergoes a post-processing step (e.g., re-moving prompt-specific meta-tokens) to ensure its format is identical to the standard rollouts in O.
+
+Dynamic Guidance Strategy based on Group Reward Distribution. The distribution of rewards within the on-policy group O serves as a proxy for estimating the difficulty of the current query q relative to the model’s capabilities. We utilize this distribution to implement a dynamic gating mechanism that determines whether to substitute an on-policy rollout with the off-policy guided orep . We introduce two hyperparameters: a reward threshold δ and a minimum failure rate ρ. A rollout oi is classified as a failure if its reward R(oi) < δ . Consequently, we define the group failure rate γfail as the proportion of failed trajectories within the standard group: 
+
+γfail = 1
+
+G
+
+> G
+
+X
+
+> i=1
+
+⊮(R(oi) < δ ). (6) The replacement strategy follows a threshold-based logic. If γfail ≥ ρ, it indicates that the model struggles to solve 
+
+q through independent exploration. In this scenario, we replace the rollout with the lowest reward in O with the rephrased trajectory orep to provide a high-quality learning signal. Conversely, if γfail < ρ , the model is considered to have sufficient exploration capability for this query, and the original group O is retained to preserve on-policy dis-tribution purity. Formally, the final training group Ofinal is updated as: 
+
+Ofinal =
+
+(
+
+(O \ { omin }) ∪ { orep } if γfail ≥ ρ, 
+
+O otherwise , (7) where omin = arg min o∈O R(o). Finally, the policy πθ
+
+is optimized using the GRPO objective JGRPO (θ) (Eq. 4) computed over the trajectories in Ofinal .
+
+3.2. Training Stability Analysis 
+
+RL algorithms, particularly those applied to large-scale lan-guage models, often face significant challenges regarding training stability. Instability can manifest as erratic perfor-mance, divergence of training metrics, or even catastrophic collapse, hindering the model’s ability to learn effective policies. Understanding and mitigating these instabilities is crucial for successful application of RL in complex environ-ments. This section analyzes the training stability of three distinct policy optimization methods: GRPO, LUFFY, and RePO. We investigate their inherent characteristics and their impact on key stability metrics, providing a mathematical and empirical perspective on their performance. 
+
+Table 1. Comparison of Policy Optimization Methods: GRPO, LUFFY and RePO.                   
+
+> Method Sampling Strategy Offline Sample Usage Key Issue GRPO Group-wise sampling N/A Low utilization (flat rewards)
+> LUFFY Group-wise Direct replacement Vocabulary mismatch + Offline samples (unknown forced vocab fit) →instability
+> RePO Group-wise Training model rephrases Consistent updates + Offline samples(rephrased) (local vocab) →stability
+
+3.2.1. Q UALITATIVE COMPARISON OF POLICY 
+
+OPTIMIZATION METHODS 
+
+We focus on three methods that aim to improve upon stan-dard policy gradient approaches, particularly in the context of large-scale language models. Their core differences lie in how they sample data, estimate advantages, and handle off-policy corrections in Table 1. GRPO employs group-wise sampling and computes advan-tages relative to other rollouts within the same group. While designed to enhance stability by normalizing advantage es-timates, it can suffer from low utilization when all rollouts within a group yield similar rewards (e.g., all 0s or all 1s), leading to a lack of effective update directions. LUFFY attempts to provide more effective update direc-tions by directly incorporating offline samples from a more advanced, high-level model. However, a critical issue arises from the vocabulary mismatch between the high-level model (source of offline samples) and the training model. To use these samples, LUFFY forcibly maps the high-level model’s tokens to the training model’s local vocabulary. This forced fitting generates inconsistent results during parameter up-date calculations. Since these inconsistent results inevitably guide parameter updates, LUFFY often leads to training instability, particularly for hard samples. RePO addresses the limitations of LUFFY by adopting a dif-ferent strategy for utilizing offline samples. Instead of direct mapping, RePO uses the training model itself to ”rephrase” the offline samples. It regenerates reasonable thinking and response sequences using the training model’s native vocab-ulary. This ensures that the parameter updates are computed based on consistent and accurate information, leading to correct model parameter updates and enhanced stability. 3.2.2. Q UANTITATIVE EXPERIMENTAL INDICATORS 
+
+To quantitatively assess the training stability of these meth-ods, we primarily monitor three key metrics: Entropy, Gra-dient Norm (GradNorm), and Reward. Reward is a post-training evaluation metric, reflecting the model’s overall per-formance and ability to generate sensible responses. Entropy and GradNorm, however, are critical in-training indicators that provide insights into the policy’s exploration behavior and the health of the optimization process, respectively. 4Bridging On-Policy Learning and Off-Policy Knowledge through RePO    
+
+> Figure 3. GRPO v.s. RePO on Tencent FinLLM Eval (Liang et al., 2025): Stable entropy, stable GradNorm, and rewards with different growth rates. For reasoning tasks (reasoning and calcu-lation, middle row), RePO shows a slight advantage over GRPO, while for knowledge-based tasks (fact and principle, bottom row), RePO’s knowledge injection yields significant improvements.
+
+GRPO: Stable but Low Utilization GRPO’s stability stems from its use of group-wise sampling and relative advantage estimation. The policy gradient update typically involves an advantage function A(s, a ) and the policy’s log-probability log π(a|s):
+
+∇J = Eτ ∼π
+
+"T −1X
+
+> t=0
+
+∇ log π(at|st)A(st, a t)
+
+#
+
+(8) In GRPO, the advantage is computed relative to other roll-outs within the same group. Let R(oi) be the return of the rollout oi in a group of G rollouts. The relative advantage for rollout i might be formulated as Eq. 3. This normaliza-tion ensures that updates are based on relative performance rather than absolute values, which can be more robust to noisy reward signals and prevent excessively large advan-tage estimates. 
+
+LUFFY: Unstable due to Vocabulary Mismatch Its in-stability directly arises from its strategy of incorporating offline samples from a high-level model. The core prob-lem lies in the vocabulary mismatch and the forced token mapping. When offline samples are used, the policy loss depends on the log-probabilities of tokens generated by the high-level model, log πhigh (a|s). If these tokens are not directly present or have different semantics in the training model’s vocabulary, LUFFY attempts to map them. Let 
+
+a′ 
+
+> high
+
+be a token from the high-level model’s vocabulary. LUFFY maps this to a token a′ 
+
+> train
+
+in the training model’s vocabulary. This mapping is inherently lossy and incon-sistent.The policy gradient is then computed using these   
+
+> Figure 4. LUFFY v.s. RePO on the OpenR1-Math Hard Subset :Unstable entropy, exploding GradNorm and vanishing reward. Overly difficult samples and vocabulary mismatch rollouts during training lead to a very large and aggressive parameter update, causing gradient explosion and model collapse.
+
+mapped tokens: 
+
+∇J LU F F Y = Eoffline [∇ log π(a′
+
+> train
+
+|s) · A] (9) where A might still be a relative advantage. 
+
+RePO: Stable and Correct Updates RePO addresses the fundamental flaw of LUFFY by ensuring consistency between the offline samples and the training model’s internal representations. Instead of directly mapping, RePO uses the training model itself to rephrase the offline samples into its native vocabulary. This process can be viewed as: 
+
+(s, a high , R high ) RePO 
+
+−−−→ (s, ˆatrain , ˆRtrain ) (10) where ˆatrain is a sequence generated by the training model, representing the original ahigh but expressed using the train-ing model’s vocabulary and style. The reward ˆRtrain is a re-evaluated one. The policy gradient update then becomes: 
+
+∇J ReP O = Erephrased [∇ log π(ˆ atrain |s) · A] (11) Here, ˆatrain is a token sequence that the training model can naturally generate and assign probabilities to. • Logits and Entropy : By rephrasing with its own vo-cabulary, RePO ensures that the target ˆatrain is consis-tent with the training model’s linguistic and semantic space. 
+
+– The logits generated for ˆatrain are therefore more stable and aligned with the model’s capabilities. 
+
+– This leads to a stable and controlled entropy 
+
+curve. The policy can gradually adjust its distribu-tion to assign higher probabilities to the rephrased 5Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+tokens without experiencing severe internal con-flicts. Entropy might show a healthy exploration pattern, initially high and gradually decreasing as the policy converges, but without erratic jumps. • GradNorm : The correct parameter calculation and correct model parameter updates are the direct conse-quence of this vocabulary alignment. Since the target 
+
+ˆatrain is inherently speakable by the training model, the gradients ∇ log π(ˆ atrain |s) will be well-behaved. 
+
+– Gradients will point in directions that logically improve the policy’s ability to generate desirable rephrased sequences. 
+
+– This prevents the generation of excessively large or conflicting gradients, resulting in a stable and well-bounded GradNorm . Gradient clipping can further ensure this stability, but the inherent sta-bility of RePO’s update mechanism means it is less likely to frequently hit the clipping threshold due to pathological gradients. • Reward : With stable entropy and well-behaved gradi-ents, RePO facilitates consistent and effective learning. Its reward curve is expected to show steady improve-ment, avoiding the instabilities and collapse seen in LUFFY, and potentially achieving higher performance than GRPO due to effective utilization of offline data. Training stability is a cornerstone for the successful deploy-ment of deep reinforcement learning agents. Our analy-sis of GRPO, LUFFY, and RePO highlights how algorith-mic choices, particularly concerning data sampling and off-policy correction, profoundly impact this stability. RePO 
+
+provides a robust solution by rephrasing offline samples using the training model’s native vocabulary. This ensures consistency, leading to well-behaved ‘logits‘, stable entropy, and correctly computed gradients (stable GradNorm). Con-sequently, RePO achieves stable training and consistent performance improvements. 
+
+# 4. Experimental Results 
+
+In this section, we present the experimental setup, including the datasets constructed for training and evaluation, as well as the baseline models used for comparison. 
+
+4.1. Setup Datasets. To comprehensively evaluate the performance of our method in different domains, we constructed data sets that cover both general knowledge and complex math-ematical reasoning. Specifically, we curated the following datasets: • SuperGPQA (Team et al., 2025): Designed to as-sess general knowledge capabilities, this dataset is a comprehensive benchmark that assesses graduate-level knowledge and reasoning capabilities across 285 disciplines. We randomly picked a subset of 11k non-computational problems, where the reasoning traces were distilled from gpt-oss-120b (OpenAI, 2025). • OpenR1-Math : For mathematical reasoning tasks, we derived our training data from OpenR1-Math-45k-8192 dataset used in LUFFY (Yan et al., 2025b). To investi-gate model performance under varying difficulty levels and data sources, we constructed two distinct subsets based on the length of DeepSeek-R1 responses: 
+
+Hard Subset : This subset comprises 18k challenging samples where the response length of DeepSeek-R1 falls within the range of 2k to 4k tokens. It is designed to test the model’s stability on difficult problems. 
+
+Multi-source Harder Subset : To evaluate the robust-ness of our method on multi-source off-policy data, we curated a more challenging subset of 10k samples with response lengths ranging from 3k to 8k tokens. The reasoning trajectories in this subset were distilled from multiple advanced models, including DeepSeek-V3.1-Terminus (DeepSeek-AI, 2024), DeepSeek-V3.2-Speciale(DeepSeek-AI, 2025b), and gpt-oss-120b. • Financial Data : To evaluate the effectiveness of our method in domain-specific knowledge injection, we constructed a financial reasoning dataset comprising 10k samples. The reasoning trajectories were distilled from DeepSeek-V3.2-Speciale (DeepSeek-AI, 2025b), retaining only correct responses to ensure data qual-ity. As a relatively low-resource domain compared to general knowledge and mathematics, training on this dataset further examines RePO’s capability of injecting domain-specific knowledge into the base model. 
+
+Evaluation. We perform a comprehensive evaluation across both mathematical reasoning and general knowl-edge domains. For mathematical reasoning, we used six widely recognized benchmarks: AIME 2024, AIME 2025, AMC (LI et al., 2024), Minerva (Lewkowycz et al., 2022), OlympiadBench (He et al., 2024), and MATH-500 (Hendrycks et al., 2021). Due to the relatively small size of the test sets for AIME 2024, AIME 2025, and AMC, we report the avg@4 metric to ensure statistical stability, while reporting pass@1 for the remaining mathematical bench-marks. To assess general knowledge and out-of-distribution generalization, we employ ARC-c (Clark et al., 2018), GPQA-diamond, MMLU-Pro (Wang et al., 2024), and the full version of the GPQA dataset (Rein et al., 2024), with all results reported as pass@1 . Specifically, the experimental setup of training on SuperGPQA and evaluating on GPQA 6Bridging On-Policy Learning and Off-Policy Knowledge through RePO      
+
+> Table 2. Performance comparison on general knowledge and mathematical reasoning benchmarks. The models are trained on the
+> SuperGPQA subset (11k non-computational problems) and evaluated on the full GPQA dataset for general knowledge, alongside various math benchmarks. The best results for each metric are highlighted in bold .
+
+Method GPQA AIME24 AIME25 AMC MATH-500 Minerva Olympiad 
+
+Qwen3-8B 58.1 75.1 66.4 88.9 96.2 51.1 69.2 GRPO 59.2 75.1 65.8 89.3 94.8 65.4 69.8 
+
+LUFFY 49.8 75.5 64.1 87.9 94.0 66.5 68.7 
+
+RePO (Ours) 61.8 75.8 72.5 88.6 94.8 68.1 68.1    
+
+> Table 3. Performance comparison on the OpenR1-Math Hard Subset (18k samples). This subset consists of difficult problems where the reasoning chain length of DeepSeek-R1 ranges from 2k to 4k tokens. Both methods were trained with the same number of samples and evaluated on in-domain mathematical benchmarks.
+
+Method AIME24 AIME25 AMC MATH-500 Minerva Olympiad 
+
+Qwen2.5-Math-7B 11.5 4.9 31.3 43.6 7.4 15.6 LUFFY 0.0 0.0 0.03 0.0 0.7 0.0 
+
+RePO (Ours) 13.1 10.0 48.5 78.2 32.0 39.1 
+
+is designed to simulate the scenario of private knowledge injection, whereas the mathematical benchmarks primarily serve to measure the model’s reasoning capabilities. To evaluate the effectiveness of domain-specific knowledge in-jection on financial data, we employ five open-source finan-cial benchmarks: FinanceIQ (Team, 2023), Fineva (Group, 2023), FinEval (Guo et al., 2023), Finova (Zheng et al., 2025), and FinLLM Eval (Liang et al., 2025). For Finan-ceIQ and FinLLM Eval, we conduct full-scale evaluation on the complete test sets comprising 1,349 and 629 questions, respectively. For remaining benchmarks, we randomly sam-ple 1k instances each to ensure evaluation efficiency while maintaining statistical reliability. All financial benchmark results are reported as pass@1 . For inference, we adhere to the official recommendations for Qwen models. 
+
+4.2. Main Results Effectiveness of External Knowledge Integration. All models were trained for one single epoch in the SuperGPQA subset constructed to ensure a fair comparison of learning efficiency. As shown in Table 2, our proposed RePO demon-strates superior performance, particularly in tasks requiring the integration of external knowledge. Compared to GRPO, RePO achieves significant gains on the GPQA benchmark and the challenging AIME datasets. This indicates that while GRPO relies solely on reward signals, RePO effec-tively leverages the external knowledge injected to explore correct reasoning paths more efficiently, leading to better generalization on knowledge-intensive and complex rea-soning tasks. Furthermore, in contrast to LUFFY, which exhibits a notable performance drop on GPQA compared to the base model, RePO maintains robust stability. This suggests that LUFFY’s method of integrating expert demon-strations might lead to instability or catastrophic forgetting of general knowledge, whereas RePO successfully assim-ilates off-policy data without compromising the model’s foundational capabilities. 
+
+Stability Analysis on Hard and Multi-source Data. We further investigate the stability of our method compared to LUFFY under more challenging training scenarios. First, we analyze the model stability on the Hard Subset (Ta-ble 3). In this setting, the base model struggles with the complexity of the problems. LUFFY suffers from a catas-trophic collapse. In contrast, RePO remains highly stable and achieves substantial improvements over the base model. To simulate a realistic distillation scenario involving diverse data sources, each prompt in this dataset is associated with multiple reasoning trajectories generated by different mod-els. During training, we randomly select one trajectory per prompt for optimization. As shown in Table 4, LUFFY exhibits a notable performance degradation compared to the base model. Conversely, RePO demonstrates superior robustness. It not only maintains competitive performance on in-distribution math tasks but also significantly improves generalization on the ARC-c benchmark. These results con-firm that RePO is more effective and stable than LUFFY when learning from complex, multi-source off-policy data. 
+
+Performance on Financial Domain and Maintenance of Reasoning Ability. In this experiment, we investigate the trade-off between domain-specific knowledge injection and the maintenance of general reasoning capabilities. We in-troduced Qwen3-30B-A3B-Instruct-2507 (Team, 2025) as a judge to determine whether the answers are semantically equivalent to ground truths. As illustrated in Table 5, while SFT is capable of injecting financial knowledge with rela-7Bridging On-Policy Learning and Off-Policy Knowledge through RePO                                           
+
+> Table 4. Performance comparison on the OpenR1-Math Multi-source Harder Subset (10k samples). This subset contains extremely challenging problems (response length 3k-8k tokens) distilled from multiple models (DeepSeek-R1, DeepSeek-V3.1-Terminus, DeepSeek-V3.2-Speciale, gpt-oss-120b). We evaluate both in-distribution mathematical reasoning and out-of-distribution general capabilities.
+> Method AIME24 AIME25 AMC MATH-500 Minerva Olympiad ARC-c GPQA-diamond MMLU-Pro
+> Qwen-4B 72.7 65.4 88.2 96.6 48.9 67.4 62.4 54.0 71.3
+> LUFFY 61.5 46.4 81.6 93.8 47.4 62.5 33.6 51.0 70.5
+> RePO (Ours) 72.1 66.1 87.8 96.6 48.2 68.1 70.6 52.5 71.2
+> Table 5. Performance comparison on Financial and Mathematical benchmarks. Both SFT and RePO methods were fully trained on the same Financial Data to explore the performance upper bounds on the current dataset. The metrics on financial benchmarks measure the effectiveness of domain-specific knowledge injection, while results on mathematical benchmarks indicates reasoning capabilities.
+
+Method Knowledge Injection Reasoning Ability 
+
+FinLLM-Eval FinanceIQ Fineva FinEval Finova AIME24 AIME25 Qwen3-8B 30.01 70.3 73.6 74.6 55.3 75.1 66.4 SFT 39.51 71.7 74.7 75.1 57.8 41.7 28.3 
+
+RePO (Ours) 68.08 73.6 77.5 77.9 58.5 69.2 58.3 tively low computational resource consumption, the distribu-tion shift introduced during training leads to a catastrophic degradation in the model’s reasoning abilities. In contrast, RePO leverages the advantages of the Reinforcement Learn-ing paradigm to incorporate off-policy knowledge stably and efficiently. RePO not only achieves superior performance in knowledge injection—surpassing SFT significantly on benchmarks like FinLLM Eval—but also mitigates the im-pact on reasoning capabilities. 
+
+# 5. Related Works 
+
+RLHF. Reinforcement learning is widely used for LLM post-training to improve instruction following, safety, and alignment. The RLHF recipe typically combines super-vised fine-tuning, preference-based reward modeling, and on-policy policy optimization (often PPO (Schulman et al., 2017)) with an explicit KL constraint to a reference model for stability (Stiennon et al., 2020; Ouyang et al., 2022). To reduce reliance on expensive annotation, RLAIF (Lee et al., 2024) introduced model-generated preference signals. 
+
+RLVR. Recent reasoning-focused LLMs have advanced RL post-training under verifiable rewards (RLVR), where correctness is checked by deterministic rules, programs, or answer matching. To scale RLVR and reduce reliance on learned value functions, group-based sampling and advan-tage normalization have been adopted (Shao et al., 2024; DeepSeek-AI, 2025a); GRPO provides a PPO-like objective with group-relative baselines to lower value-model over-head and stabilize updates (Shao et al., 2024). Neverthe-less, purely on-policy RLVR can be sample-inefficient on low-success-rate tasks: when correct trajectories are rare, rewards become too sparse and exploration becomes the bottleneck, limiting stable improvement (Yan et al., 2025b). 
+
+Mix-policy RL. To improve sample efficiency and ro-bustness, recent post-training increasingly incorporates non-on-policy signals such as offline data and expert trajecto-ries. Mix-policy optimization combines supervised signals for retention/stability with RL for goal-directed improve-ment. At the loss level, UFT unifies SFT and reinforce-ment fine-tuning to mitigate overfitting and low-success exploration (Liu et al., 2025), while SRFT uses entropy-aware weighting to jointly learn from demonstrations and on-policy rollouts (Fu et al., 2025). For RLVR-style rea-soning, LUFFY bridges on-policy updates with off-policy reasoning traces via regularized importance-sampling-based policy shaping to balance imitation and exploration and avoid rigid copying and entropy collapse (Yan et al., 2025a). At the data level, expert traces can also guide rollout gen-eration: BREAD inserts short expert hints and branches rollouts to densify reward signals (Zhang et al., 2025b), and Prefix-RFT blends SFT and RFT through prefix sampling with minimal pipeline changes (Huang et al., 2025). 
+
+# 6. Conclusion 
+
+In this paper, we introduced Rephrasing Policy Opti-mization (RePO) , a novel framework designed to harmo-nize high-quality off-policy guidance with on-policy explo-ration. By employing a comprehend-and-rephrase mech-anism, RePO effectively transforms external expert traces into on-distribution learning signals, thereby overcoming the distribution mismatch inherent in SFT and the exploration inefficiency of pure RL. Extensive experiments across math-ematical reasoning and financial domains demonstrate that RePO achieves state-of-the-art performance, enabling the stable injection of private domain knowledge while robustly preserving the model’s general reasoning capabilities. 8Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+# References 
+
+Chu, T., Zhai, Y., Yang, J., Tong, S., Xie, S., Schuur-mans, D., Le, Q. V., Levine, S., and Ma, Y. SFT memorizes, RL generalizes: A comparative study of foundation model post-training. CoRR , abs/2501.17161, 2025. doi: 10.48550/ARXIV.2501.17161. URL https: //doi.org/10.48550/arXiv.2501.17161 .Clark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. Think you have solved question answering? try arc, the ai2 reasoning challenge, 2018. URL https://arxiv.org/abs/ 1803.05457 .DeepSeek-AI. Deepseek-v3 technical report. CoRR ,abs/2412.19437, 2024. doi: 10.48550/ARXIV.2412. 19437. URL https://doi.org/10.48550/ arXiv.2412.19437 .DeepSeek-AI. Deepseek-r1: Incentivizing reasoning ca-pability in llms via reinforcement learning. CoRR ,abs/2501.12948, 2025a. doi: 10.48550/ARXIV. 2501.12948. URL https://doi.org/10.48550/ arXiv.2501.12948 .DeepSeek-AI. Deepseek-v3.2: Pushing the frontier of open large language models. CoRR , abs/2512.02556, 2025b. doi: 10.48550/ARXIV.2512.02556. URL https:// doi.org/10.48550/arXiv.2512.02556 .Ding, N., Chen, Y., Xu, B., Qin, Y., Zheng, Z., Hu, S., Liu, Z., Sun, M., and Zhou, B. Enhancing chat language mod-els by scaling high-quality instructional conversations. 
+
+CoRR , abs/2305.14233, 2023. doi: 10.48550/ARXIV. 2305.14233. URL https://doi.org/10.48550/ arXiv.2305.14233 .Fu, Y., Chen, T., Chai, J., Wang, X., Tu, S., Yin, G., Lin, W., Zhang, Q., Zhu, Y., and Zhao, D. SRFT: A single-stage method with supervised and reinforcement fine-tuning for reasoning. CoRR , abs/2506.19767, 2025. doi: 10.48550/ARXIV.2506.19767. URL https://doi. org/10.48550/arXiv.2506.19767 .Group, A. Fin-eva. https://github.com/alipay/ financial_evaluation_dataset , 2023. Guo, X., Xia, H., Liu, Z., Cao, H., Yang, Z., Liu, Z., Wang, S., Niu, J., Wang, C., Wang, Y., Liang, X., Huang, X., Zhu, B., Wei, Z., Chen, Y., Shen, W., and Zhang, L. Fineval: A chinese financial domain knowl-edge evaluation benchmark for large language models. 
+
+CoRR , abs/2308.09975, 2023. doi: 10.48550/ARXIV. 2308.09975. URL https://doi.org/10.48550/ arXiv.2308.09975 .He, C., Luo, R., Bai, Y., Hu, S., Thai, Z. L., Shen, J., Hu, J., Han, X., Huang, Y., Zhang, Y., Liu, J., Qi, L., Liu, Z., and Sun, M. Olympiadbench: A challeng-ing benchmark for promoting agi with olympiad-level bilingual multimodal scientific problems, 2024. URL 
+
+https://arxiv.org/abs/2402.14008 .Hendrycks, D., Burns, C., Kadavath, S., Arora, A., Basart, S., Tang, E., Song, D., and Steinhardt, J. Measuring math-ematical problem solving with the math dataset. NeurIPS ,2021. Huang, Z., Cheng, T., Qiu, Z., Wang, Z., Xu, Y., Ponti, E. M., and Titov, I. Blending supervised and reinforcement fine-tuning with prefix sampling. CoRR , abs/2507.01679, 2025. doi: 10.48550/ARXIV.2507.01679. URL https: //doi.org/10.48550/arXiv.2507.01679 .Jaech, A., Kalai, A., Lerer, A., Richardson, A., El-Kishky, A., Low, A., Helyar, A., Madry, A., Beutel, A., Carney, A., Iftimie, A., Karpenko, A., Passos, A. T., Neitz, A., Prokofiev, A., Wei, A., Tam, A., Bennett, A., Kumar, A., Saraiva, A., Vallone, A., Duberstein, A., Kondrich, A., Mishchenko, A., Applebaum, A., Jiang, A., Nair, A., Zoph, B., Ghorbani, B., Rossen, B., Sokolowsky, B., Barak, B., McGrew, B., Minaiev, B., Hao, B., Baker, B., Houghton, B., McKinzie, B., Eastman, B., Lugaresi, C., Bassin, C., Hudson, C., Li, C. M., de Bourcy, C., Voss, C., Shen, C., Zhang, C., Koch, C., Orsinger, C., Hesse, C., Fischer, C., Chan, C., Roberts, D., Kappler, D., Levy, D., Selsam, D., Dohan, D., Farhi, D., Mely, D., Robinson, D., Tsipras, D., Li, D., Oprica, D., Free-man, E., Zhang, E., Wong, E., Proehl, E., Cheung, E., Mitchell, E., Wallace, E., Ritter, E., Mays, E., Wang, F., Such, F. P., Raso, F., Leoni, F., Tsimpourlas, F., Song, F., von Lohmann, F., Sulit, F., Salmon, G., Parascandolo, G., Chabot, G., Zhao, G., Brockman, G., Leclerc, G., Salman, H., Bao, H., Sheng, H., Andrin, H., Bagherinezhad, H., Ren, H., Lightman, H., Chung, H. W., Kivlichan, I., O’Connell, I., Osband, I., Gilaberte, I. C., and Akkaya, I. Openai o1 system card. CoRR , abs/2412.16720, 2024. doi: 10.48550/ARXIV.2412.16720. URL https: //doi.org/10.48550/arXiv.2412.16720 .Lee, H., Phatale, S., Mansoor, H., Mesnard, T., Ferret, J., Lu, K., Bishop, C., Hall, E., Carbune, V., Rastogi, A., and Prakash, S. Rlaif vs. rlhf: Scaling reinforcement learning from human feedback with ai feedback, 2024. URL https://arxiv.org/abs/2309.00267 .Lewkowycz, A., Andreassen, A., Dohan, D., Dyer, E., Michalewski, H., Ramasesh, V., Slone, A., Anil, C., Schlag, I., Gutman-Solo, T., Wu, Y., Neyshabur, B., Gur-Ari, G., and Misra, V. Solving quantitative rea-soning problems with language models, 2022. URL 
+
+https://arxiv.org/abs/2206.14858 .9Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+LI, J., Beeching, E., Tunstall, L., Lipkin, B., Soletskyi, R., Huang, S. C., Rasul, K., Yu, L., Jiang, A., Shen, Z., Qin, Z., Dong, B., Zhou, L., Fleureau, Y., Lample, G., and Polu, S. Numinamath. https://github.com/ project-numina/aimo-progress-prize/ blob/main/report/numina_dataset.pdf ,2024. Liang, L., Wu, S., Zhang, Y., Tang, Y., and Lu, F. finllm-eval: Evaluation methods for the logical consistency, factual accuracy, and data accuracy of large language models in the financial domain. https://www.github.com/ Tencent/finLLM-Eval , 2025. Liu, M., Farina, G., and Ozdaglar, A. E. UFT: unifying supervised and reinforcement fine-tuning. 
+
+CoRR , abs/2505.16984, 2025. doi: 10.48550/ARXIV. 2505.16984. URL https://doi.org/10.48550/ arXiv.2505.16984 .OpenAI. gpt-oss-120b & gpt-oss-20b model card. 
+
+CoRR , abs/2508.10925, 2025. doi: 10.48550/ARXIV. 2508.10925. URL https://doi.org/10.48550/ arXiv.2508.10925 .Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C. L., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., Schulman, J., Hilton, J., Kelton, F., Miller, L., Simens, M., Askell, A., Welinder, P., Christiano, P. F., Leike, J., and Lowe, R. Training language models to follow instructions with human feedback. 
+
+CoRR , abs/2203.02155, 2022. doi: 10.48550/ARXIV. 2203.02155. URL https://doi.org/10.48550/ arXiv.2203.02155 .Puterman, M. L. Markov Decision Processes: Discrete Stochastic Dynamic Programming . Wiley, 1994. doi: 10.1002/9780470316887. Rein, D., Hou, B. L., Stickland, A. C., Petty, J., Pang, R. Y., Dirani, J., Michael, J., and Bowman, S. R. GPQA: A graduate-level google-proof q&a benchmark. In First Conference on Language Modeling , 2024. URL https: //openreview.net/forum?id=Ti67584b98 .Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. 
+
+CoRR , abs/1707.06347, 2017. URL http://arxiv. org/abs/1707.06347 .Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Zhang, M., Li, Y. K., Wu, Y., and Guo, D. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. CoRR , abs/2402.03300, 2024. doi: 10.48550/ ARXIV.2402.03300. URL https://doi.org/10. 48550/arXiv.2402.03300 .Stiennon, N., Ouyang, L., Wu, J., Ziegler, D. M., Lowe, R., Voss, C., Radford, A., Amodei, D., and Christiano, P. F. Learning to summarize from human feedback. CoRR ,abs/2009.01325, 2020. URL https://arxiv.org/ abs/2009.01325 .Team, D. D. Financeiq. https://github.com/ Duxiaoman-DI/XuanYuan/tree/main/ FinanceIQ , 2023. Team, M.-A.-P., Du, X., Yao, Y., Ma, K., Wang, B., Zheng, T., Zhu, K., Liu, M., Liang, Y., Jin, X., Wei, Z., Zheng, C., Deng, K., Guo, S., Jia, S., Jiang, S., Liao, Y., Li, R., Li, Q., Li, S., Li, Y., Li, Y., Ma, D., Ni, Y., Que, H., Wang, Q., Wen, Z., Wu, S., Xing, T., Xu, M., Yang, Z., Wang, Z. M., Zhou, J., Bai, Y., Bu, X., Cai, C., Chen, L., Chen, Y., Cheng, C., Cheng, T., Ding, K., Huang, S., Huang, Y., Li, Y., Li, Y., Li, Z., Liang, T., Lin, C., Lin, H., Ma, Y., Peng, Z., Peng, Z., Qi, Q., Qiu, S., Qu, X., Tan, Y., Wang, Z., Wang, C., Wang, H., Wang, Y., Wang, Y., Xu, J., Yang, K., Yuan, R., Yue, Y., Zhan, T., Zhang, C., Zhang, J., Zhang, X., Zhang, X., Zhang, Y., Zhao, Y., Zheng, X., Zhong, C., Gao, Y., Li, Z., Liu, D., Liu, Q., Liu, T., Ni, S., Peng, J., Qin, Y., Su, W., Wang, G., Wang, S., Yang, J., Yang, M., Cao, M., Yue, X., Zhang, Z., Zhou, W., Liu, J., Lin, Q., Huang, W., and Zhang, G. Supergpqa: Scaling llm evaluation across 285 graduate disciplines, 2025. URL 
+
+https://arxiv.org/abs/2502.14739 .Team, Q. Qwen3 technical report, 2025. URL https: //arxiv.org/abs/2505.09388 .Wang, Y., Ma, X., Zhang, G., Ni, Y., Chandra, A., Guo, S., Ren, W., Arulraj, A., He, X., Jiang, Z., Li, T., Ku, M., Wang, K., Zhuang, A., Fan, R., Yue, X., and Chen, W. Mmlu-pro: A more robust and challenging multi-task language understanding benchmark, 2024. URL 
+
+https://arxiv.org/abs/2406.01574 .Williams, R. J. Simple statistical gradient-following algo-rithms for connectionist reinforcement learning. Ma-chine Learning , 8:229–256, 1992. doi: 10.1007/ BF00992696. URL https://doi.org/10.1007/ BF00992696 .Yan, J., Li, Y., Hu, Z., Wang, Z., Cui, G., Qu, X., Cheng, Y., and Zhang, Y. Learning to reason under off-policy guidance. CoRR , abs/2504.14945, 2025a. doi: 10.48550/ ARXIV.2504.14945. URL https://doi.org/10. 48550/arXiv.2504.14945 .Yan, J., Li, Y., Hu, Z., Wang, Z., Cui, G., Qu, X., Cheng, Y., and Zhang, Y. Learning to reason under off-policy guidance. CoRR , abs/2504.14945, 2025b. doi: 10.48550/ ARXIV.2504.14945. URL https://doi.org/10. 48550/arXiv.2504.14945 .10 Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+Zhang, W., Xie, Y., Sun, Y., Chen, Y., Wang, G., Li, Y., Ding, B., and Zhou, J. On-policy RL meets off-policy experts: Harmonizing supervised fine-tuning and reinforcement learning via dynamic weighting. CoRR , abs/2508.11408, 2025a. doi: 10.48550/ARXIV.2508.11408. URL https: //doi.org/10.48550/arXiv.2508.11408 .Zhang, X., Huang, Z., Li, Y., Ni, C., Chen, J., and Oymak, S. BREAD: branched rollouts from expert anchors bridge SFT & RL for reasoning. CoRR , abs/2506.17211, 2025b. doi: 10.48550/ARXIV.2506.17211. URL https:// doi.org/10.48550/arXiv.2506.17211 .Zheng, Y., Du, X., Liao, L., Zhao, X., Zhou, Z., Song, J., Zhang, B., Liu, J., Qi, X., Li, Z., Zhang, Z., Wang, W., and Zhang, P. Agentar-fin-r1: Enhancing financial intelligence through domain expertise, training efficiency, and advanced reasoning. CoRR , abs/2507.16802, 2025. doi: 10.48550/ARXIV.2507.16802. URL https:// doi.org/10.48550/arXiv.2507.16802 .Zhou, C., Liu, P., Xu, P., Iyer, S., Sun, J., Mao, Y., Ma, X., Efrat, A., Yu, P., Yu, L., Zhang, S., Ghosh, G., Lewis, M., Zettlemoyer, L., and Levy, O. LIMA: less is more for alignment. CoRR , abs/2305.11206, 2023. doi: 10.48550/ ARXIV.2305.11206. URL https://doi.org/10. 48550/arXiv.2305.11206 .11 Bridging On-Policy Learning and Off-Policy Knowledge through RePO 
+
+# A. Experimental Details 
+
+Data Curation. During the distillation process utilizing gpt-oss-120b , we configure the temperature to 1 and top p 
+
+to 1 to encourage the model to freely sample trajectories. Conversely, for the DeepSeek series models, we adhere to the official recommended inference parameters. 
+
+RL Training Settings. In our reinforcement learning experiments, we generate 8 rollouts for each prompt. The training is conducted with a learning rate of 1e-6 and a batch size of 512 . Unless otherwise specified, we use rule-based reward for training. Regarding the implementation frameworks, RePO is built upon verl , whereas LUFFY is implemented using its official open-source codebase 1.
+
+Model Configurations. For the Qwen2.5 series models, we adopt the same configuration modifications as employed in LUFFY. In contrast, the Qwen3 series models are utilized without any architectural or configuration alterations. 
+
+Supervised Fine-tuning (SFT). We perform SFT on the identical financial dataset utilized for the proposed RePO. The training is configured with a learning rate of 1e-5, a learning rate warmup ratio of 0.05 , and a maximum sequence length of 
+
+16 K tokens. 
+
+A.1. Prompt Example 
+
+You will be provided with a problem along with a reference reasoning process and solution for your study. Your task is to thoroughly internalize and master the problem-solving approach from the reference material, then independently reconstruct and articulate the complete reasoning process in your own style, as if you are solving the problem from scratch based on your own expertise. Critically, your response must read as purely independent reasoning: do not mention, reference, acknowledge, or hint at having seen any external guidance, reference material, or pre-existing solution. Question: {question }
+
+Reasoning Process: {thinking }
+
+Reference Answer: {response }
+
+Your response must strictly follow the output format below. Do not output any extraneous content: 
+
+<COT >
+
+This is your detailed thinking process. You need to rephrase the reasoning process above in your own words. Do not omit or simplify any part of the content. 
+
+</COT ><RESPONSE >
+
+This is the final answer or conclusion. Based on the thinking process you have just articulated, answer the original question with the complete calculation or analysis process. 
+
+</RESPONSE >
+
+> 1https://github.com/ElliottYan/LUFFY
+
+12

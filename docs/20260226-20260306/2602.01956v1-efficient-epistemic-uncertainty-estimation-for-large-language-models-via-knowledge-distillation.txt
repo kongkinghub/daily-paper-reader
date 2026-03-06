@@ -1,0 +1,609 @@
+Title: Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation
+
+URL Source: https://arxiv.org/pdf/2602.01956v1
+
+Published Time: Tue, 03 Feb 2026 03:19:35 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+Seonghyeon Park 2 Jewon Yeom 1 Jaewon Sok 3 Jeongjae Park 1 Heejun Kim 4 Taesup Kim 1 †
+
+# Abstract 
+
+Quantifying uncertainty in Large Language Mod-els (LLMs) is essential for mitigating halluci-nations and enabling risk-aware deployment in safety-critical tasks. However, estimating Epis-temic Uncertainty (EU) via Deep Ensembles is computationally prohibitive at the scale of mod-ern models. We propose a framework that lever-ages the small draft models to efficiently estimate token-level EU, bypassing the need for full-scale ensembling. Theoretically grounded in a Bias-Variance Decomposition , our approach approx-imates EU via Jensen-Shannon divergence among drafts (variance proxy) and KL divergence be-tween the draft mixture and the target (bias proxy). To further ensure accuracy without significant overhead, we introduce Online Stochastic Distilla-tion (OSD) to efficiently approximate target aggre-gation and the Data-Diverse Drafts (DDD) strat-egy to enhance draft diversity for better target ap-proximation. Extensive experiments on GSM8K demonstrate that our method reduces the estima-tion error (RMSE) by up to 37% compared to baselines. Crucially, our approach achieves Hallu-cination Detection performance competitive with heavy perturbation-based methods like TokUR while incurring negligible inference costs, of-fering a practical solution for uncertainty-aware LLM deployment. 
+
+# 1. Introduction 
+
+Large Language Models (LLMs) have demonstrated remark-able performance across a wide range of reasoning, genera-tion, and decision-making tasks (Bubeck et al., 2023; Gem-
+
+> 1
+
+Graduate School of Data Science, Seoul National University 
+
+> 2
+
+Department of Aerospace Engineering, Seoul National University 
+
+> 3
+
+Department of Rural Systems Engineering, Seoul National Univer-sity 4Department of Electrical Engineering and Computer Science, Gwangju Institute of Science and Technology. †Correspondence to: Taesup Kim <taesup.kim@snu.ac.kr >.Preprint. Under review. 
+
+Figure 1. RMSE vs. Spearman correlation for 8B (target model) 
+
+→ 3B (draft model). Each point represents one of 5 independent runs. Lower RMSE and higher Spearman indicate better uncer-tainty estimation. Our proposed DDD achieves the best trade-off among all methods. 
+
+ini Team, 2023). Despite these advances, their tendency to produce fluent yet incorrect responses, which is commonly referred to as hallucinations , remains a critical obstacle to reliable real-world deployment (Huang et al., 2025b; Alansari & Luqman, 2025; Ji et al., 2023). A key challenge underlying hallucinations is the lack of reliable uncertainty estimation, which prevents models from recognizing when they are likely to be wrong. Uncertainty estimation in neural networks is commonly framed through a Bayesian lens, decomposing predictive uncertainty into aleatoric uncertainty , which arises from inherent noise in the data, and epistemic uncertainty , which reflects uncertainty over model parameters (Kendall & Gal, 2017; H ¨ullermeier & Waegeman, 2021). Among these, epis-temic uncertainty (EU) is particularly valuable for safety-critical applications, as it signals insufficient knowledge and correlates strongly with out-of-distribution (OOD) inputs and hallucination-prone queries (Ovadia et al., 2019; Gal & Ghahramani, 2016; Farquhar et al., 2024; Zhang et al., 2025). Unlike aleatoric uncertainty which captures inherent data noise, epistemic uncertainty effectively quantifies the model’s ‘ignorance’ stemming from data scarcity. Conse-1
+
+> arXiv:2602.01956v1 [cs.LG] 2 Feb 2026 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation
+
+quently, high epistemic uncertainty serves as a direct indi-cator of potential confabulation, making it a vital reliability metric for high-stake domains. Accurately estimating EU en-ables models to abstain, or trigger verification mechanisms, thereby significantly improving trustworthiness. However, estimating epistemic uncertainty for modern LLMs remains challenging. Bayesian approaches such as 
+
+Deep Ensembles provide a principled approximation by in-tegrating over multiple independently trained models (Lak-shminarayanan et al., 2017), but their computational and memory costs are prohibitive for models with billions of parameters. Alternative perturbation-based methods, such as dropout sampling, input paraphrasing, or token-level resam-pling, avoid maintaining multiple model checkpoints (Gal & Ghahramani, 2016; Ovadia et al., 2019; Kuhn et al., 2023). However, in autoregressive generation, these approaches of-ten conflate epistemic and aleatoric uncertainty and require repeated forward passes of the same large model (Ovadia et al., 2019; Farquhar et al., 2024). These limitations sig-nificantly restrict their applicability in latency-sensitive or large-scale settings. At the same time, recent advances in inference acceleration have introduced an overlooked opportunity. Efficient infer-ence paradigms (Leviathan et al., 2023) employ one or more lightweight draft models to propose candidate tokens, which are subsequently verified by a larger target model. Although originally designed for efficiency, this strategy naturally pro-duces a family of auxiliary models that approximate the target model’s predictive behavior while differing in archi-tecture size, training data, and optimization dynamics. From a Bayesian perspective, epistemic uncertainty arises from variability across plausible models sampled from the posterior over parameters. While directly sampling from the posterior of an LLM is infeasible, we recognize that a single lightweight draft model often lacks the expressivity to fully capture the target’s complex distribution. To address this, we leverage ensembles of draft models , where each constituent member acts as a lightweight approximation to a different mode of the target model’s posterior predictive distribution, collectively capturing the multi-modal nature of it. Under this view, disagreement among draft ensembles provides a natural proxy for epistemic uncertainty: when inputs are well-supported by the training distribution, the ensembles tend to agree, whereas for ambiguous or OOD queries, their predictions diverge substantially. Nevertheless, draft models are imperfect approximations of the target and inevitably introduce bias. Thus, effective uncertainty estimation must account for both the diversity among drafts and their mismatch with the target model. Mo-tivated by this observation, we ask the following question: 
+
+Can we leverage small draft models to estimate the epistemic uncertainty of a large target model both accurately and efficiently? 
+
+In this work, we answer this question affirmatively and propose a principled framework for epistemic uncertainty estimation using draft models. Our approach treats a fam-ily of drafts as a proxy for the target model’s posterior predictive distribution and decomposes uncertainty estima-tion error into variance and bias components. We derive a bias–variance decomposition showing that epistemic un-certainty can be approximated by (i) the Jensen–Shannon divergence among draft predictions as a variance proxy, and (ii) the KL-divergence between the draft mixture and the target model as a bias proxy. To further enhance posterior diversity among drafts, we introduce Online Stochastic Distillation (OSD) combined with a Data-Diverse Drafts (DDD) strategy, where drafts are trained on disjoint data partitions. Unlike on-policy distillation methods such as GKD (Agarwal et al., 2024) or MiniLLM (Gu et al., 2024), which tend to over-align drafts with the target and collapse epistemic signals, our approach preserves complementary inductive biases across drafts, leading to more reliable uncertainty estimates. Empirically, we evaluate our method on GSM8K (Cobbe et al., 2021) and demonstrate a 37.67% reduction in uncer-tainty estimation error (RMSE) compared to strong base-lines. Moreover, our approach achieves hallucination detec-tion performance competitive with heavy perturbation-based methods such as TokUR (Zhang et al., 2025), while incur-ring negligible additional inference cost. In summary, our contributions are: • We propose a novel perspective that leverages small draft models as a proxy for the target model’s posterior predictive distribution. • We derive a bias–variance decomposition for epistemic uncertainty estimation, grounding draft disagreement in a principled theoretical framework. • We introduce Online Stochastic Distillation and Data-Diverse Drafts to preserve posterior diversity among drafts. • We empirically demonstrate that our method enables accurate and efficient epistemic uncertainty estimation for large language models. 
+
+# 2. Related Works 
+
+Uncertainty Estimation in LLMs. Uncertainty Estima-tion for LLMs has been actively studied with the goal of quantifying the reliability of model outputs by estimating the likelihood of prediction errors in advance (Gawlikowski 2Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+et al., 2023). By explicitly measuring the uncertainty associ-ated with LLM predictions, UE aims to mitigate hallucina-tions and to enable safer and more reliable decision-making in downstream applications (Xia et al., 2025). To this end, prior work has proposed a variety of meth-ods for assessing output confidence, including approaches that exploit token- and sequence-level likelihood-based sig-nals—such as predicted probabilities, entropy, and calibra-tion metrics (Jiang et al., 2021; Ahdritz et al., 2024)—as well as approaches that estimate uncertainty from the vari-ability of predictive distributions obtained via sampling and inference-time ensembling under prompt and input perturba-tions (Lyu et al., 2025; Manakul et al., 2023; Tonolini et al., 2024). In particular, Bayesian Neural Network based approaches (Neal, 1996) distinguish uncertainty into aleatoric uncer-tainty , arising from the intrinsic ambiguity of the data, and 
+
+epistemic uncertainty , stemming from limitations in the model’s knowledge and reasoning capacity, and attempt to quantify both through Bayesian posterior inference (Kendall & Gal, 2017; H ¨ullermeier & Waegeman, 2021). To improve computational efficiency, recent work has proposed approx-imating Bayesian uncertainty by modeling only a subset of parameters probabilistically, for example through low-rank adapters or lightweight Bayesian modules (Dialameh et al., 2025; Yang et al., 2024; Wang et al., 2024). However, much of the existing work has focused on short-form predictions or query-level uncertainty, and token-level uncertainty over long autoregressive generation trajectories remains underexplored (Gal & Ghahramani, 2016; Malinin & Gales, 2021; Shi et al., 2025). TokUR (Zhang et al., 2025) takes a step toward addressing this gap by approximating token-level epistemic uncertainty via LoRA-based param-eter perturbations, and shows that such uncertainty signals can be used to identify erroneous decoding trajectories dur-ing generation (Hu et al., 2022; Gao et al., 2024). Despite their effectiveness, perturbation-based epistemic UE methods require multiple stochastic forward passes of the target LLM to obtain stable uncertainty estimates, leading to a substantial increase in inference cost. This motivates the need for UE methodologies that can approximate epis-temic uncertainty under significantly lower computational budgets. 
+
+Efficient Inference via Speculative Decoding. Specula-tive decoding (Stern et al., 2018; Xia et al., 2023) accelerates inference for LLMs by using a lightweight draft model to propose multiple future tokens in advance, which are then verified by a larger target model in a single forward pass. By reducing the number of expensive autoregressive decoding steps executed by the target model, this framework sub-stantially improves decoding throughput without degrading output quality. The effectiveness of speculative decoding is largely gov-erned by how well the conditional distributions produced by the draft model align with those of the target model . Build-ing on this principle, subsequent work has extended the framework with a range of drafting and verification strate-gies that trade off proposal quality against verification cost (Xia et al., 2024; Hu et al., 2025). Recently, several studies have introduced uncertainty-aware control policies for speculative decoding—such as dynam-ically adapting the verification frequency or draft length based on uncertainty signals—but these methods are pri-marily aimed at improving inference efficiency or refining verification strategies, rather than at estimating the epis-temic uncertainty of the target model itself (Qin et al., 2025; Huang et al., 2025a; Agrawal et al., 2024). In this work, we reinterpret speculative decoding from a distributional perspective and show that a properly trained family of draft models can be viewed as a finite surrogate for approximating the posterior of the target model. Building on this interpretation, we reframe speculative decoding into a structural framework for estimating the epistemic uncer-tainty of the target model in an effective and computationally efficient manner. 
+
+Knowledge Distillation. Knowledge Distillation (KD) has been widely studied as a core technique for compressing LLMs and accelerating inference (Hinton et al., 2015; Yang et al., 2025). In a distributional sense, KD can be interpreted as a methodology for training a student model to approxi-mate the teacher’s posterior-induced predictive distribution by matching its output distribution to that of the teacher. However, standard distillation based on the forward Kull-back–Leibler (KL) divergence tends to encourage the stu-dent to cover all modes of the teacher distribution. For capacity-limited student models, this mode-covering be-havior can lead to overly diffuse or distorted predictive distributions (Cao & Kang, 2025; Agarwal et al., 2024). To address this limitation, recent work has proposed on-policy distillation schemes, in which the student is trained on samples generated by its own policy and receives super-visory signals from the teacher. MiniLLM (Gu et al., 2024) adopts reverse KL–based training to promote mode-seeking behavior in generative distillation, thereby encouraging the student to concentrate on the dominant modes of the teacher distribution. GKD (Agarwal et al., 2024) generalizes this paradigm by unifying divergence choices and sampling poli-cies into a flexible framework, showing that the student dis-tribution can be more faithfully aligned with the teacher’s posterior. These on-policy distillation approaches provide a conceptual foundation for training draft models to bet-3Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+ter approximate the dominant probability mass structure of a target model, thereby offering theoretical support for draft-based uncertainty estimation. However, while mode-seeking behaviors (encouraged by Reverse KL) are beneficial for generating high-quality text by avoiding unlikely tokens, they are detrimental for uncer-tainty estimation. This is because they artificially collapse the distributional variance necessary to represent the full posterior, thereby masking valid epistemic signals and lead-ing to over-confident student models. 
+
+# 3. Theoretical Analysis 
+
+In this section, we establish a theoretical framework for es-timating the Epistemic Uncertainty (EU) of a target Large Language Model (LLM) using a family of draft models. We formally define the uncertainty, derive a general upper bound utilizing the draft mixture, and propose a computa-tionally efficient estimator based on a bias-variance decom-position. 
+
+3.1. Preliminaries: Epistemic Uncertainty 
+
+Let θ denote the parameters of the target model, which are assumed to follow a posterior distribution πT (θ) given the training data. The likelihood of generating an output se-quence y given parameters θ is pθ (y). The predictive distri-bution of the target model, often referred to as the Bayesian Model Average (BMA), is defined as the expectation over the posterior: 
+
+pT (y) = Eθ∼πT (θ)[pθ (y)] 
+
+Epistemic Uncertainty (EU) quantifies the reduction in un-certainty about the model parameters given the data. For-mally, it is defined as the mutual information between the output y and the parameters θ, denoted as I(y; θ). This can be expressed as the difference between the total uncertainty (i.e., entropy of the predictive distribution) and the aleatoric uncertainty (i.e., expected entropy of individual model real-izations): EU = H(pT ) − Eθ∼πT (θ)[H(pθ )] 
+
+Following Lakshminarayanan et al. (2017), this mutual in-formation is equivalent to the expected Kullback-Leibler (KL) divergence between individual parameter realizations and the predictive average. 
+
+Lemma 3.1. Epistemic uncertainty is equivalent to: EU = Eθ∼πT (θ)[KL (pθ || pT )] 
+
+Computing this directly is computationally prohibitive for LLMs as it requires sampling multiple high-cost target mod-els to approximate the expectation Eθ and computing the ensemble average pT .
+
+3.2. Bounding EU via Draft Mixture 
+
+To reduce computational costs, we introduce a family of K
+
+lightweight draft models {qk}Kk=1 , typically used in spec-ulative decoding. We define their mixture distribution as 
+
+qmix (y) = 1
+
+> K
+
+PKk=1 qk(y).We first derive a general relationship linking the target’s epistemic uncertainty to this draft mixture. 
+
+Theorem 3.2 (General Upper Bound) . The expected diver-gence between the target model realizations and the draft mixture provides an upper bound on the epistemic uncer-tainty: 
+
+Eθ [KL (pθ || qmix )] = EU + KL (pT || qmix )
+
+Proof. Expanding the KL divergence term: 
+
+Eθ [KL (pθ || qmix )] = Eθ
+
+"X
+
+> y
+
+pθ (y) log pθ (y)
+
+qmix (y)
+
+#
+
+= Eθ
+
+"X
+
+> y
+
+pθ (y) log 
+
+ pθ (y)
+
+pT (y) · pT (y)
+
+qmix (y)
+
+#
+
+= Eθ [KL (pθ || pT )] + X
+
+> y
+
+Eθ [pθ (y)] log pT (y)
+
+qmix (y)
+
+The first term is the definition of EU (Lemma A.1). Since Eθ [pθ (y)] = pT (y), the second term simplifies to 
+
+KL (pT || qmix ).Since KL (pT || qmix ) ≥ 0, this confirms that calculating divergences against the draft mixture overestimates the true uncertainty unless the draft mixture perfectly matches the target average. 
+
+3.3. Efficient Estimation via Bias-Variance Decomposition 
+
+To avoid sampling θ entirely, we leverage the draft models as a proxy for the target posterior. We formally state the 
+
+Proxy Posterior Assumption :
+
+Assumption 3.3. The expectation over the target posterior can be approximated by the expectation over the discrete set of draft models: 
+
+Eθ∼πT (θ)[·] ≈ Ek∼U (1 ,K )[·]
+
+Under this assumption, we propose the proxy estimator 
+
+ˆEU = Ek[KL (qk|| pT )] . We now show that this estimator can be decomposed into two computationally distinct terms. 
+
+Theorem 3.4 (Bias-Variance Decomposition) . The proxy estimator decomposes exactly into the Jensen-Shannon Di-vergence (JSD) among the draft models (Variance) and the 
+
+4Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+divergence of the draft mixture from the target (Bias): 
+
+Ek[KL (qk|| pT )] = JSD (q1, . . . , q K )
+
+| {z }
+
+> Variance Proxy
+
++ KL (qmix || pT )
+
+| {z }
+
+> Bias Proxy
+
+(1) 
+
+where JSD (qk) = Ek[KL (qk|| qmix )] .Proof. Substituting qmix into the log term of the estimator: 
+
+Ek [KL (qk|| pT )] = Ek
+
+"X
+
+> y
+
+qk log qk
+
+pT
+
+#
+
+= Ek
+
+"X
+
+> y
+
+qk log 
+
+ qk
+
+qmix 
+
+· qmix 
+
+pT
+
+#
+
+= Ek[KL (qk|| qmix )] + X
+
+> y
+
+Ek[qk] log qmix 
+
+pT
+
+The first term is the definition of JSD. Since Ek[qk] = qmix ,the second term becomes KL (qmix || pT ).
+
+Operational Significance. The decomposition in Eq. 1 transforms the computationally intractable EU estimation into two manageable terms: 1. Variance Proxy (JSD). This measures the disagree-ment among draft ensembles. While this requires for-ward passes of the constituent draft models, these com-putations are inherently part of the draft-assisted in-ference process and do not incur additional overhead relative to the inference strategy. 2. Bias Proxy (KL). This measures the deviation of the draft mixture from the target posterior average ( pT ). Crucially, by substituting the intractable pT with our distilled proxy pmix , we can estimate this term with just 
+
+a single forward pass of the proxy model . This effec-tively replaces the prohibitive requirement of executing the full target model ensemble ( N passes) with a single inference step. 
+
+3.4. Learning the Proxy Mean via Online Stochastic Distillation 
+
+To practically compute the Bias Proxy term derived in Eq. 1, we require a tractable approximation of the target’s predic-tive distribution pT . Since pT is an integration over the in-tractable posterior πT (θ), direct computation is impossible. To address this, we introduce Online Stochastic Distillation 
+
+(OSD). 
+
+Definition and Objective. Standard Knowledge Distilla-tion (KD) aligns a student with a fixed teacher. In contrast, OSD trains a single proxy student pmix (parameterized by ϕ)to approximate the expected output of a stochastic teacher distribution. We minimize the expected forward KL diver-gence over the target posterior πT (θ):
+
+LOSD (ϕ) = Ex∼D Eθ∼πT (θ) [KL (pθ (·| x)|| pmix (·| x; ϕ))] 
+
+In practice, at each training step, we sample a perturbed realization θ ∼ πT (θ) (via low-rank noise injection) and update pmix to match this stochastic target. 
+
+Theoretical Justification. This objective is theoretically grounded in information geometry. It is a known property of the forward Kullback-Leibler divergence that the distri-bution q∗ minimizing the expected divergence from a set of distributions {pθ } is their arithmetic mean (mixture): 
+
+arg min 
+
+> q
+
+Eθ [KL (pθ || q)] = Eθ [pθ ] = pT
+
+Thus, by training on stochastic teacher samples via Forward KL, pmix naturally converges to the Bayesian Model Average 
+
+pT , effectively marginalizing out the epistemic uncertainty of the teacher. 
+
+# 4. Experimental Setup 
+
+We designed a comprehensive suite of experiments to vali-date our theoretical framework and determine the optimal configuration for efficient EU estimation and its application to downstream tasks. 
+
+4.1. Models and Posterior Simulation 
+
+We utilized the Llama3 family of models (Touvron et al., 2023) to cover various scale ratios. Specifically, we em-ployed Llama-3.1-8B-Instruct as the target model (i.e., Teacher) and Llama-3.2-3B-Instruct as the draft model (i.e., Student). To create a ground-truth Target Family representing the pos-terior πT (θ), we injected Low-rank Gaussian Noise into the parameters of the 8B target model. This process generates a set of perturbed models that act as samples from the pos-terior. We generated target families of size 3 to evaluate estimation performance under different posterior densities. 
+
+4.2. Datasets and Data Generation 
+
+Experiments were conducted on the GSM8K dataset. To train the draft models and the proxy pmix , we generated a synthetic training set where the Target model produced 4 diverse responses for each query in GSM8K. This multi-output data captures the aleatoric and epistemic uncertainty of the teacher, providing the necessary signals for distilla-tion. 5Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+4.3. Distillation Methods 
+
+We employ Online Stochastic Distillation (OSD) as our core training framework, which minimizes the expected Forward-KL divergence between the student and a stochastic teacher distribution. 
+
+Training the Proxy pmix . To obtain the proxy model for the Bias term, we apply OSD on the full dataset. By training a single student against stochastic teacher samples, pmix 
+
+converges to the Bayesian Model Average (mean) of the target family, efficiently approximating pT in Eq. 1. 
+
+Training the Draft Family. To evaluate how different sources of stochasticity affect posterior approximation, we categorize the draft training into three distinct variants: • Data-Diverse Drafts (DDD): Each draft model is trained on a disjoint partition of the target-generated dataset, inducing diversity through variations in the training data distribution. • Initialization-Diverse Drafts (IDD): Each draft model is initialized with diverse parameter noise and trained on the entire dataset, isolating the effect of stochastic starting points on posterior coverage. • Fully-Diverse Drafts (FDD): FDD combines both strategies by applying diverse parameter initialization and training each model on disjoint data partitions. 
+
+Baselines. We compare OSD against GKD (Agarwal et al., 2024) and MiniLLM (Gu et al., 2024) . While these meth-ods are effective for text quality, their mode-seeking nature (Reverse-KL) often collapses the distribution, potentially hindering the capture of full epistemic uncertainty compared to the mode-covering nature of OSD. 
+
+4.4. Ensemble Configuration 
+
+To investigate the interplay between distillation strategies and ensemble construction, we focus on a structured 2 ×3configuration designed to capture the diversity of the tar-get posterior. In this setup, we train six independent draft models and ensemble them in pairs to form three imitated groups . Each group is specifically optimized to collectively mimic the predictive behavior of a corresponding member within the target family. This hierarchical approach allows the ensemble to effectively preserve the epistemic uncer-tainty of the target model by leveraging both the diversity induced during independent training and the collaborative refinement provided by group ensembling.   
+
+> Table 1. Uncertainty Estimation Performance. Comparison of RMSE ( ↓) and Spearman Correlation ( ↑) across different methods.
+
+Method RMSE ↓ Spearman ↑
+
+Baseline(No Train) 0.3266 0.8781 GKD 0.3107 0.8981 MiniLLM 0.3029 0.8994 IDD 0.3166 0.9159 FDD 0.3140 0.9175 DDD (Ours) 0.2036 0.9165 
+
+4.5. Evaluation Protocols and Metrics Uncertainty Estimation. We measure the fidelity of esti-mated EU against the ground-truth Target EU using RMSE 
+
+(Lower is better) and Spearman’s ρ (Higher is better). We also report the standard deviation across 5 repeated trials to ensure robustness. 
+
+Hallucination Detection. We utilize token-level uncer-tainty to identify incorrect generations. Since raw scores are not calibrated probabilities, we train a logistic regression classifier on a hold-out set to map uncertainty to correct-ness probabilities. Performance is measured via AUROC 
+
+(discrimination), ECE , and Brier Score (calibration). We compare our results against TokUR (Zhang et al., 2025) , a heavy baseline requiring multiple target-level perturbations. 
+
+# 5. Experimental Results and Analysis 
+
+In this section, we present a detailed analysis of our ex-perimental findings, demonstrating the effectiveness of our framework in approximating epistemic uncertainty and its practical utility in downstream tasks. We first establish the superiority of our Data-Diverse Drafts (DDD) strategy in uncertainty estimation and then evaluate its performance in hallucination detection. 
+
+5.1. Superiority in Uncertainty Estimation 
+
+We first validate the ability of our draft models to approxi-mate the target model’s epistemic uncertainty. This involves assessing the fidelity of the estimated values across various model capacities and distillation strategies. As summarized in Table 1, our DDD strategy consistently achieves the lowest RMSE and highest Spearman correla-tion across all model pairs. DDD reduces RMSE to 0.2036, significantly outperforming advanced distillation methods such as GKD (0.3107) and MiniLLM (0.3029). This sug-gests that our strategy effectively forces the draft family to cover the diverse modes of the target posterior, which is essential for accurate uncertainty quantification. 6Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation                      
+
+> Table 2. Hallucination Detection: Performance vs. Efficiency Trade-off. Our lightweight draft-based method matches the heavy TokUR baseline while requiring significantly fewer FLOPs. Shaded rows indicate our method. †: Uses 8B target model. ‡:Uses lightweight drafts.
+> Method Cost AUROC ↑ECE ↓Brier ↓
+> TokUR †1.00 ×0.7823 0.0652 0.1495 Draft Untrained ‡0.75 ×0.7853 0.0760 0.1494
+> DDD (Ours) ‡0.75 ×0.7839 0.0576 0.1480
+
+5.2. Application: Hallucination Detection 
+
+We assess the practical utility of our method by using the estimated token-level uncertainty to identify incorrect gener-ations (hallucinations). We compare our lightweight Draft Trained approach against TokUR (Zhang et al., 2025), a heavy baseline that requires multiple forward passes of the target model. Table 2 presents the detection results on the GSM8K dataset. Our method achieves an AUROC of 0.7839, effectively matching the TokUR baseline (0.7823), and even shows an improvement in ECE and Brier Score. While TokUR incurs significant computational latency by perturbing the 8B tar-get, our method utilizes the 3B draft models. This allows for high-quality uncertainty quantification with negligible overhead. 
+
+5.3. Ablation Studies Scalability Across Model Sizes. We further evaluate the robustness of our approach by applying it to draft with significant low capacity. We use Llama-3.2-1B-Instruct as the draft, and test both scenarios where 8B and 3B model serves as the target. As shown in Table 3, despite the 1B draft model having substantially fewer parameters, the DDD strategy maintains a strong Spearman correlation of 0.8951 in the 8B →1B scenario. While a slight performance dip occurs in the 8B →1B scenario due to the increased capacity gap of the target and the draft, the consistent superiority of DDD over baselines highlights its robustness. 
+
+Role of the Distilled Proxy pmix . We evaluate the impact of the distilled proxy pmix on stabilizing the bias term es-timation. As shown in Table 4, pmix demonstrates superior efficiency and robustness compared to the raw target model (porig ). Crucially, our method achieves a lower RMSE of 
+
+0.0283 with only K = 3 perturbations, significantly outper-forming the raw target model (RMSE 0.0391) even when the latter utilizes a much larger ensemble of K = 10 . This result highlights the efficiency of our approach: pmix effectively marginalizes over the target’s aleatoric noise, allowing for high-fidelity uncertainty estimation with minimal inference overhead. This stability is further visualized in Figure 2;           
+
+> Figure 2. Stability analysis comparing porig (baseline) and pmix
+> (Ours). Box plots show RMSE distribution over 5 runs under
+> K= 3 and K= 10 perturbations. Lower RMSE indicates more stable estimation.
+
+notably, when matching the perturbation budget ( K = 10 ), our proxy reduces the RMSE further to ≈ 0.014 , confirming its effectiveness as a reliable auditor. 
+
+Impact of Data Partitioning and Architecture. We an-alyze the sensitivity of the DDD strategy to data splits. Ta-ble 5 confirms that data partitioning is critical for posterior coverage; the 2 × 3 and 3 × 3 configurations consistently outperform single-chunk training. It is worth noting that while the 3 × 3 configuration yields the marginally low-est error (0.2024), the 2 × 3 architecture achieves a highly competitive error (0.2036) with reduced training complexity. Therefore, we select 2 × 3 as the optimal trade-off between performance and resource efficiency. For detailed explana-tion of data partitioning strategies, see Appendix B.6. 
+
+5.4. Computational Analysis 
+
+A key advantage of our framework is its computational effi-ciency. We compare the inference cost of our method against the TokUR baseline, which requires multiple stochastic for-ward passes of the heavy target model. 
+
+FLOPs Analysis. We estimate the total inference cost in terms of parameter-equivalent FLOPs. The total cost for our method comprises the drafts’ variance estimation plus a single forward pass of the proxy target (required for the bias term and generation). Table 6 summarizes the relative overhead. The TokUR baseline requires K = 3 forward passes of the 8B target model, resulting in a total cost of 
+
+3 × 8B = 24 B per sequence. In comparison, our 8B →1B 7Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation     
+
+> Table 3. Uncertainty Estimation Performance (Smaller Draft Models). Comparison of RMSE ( ↓) and Spearman Correlation ( ↑) for 1B draft models. Our DDD strategy consistently outperforms baselines in capturing the target’s uncertainty across different target-draft scales.
+
+8B (Target) → 1B (Draft) 3B (Target) → 1B (Draft) Method RMSE ↓ Spearman ↑ RMSE ↓ Spearman ↑
+
+Baseline(No Train) 0.5719 0.8189 0.4696 0.8327 IDD 0.5927 0.8843 0.5875 0.8881 FDD 0.5638 0.8899 0.5604 0.8901 
+
+DDD (Ours) 0.4437 0.8951 0.4023 0.9017                                   
+
+> Table 4. Robustness of pmix Proxy. Comparison of RMSE ( ↓) and Spearman correlation ( ↑) between the raw target model and our distilled pmix proxy under varying perturbations.
+> Perturbation Metric Target (raw) pmix (Ours) K=3 RMSE ( ↓)0.0436 0.0283
+> Spearman ( ↑)0.9945 0.9829
+> K=10 RMSE ( ↓)0.0391 0.0137
+> Spearman ( ↑)0.9957 0.9969
+> Table 5. Impact of Data Partitioning. Evaluation of different split configurations on 8B →3B RMSE ( ↓). Data-diverse partitioning consistently reduces estimation error.
+> Split Config RMSE (↓)
+> 1×30.2050
+> 2×3 (Ours) 0.2036
+> 3×30.2024
+> 3 only 0.2122 6 only 0.2145 9 only 0.2129
+
+configuration (DDD) utilizes 6 lightweight drafts plus one target pass, totaling (6 × 1B) + (1 × 8B) = 14 B. This achieves a 42% reduction in FLOPs ( 0.58 ×) compared to TokUR, while maintaining competitive detection perfor-mance. While the 8B →3B configuration incurs a cost com-parable to the baseline ( 1.08 ×), it offers higher estimation fidelity for tasks prioritizing precision over raw speed. 
+
+# 6. Discussion 
+
+Validity of the Bias-Variance Decomposition. Empiri-cal results strongly validate the theoretical framework in Section 3. High correlation (CCC > 0.9) confirms that epistemic uncertainty can be reliably factorized into the internal disagreement among draft models (Variance) and their collective shift from the target (Bias), proving that our proxy-based approach captures the teacher’s uncertainty structure. 
+
+The Role of Data Diversity. We find that random initial-ization alone fails to induce draft diversity. Without distinct                       
+
+> Table 6. Computational Cost Comparison. Relative FLOPs for uncertainty estimation. The Total Cost includes 6 draft passes for variance and 1 target pass for bias/generation. Our 1B configura-tion achieves competitive performance with significantly reduced overhead ( 0.58 ×).
+> Method Config # Passes Rel. FLOPs AUROC
+> TokUR 8B (Target) 31.00 ×0.7823 DDD (Ours) 3B ×671.08 ×0.7839 DDD (Ours) 1B ×670.58 ×0.7781
+
+data views, draft models collapse toward the target mean, causing the Variance Proxy ( JSD ≈ 0) to vanish. DDD effectively prevents this by forcing students to learn diverse, valid hypotheses, successfully mapping the teacher’s poste-rior uncertainty onto the student ensemble. 
+
+Lightweight Models as Effective Auditors. Our method’s competitive performance in hallucination detec-tion suggests a strong distributional alignment between target and draft families. Notably, 1B models can effectively ”audit” 8B teachers (Table 2); while smaller models lack full generative capacity, they reliably preserve relative uncertainty rankings, serving as efficient proxies for identifying target ”confusion.” 
+
+Efficiency and Practical Integration. By replacing N
+
+target passes with N 3B draft passes and one proxy pass, we significantly reduce costs. Since draft models are typically memory-resident for speculative decoding, this approach enables near-”free” uncertainty estimation with negligible overhead compared to standard Deep Ensembles. 
+
+# 7. Conclusion 
+
+In this paper, we presented a framework to efficiently esti-mate the Epistemic Uncertainty of LLMs by leveraging lightweight draft models inherent to efficient inference paradigms. Our experimental results confirm that the Data-Diverse Drafts (DDD) strategy significantly outperforms existing distillation methods in capturing posterior diversity, while the distilled proxy ( pmix ) ensures robust estimation by reducing variance by up to 90%. Furthermore, we demon-8Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+strate that this draft-based uncertainty is highly effective for 
+
+Hallucination Detection , achieving performance compara-ble to computationally expensive baselines like TokUR with zero marginal inference cost. By bridging the gap between efficient inference and reliable uncertainty quantification, our framework provides a practical and scalable solution for ensuring the safety and reliability of LLMs in real-world deployment. 
+
+# Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning by enabling reliable and efficient un-certainty quantification for Large Language Models. As LLMs are increasingly integrated into safety-critical do-mains, the ability to detect and mitigate hallucinations is essential for responsible AI deployment. Our framework de-mocratizes access to robust uncertainty signals by leveraging existing inference acceleration infrastructures, thereby elim-inating the prohibitive computational costs typically associ-ated with high-quality uncertainty estimation. By providing a scalable solution for real-time hallucination detection with zero marginal inference cost, this work contributes to the development of more trustworthy AI systems and facilitates their safe adoption across diverse industrial and societal applications. 
+
+# References 
+
+Agarwal, R., Vieillard, N., Zhou, Y., Stanczyk, P., Ramos Garea, S., Geist, M., and Bachem, O. On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes. In ICLR , 2024. Agrawal, S., Jeon, W., and Lee, M. AdaEDL: Early Draft Stopping for Speculative Decoding of Large Language Models via an Entropy-Based Lower Bound on Token Acceptance Probability. In NeurIPS Workshops , 2024. Ahdritz, G., Qin, T., Vyas, N., Barak, B., and Edelman, B. L. Distinguishing the Knowable from the Unknowable with Language Models. In ICML , 2024. Alansari, A. and Luqman, H. Large Language Models Hal-lucination: A Comprehensive Survey. arXiv:2510.06265 ,2025. Bubeck, S., Chandrasekaran, V., Eldan, R., Gehrke, J., Horvitz, E., Kamar, E., Lee, P., Lee, Y. T., Li, Y., Lund-berg, S., Nori, H., Palangi, H., Ribeiro, M. T., and Zhang, Y. Sparks of Artificial General Intelligence: Early Experi-ments with GPT-4. arXiv:2303.12712 , 2023. Cao, Y. and Kang, Y. On LLM Knowledge Distillation: A Comparison between Forward KL and Reverse KL. In 
+
+ICLR Blogposts , 2025. Cobbe, K., Kosaraju, V., Bavarian, M., Chen, M., Jun, H., Kaiser, L., Plappert, M., Tworek, J., Hilton, J., Nakano, R., Hesse, C., and Schulman, J. Training Verifiers to Solve Math Word Problems. arXiv:2110.14168 , 2021. Dialameh, M., Rajabzadeh, H., Zhang, W., Ahmed, W., and Kwon, H. J. Bayesian Mixture of Experts for Large Language Models. arXiv:2511.08968 , 2025. Farquhar, S., Kossen, J., Kuhn, L., and Gal, Y. Detecting Hallucinations in Large Language Models Using Seman-tic Entropy. Nature , 2024. Gal, Y. and Ghahramani, Z. Dropout as a Bayesian Ap-proximation: Representing Model Uncertainty in Deep Learning. In ICML , 2016. Gao, X., Zhang, J., Mouatadid, L., and Das, K. SPUQ: Perturbation-Based Uncertainty Quantification for Large Language Models. In EACL , 2024. Gawlikowski, J., Tassi, C. R. N., Ali, M., Lee, J., Humt, M., Feng, J., Kruspe, A., Triebel, R., Jung, P., Roscher, R., Shahzad, M., Yang, W., Bamler, R., and Zhu, X. X. A Sur-vey of Uncertainty in Deep Neural Networks. Artificial Intelligence Review , 2023. Gemini Team. Gemini: A Family of Highly Capable Multi-modal Models. arXiv:2312.11805 , 2023. Gu, Y., Dong, L., Wei, F., and Huang, M. MiniLLM: Knowl-edge Distillation of Large Language Models. In ICLR ,2024. Hinton, G., Vinyals, O., and Dean, J. Distilling the Knowl-edge in a Neural Network. arXiv:1503.02531 , 2015. Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and Chen, W. LoRA: Low-Rank Adaptation of Large Language Models. In ICLR , 2022. Hu, Y., Liu, Z., Dong, Z., Peng, T., McDanel, B., and Zhang, S. Q. Speculative Decoding and Beyond: An In-Depth Survey of Techniques. arXiv:2502.19732 , 2025. Huang, K., Guo, X., and Wang, M. SpecDec++: Boosting Speculative Decoding via Adaptive Candidate Lengths. In COLM , 2025a. Huang, L., Yu, W., Ma, W., Zhong, W., Feng, Z., Wang, H., Chen, Q., Peng, W., Feng, X., Qin, B., and Liu, T. A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions. 
+
+ACM Transactions on Information Systems , 2025b. H ¨ullermeier, E. and Waegeman, W. Aleatoric and Epistemic Uncertainty in Machine Learning: An Introduction to Concepts and Methods. Machine Learning , 2021. 9Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+Ji, Z., Lee, N., Frieske, R., Yu, T., Su, D., Xu, Y., Ishii, E., Bang, Y. J., Madotto, A., and Fung, P. Survey of Hallucination in Natural Language Generation. ACM Computing Surveys , 2023. Jiang, Z., Araki, J., Ding, H., and Neubig, G. How Can We Know When Language Models Know? On the Calibration of Language Models for Question Answering. Transac-tions of the Association for Computational Linguistics ,2021. Kendall, A. and Gal, Y. What Uncertainties Do We Need in Bayesian Deep Learning for Computer Vision? In 
+
+NeurIPS , 2017. Kuhn, L., Gal, Y., and Farquhar, S. Semantic Uncertainty: Linguistic Invariances for Uncertainty Estimation in Nat-ural Language Generation. In ICLR , 2023. Lakshminarayanan, B., Pritzel, A., and Blundell, C. Simple and Scalable Predictive Uncertainty Estimation Using Deep Ensembles. In NeurIPS , 2017. Leviathan, Y., Kalman, M., and Matias, Y. Fast Inference from Transformers via Speculative Decoding. In ICML ,2023. Lyu, Q., Shridhar, K., Malaviya, C., Zhang, L., Elazar, Y., Tandon, N., Apidianaki, M., Sachan, M., and Callison-Burch, C. Calibrating Large Language Models with Sam-ple Consistency. In AAAI , 2025. Malinin, A. and Gales, M. Uncertainty Estimation in Au-toregressive Structured Prediction. In ICLR , 2021. Manakul, P., Liusie, A., and Gales, M. SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models. In EMNLP , 2023. Neal, R. M. Bayesian Learning for Neural Networks .Springer, 1996. Ovadia, Y., Fertig, E., Ren, J., Nado, Z., Sculley, D., Nowozin, S., Dillon, J. V., Lakshminarayanan, B., and Snoek, J. Can You Trust Your Model’s Uncertainty? Eval-uating Predictive Uncertainty under Dataset Shift. In 
+
+NeurIPS , 2019. Qin, Z., He, Z., Prakriya, N., Cong, J., and Sun, Y. Dynamic-Width Speculative Beam Decoding for LLM Inference. In AAAI , 2025. Shi, H., Wang, Y., Han, L., Zhang, H., and Wang, H. Training-Free Bayesianization for Low-Rank Adapters of Large Language Models. In NeurIPS , 2025. Stern, M., Shazeer, N., and Uszkoreit, J. Blockwise Parallel Decoding for Deep Autoregressive Models. In NeurIPS ,2018. Tonolini, F., Aletras, N., Massiah, J., and Kazai, G. Bayesian Prompt Ensembles: Model Uncertainty Estimation for Black-Box Large Language Models. In ACL Findings ,2024. Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Rozi `ere, B., Goyal, N., Hambro, E., Azhar, F., Rodriguez, A., Joulin, A., Grave, E., and Lam-ple, G. LLaMA: Open and Efficient Foundation Language Models. arXiv:2302.13971 , 2023. Wang, Y., Shi, H., Han, L., Metaxas, D., and Wang, H. BLoB: Bayesian Low-Rank Adaptation by Backpropaga-tion for Large Language Models. In NeurIPS , 2024. Xia, H., Ge, T., Wang, P., Chen, S.-Q., Wei, F., and Sui, Z. Speculative Decoding: Exploiting Speculative Execu-tion for Accelerating Seq2seq Generation. In EMNLP Findings , 2023. Xia, H., Yang, Z., Dong, Q., Wang, P., Li, Y., Ge, T., Liu, T., Li, W., and Sui, Z. Unlocking Efficiency in Large Language Model Inference: A Comprehensive Survey of Speculative Decoding. In ACL Findings , 2024. Xia, Z., Xu, J., Zhang, Y., and Liu, H. A Survey of Uncer-tainty Estimation Methods on Large Language Models. In ACL Findings , 2025. Yang, A. X., Robeyns, M., Wang, X., and Aitchison, L. Bayesian Low-Rank Adaptation for Large Language Models. In ICLR , 2024. Yang, C., Zhu, Y., Lu, W., Wang, Y., Chen, Q., Gao, C., Yan, B., and Chen, Y. Survey on Knowledge Distillation for Large Language Models: Methods, Evaluation, and Application. ACM Transactions on Intelligent Systems and Technology , 2025. Zhang, T., Shi, H., Wang, Y., Wang, H., He, X., Li, Z., Chen, H., Han, L., Xu, K., Zhang, H., Metaxas, D., and Wang, H. TokUR: Token-Level Uncertainty Estimation for Large Language Model Reasoning. arXiv:2505.11737 , 2025. 10 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+# A. Theoretical Proofs 
+
+A.1. Proof of Lemma A.1 Lemma A.1. EU = Eθ [KL (pθ || pT )] 
+
+Proof. 
+
+Eθ [KL (pθ || pT )] = Eθ
+
+"X
+
+> y
+
+pθ (y) log pθ (y)
+
+pT (y)
+
+#
+
+= Eθ [−H(pθ )] − X
+
+> y
+
+Eθ [pθ (y)] log pT (y)= −Eθ [H(pθ )] + H(pT ) = EU 
+
+A.2. Proof of Theorem (Bias-Variance Decomposition) 
+
+Proof. We decompose the estimator Ek[KL (qk|| pT )] by introducing qmix :
+
+Ek[KL (qk|| pT )] = Ek
+
+"X
+
+> y
+
+qk(y) log 
+
+ qk(y)
+
+qmix (y) · qmix (y)
+
+pT (y)
+
+#
+
+= Ek [KL (qk|| qmix )] + X
+
+> y
+
+Ek[qk(y)] log qmix (y)
+
+pT (y)= JSD (q1, . . . , q K ) + KL (qmix || pT )
+
+11 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+# B. Additional Experimental Details 
+
+B.1. Training pmix 
+
+Both pmix models were trained under the same configuration described below. The training dataset was prepared as follows. For each noise-injected teacher model used for distillation, we generated five answers per question on the GSM8K dataset. This produced three datasets, which were then mixed in equal proportions (one third each) to form the final training set. During training, for each batch we sampled Nteacher noise modules to inject into the teacher model, and computed the KL loss between the student model and each sampled teacher. The injected noise was drawn from N (0 , 0.1) same as target perturb .    
+
+> Table 7. Hyperparameter Details for pmix training.
+
+Hyperparameter Value 
+
+Batch size 8Gradient accumulation steps 8Epochs 12 Weight decay 0.01 Warmup ratio 0.1 
+
+Lora r 16 
+
+Lora α 32 
+
+Lora dropout 0.1 Lr 3e-4 
+
+Nteacher 2Lora modules qproj , vproj 
+
+B.2. Training IDD, DDD, FDD 
+
+Draft models trained with the IDD, DDD, and FDD methods shared the following common training setup. For IDD and FDD, noise modules were sampled from N (0 , 0.5) and injected into the draft models. Under IDD, the ensemble draft models were trained on the same dataset, whereas under DDD and FDD, each draft model was trained on a different dataset. Each dataset was constructed by sampling four answers per question from the GSM8K dataset.  
+
+> Table 8. Hyperparameter Details for IDD, DDD, FDD training.
+
+Hyperparameter Value 
+
+Batch size 8Gradient accumulation steps 2Epochs 1Weight decay 0Warmup steps 150 
+
+Lora r 16 
+
+Lora α 32 
+
+Lora dropout 0.1 Lr 7e-5 Lora modules qproj , kproj , vproj , oproj , gate proj , up proj , down proj 
+
+12 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+B.3. Training GKD 
+
+For GKD, the draft model was trained with the Hugging Face GKD Trainer. Unlike IDD, DDD, and FDD—which are trained on datasets generated by the teacher—GKD follows an on-policy setup where the student generates its own training data. To avoid overly perturbing the student’s distribution during early training, we sampled the initial sampling noise from 
+
+N (0 , 0.1) .
+
+Table 9. Hyperparameter Details for GKD training. 
+
+Hyperparameter Value 
+
+Max new tokens 400 Temperature 1.0 
+
+T op p 1.0 Batch size 8Gradient accumulation steps 2Epochs 1Weight decay 0Warmup steps 150 Lr Scheduler Cosine 
+
+Lora r 16 
+
+Lora α 32 
+
+Lora dropout 0.1 Lr 7e-5 Lora modules qproj , kproj , vproj , oproj , gate proj , up proj , down proj 
+
+λ 0.5 
+
+β 0.5 
+
+B.4. Training MiniLLM 
+
+For MiniLLM, the draft model was trained using the Hugging Face MiniLLM Trainer. As with GKD, MiniLLM is trained in an on-policy manner, where the student generates its own training data. To avoid disrupting the student’s distribution during early training, we sampled the initial sampling noise from N (0 , 0.1) .
+
+Table 10. Hyperparameter Details for MiniLLM training. 
+
+Hyperparameter Value 
+
+Conversational prompt True Max completion length 400 
+
+N um generations 4Temperature 1.0 
+
+T op p 1.0 Batch size 8Gradient accumulation steps 2Epochs 1Weight decay 0Warmup steps 150 Lr Scheduler Cosine Single step decomposition True 
+
+Lora r 16 
+
+Lora α 32 
+
+Lora dropout 0.1 Lr 7e-5 Lora modules qproj , kproj , vproj , oproj , gate proj , up proj , down proj 
+
+13 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+B.5. Details of Hallucination Detection Test 
+
+For the GSM8K test set, we sample one answer per question from the target model and repeat this process three times. During sampling, we instruct the model to place the final answer inside \boxed {} , and then assign a binary correctness label (0 or 1) by comparing the extracted boxed answer to the GSM8K ground-truth solution. This procedure yields three datasets. For each dataset, we compute token-level epistemic uncertainty (EU) at every token position in every generated answer sequence, and aggregate these token-level values to obtain a sequence-level EU score. Since EU is not a probability, we pass the sequence-level EU through a logistic function to map it to [0 , 1] . We train this logistic mapping on a training split of the sequence-level EU values. When applied to the test split, the resulting value in [0 , 1] is interpreted as the probability that the generated answer is incorrect. Finally, we compute AUROC, ECE, and Brier score using these probabilities and the correctness labels of the sampled answers. 
+
+B.6. Details of Ensemble Configuration 
+
+In this study, we implement Expected Uncertainty (EU) estimation using two distinct approaches based on how the perturbation distribution is constructed. 
+
+Approach 1: Ensemble of Trained Draft Models ( S × M ). The first approach constructs the estimator by ensembling explicitly trained draft models. We define a configuration S × M , where S denotes the number of disjoint data partitions (sub-ensembles) and M denotes the number of models trained per partition. We trained a total pool of nine draft models. Specifically, three draft models form a single ensemble unit (trained on one partition), and we utilize up to three such units. From this pool, we construct the following configurations: • 1 × 3: Selects 3 models from a single partition (Total 3 models). • 2 × 3: Selects 3 models each from 2 disjoint partitions (Total 6 models). • 3 × 3: Selects 3 models each from 3 disjoint partitions (Total 9 models). The final EU is computed based on the disagreement across these aggregated trained models. 
+
+Approach 2: Single Draft with Noise Injection ( K only). The second approach utilizes only a single draft model selected from the trained pool. Instead of combining distinct model weights, we generate ”draft perturbations” at inference time by injecting low-rank noise sampled from N (0 , 0.1) into the single draft model. We denote these settings as ” K only” (e.g., 3 only, 6 only), where EU is computed directly from the disagreement across K noise-sampled forward passes. 14 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+# C. Additional Results 
+
+C.1. Performance Comparison under Fixed Budget ( K = 6 )
+
+We further evaluate the uncertainty estimation performance under a fixed computational budget of K = 6 . As shown in Tables 11 and 12, DDD (Ours) achieves the best performance, ranking first among all methods in this setting. Specifically, in the 8B → 3B scenario, DDD records the lowest RMSE of 0.2145, outperforming all baselines. This superiority is maintained across different model scales. Even with smaller 1B draft models (Table 12), DDD consistently secures the top spot, significantly surpassing the 6 only approach. These results confirm that under the specific constraint of 
+
+K = 6 , our proposed DDD strategy is the optimal choice for maximizing estimation fidelity.     
+
+> Table 11. Uncertainty Estimation Performance (8B →3B). Comparison of RMSE ( ↓) and Spearman Correlation ( ↑) across different methods.
+
+Method Setting RMSE ↓ Spearman ↑
+
+Baseline(No Train) 6 0.3315 0.8810 GKD 6 0.3245 0.8958 MiniLLM 6 0.3121 0.8991 IDD 6 0.3680 0.9139 
+
+DDD (Ours) 6 0.2145 0.9181     
+
+> Table 12. Uncertainty Estimation Performance (Smaller Draft Models). Comparison of RMSE ( ↓) and Spearman Correlation ( ↑) for 1B draft models. Our DDD (6) strategy consistently outperforms baselines in capturing the target’s uncertainty.
+
+8B (Target) → 1B (Draft) 3B (Target) → 1B (Draft) Method Setting RMSE ↓ Spearman ↑ RMSE ↓ Spearman ↑
+
+Baseline(No Train) 6 0.5865 0.8264 0.4733 0.8451 IDD 6 0.7705 0.8827 0.6653 0.8941 
+
+DDD (Ours) 6 0.4696 0.8905 0.4227 0.9024 
+
+15 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+C.2. Robustness of Proxy Model on Smaller Target (3B) 
+
+We further validate the robustness of the pmix proxy using a smaller target model (Llama-3.2-3B-Instruct). As shown in Table 13, the 3B pmix proxy exhibits significantly lower RMSE and higher Spearman correlation compared to the raw target model under varying perturbations ( K = 3 , 10 ). Figure 3 illustrates that the variance of the estimation error is markedly reduced for pmix . This confirms that our distillation process effectively filters aleatoric noise, providing a stable ground truth regardless of the target model’s size. 
+
+Table 13. Robustness of 3B pmix Proxy. Comparison of RMSE ( ↓) and Spearman correlation ( ↑) between the raw target model and our distilled pmix proxy under varying perturbations. 
+
+Perturbation Metric Target (raw) pmix (Ours) K=3 RMSE ( ↓) 0.0274 0.0181 
+
+Spearman ( ↑) 0.9940 0.9846 
+
+K=10 RMSE ( ↓) 0.0194 0.0104 
+
+Spearman ( ↑) 0.9958 0.9974 
+
+Figure 3. Stability analysis for Llama-3.2-3B-Instruct comparing porig (baseline) and pmix (Ours). Box plots show RMSE distribution over 5 runs under K = 3 and K = 10 perturbations. Lower RMSE indicates more stable estimation. 
+
+16 Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation 
+
+C.3. Impact of Data Partitioning on 1B Draft Models 
+
+Finally, we investigate the impact of data partitioning strategies specifically on 1B draft models, extending the analysis from the main text. Tables 14 and 15 compare disjoint split configurations (e.g., 1 × 3, 2 × 3) and pooled baselines (e.g., ”6 only”) for the 8B → 1B and 3B → 1B tasks. The results consistently show that data-diverse configurations (such as 2 × 3) achieve lower RMSE than training a larger ensemble on a single pooled dataset. This indicates that the benefit of data partitioning is not limited to larger models but is equally critical—if not more so—for lightweight draft models (1B) to prevent mode collapse and improve ensemble calibration.   
+
+> Table 14. Impact of Data Partitioning. Evaluation of different split configurations on 8B →1B RMSE ( ↓). Data-diverse partitioning consistently reduces estimation error.
+
+Split Config RMSE (↓)
+
+1 × 3 0.4388 
+
+2 × 3 (Ours) 0.4437 
+
+3 × 3 0.4478 3 only 0.4771 6 only 0.4696 9 only 0.4674   
+
+> Table 15. Impact of Data Partitioning. Evaluation of different split configurations on 3B →1B RMSE ( ↓). Data-diverse partitioning consistently reduces estimation error.
+
+Split Config RMSE (↓)
+
+1 × 3 0.4022 
+
+2 × 3 (Ours) 0.4023 
+
+3 × 3 0.3974 
+
+3 only 0.4238 6 only 0.4227 9 only 0.4205 17

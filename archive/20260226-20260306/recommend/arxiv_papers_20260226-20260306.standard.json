@@ -1,0 +1,662 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-06T19:14:11.348633+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 10,
+    "deep_cap": 6,
+    "deep_selected": 6,
+    "quick_candidates": 33,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2602.10819v1",
+      "title": "RePO: Bridging On-Policy Learning and Off-Policy Knowledge through Rephrasing Policy Optimization",
+      "abstract": "Aligning large language models (LLMs) on domain-specific data remains a fundamental challenge. Supervised fine-tuning (SFT) offers a straightforward way to inject domain knowledge but often degrades the model's generality. In contrast, on-policy reinforcement learning (RL) preserves generality but fails to effectively assimilate hard samples that exceed the model's current reasoning level. Recent off-policy RL attempts improve hard sample utilization, yet they suffer from severe training instability due to the forced distribution shift toward off-policy knowledge. To reconcile effective off-policy knowledge absorption with the stability of on-policy RL, we propose Rephrasing Policy Optimization (RePO). In RePO, the policy model is prompted to first comprehend off-policy knowledge and then rephrase it into trajectories that conform to its own stylistic and parametric distribution. RePO dynamically replaces low-reward rollouts with these rephrased, high-quality trajectories. This strategy guides the model toward correct reasoning paths while strictly preserving on-policy training dynamics. Experiments on several benchmarks demonstrate that RePO improves hard-sample utilization and outperforms existing baselines, achieving state-of-the-art performance.",
+      "authors": [
+        "Linxuan Xia",
+        "Xiaolong Yang",
+        "Yongyuan Chen",
+        "Enyue Zhao",
+        "Deng Cai",
+        "Yasheng Wang",
+        "Boxi Wu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-11T13:02:40+00:00",
+      "link": "https://arxiv.org/pdf/2602.10819v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "bridging on-policy learning and off-policy knowledge absorption",
+      "llm_evidence_cn": "桥接在线策略学习与离线知识吸收",
+      "llm_evidence": "桥接在线策略学习与离线知识吸收",
+      "llm_tldr_en": "Proposes RePO to stabilize RL by effectively absorbing off-policy knowledge into on-policy models.",
+      "llm_tldr_cn": "提出RePO框架，通过将离线知识有效吸收至在线模型中来稳定强化学习训练。",
+      "llm_tldr": "提出RePO框架，通过将离线知识有效吸收至在线模型中来稳定强化学习训练。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "teacher-student framework in reinforcement learning",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2601.18175v1",
+      "title": "Success Conditioning as Policy Improvement: The Optimization Problem Solved by Imitating Success",
+      "abstract": "A widely used technique for improving policies is success conditioning, in which one collects trajectories, identifies those that achieve a desired outcome, and updates the policy to imitate the actions taken along successful trajectories. This principle appears under many names -- rejection sampling with SFT, goal-conditioned RL, Decision Transformers -- yet what optimization problem it solves, if any, has remained unclear. We prove that success conditioning exactly solves a trust-region optimization problem, maximizing policy improvement subject to a $χ^2$ divergence constraint whose radius is determined automatically by the data. This yields an identity: relative policy improvement, the magnitude of policy change, and a quantity we call action-influence -- measuring how random variation in action choices affects success rates -- are exactly equal at every state. Success conditioning thus emerges as a conservative improvement operator. Exact success conditioning cannot degrade performance or induce dangerous distribution shift, but when it fails, it does so observably, by hardly changing the policy at all. We apply our theory to the common practice of return thresholding, showing this can amplify improvement, but at the cost of potential misalignment with the true objective.",
+      "authors": [
+        "Daniel Russo"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG",
+        "eess.SY",
+        "stat.ML"
+      ],
+      "published": "2026-01-26T05:54:39+00:00",
+      "link": "https://arxiv.org/pdf/2601.18175v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "policy improvement and goal-conditioned reinforcement learning",
+      "llm_evidence_cn": "策略改进与目标条件强化学习",
+      "llm_evidence": "策略改进与目标条件强化学习",
+      "llm_tldr_en": "Analyzes success conditioning as a trust-region optimization problem for policy improvement in RL.",
+      "llm_tldr_cn": "将成功条件化分析为强化学习中策略改进的置信域优化问题。",
+      "llm_tldr": "将成功条件化分析为强化学习中策略改进的置信域优化问题。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2601.18467v1",
+      "title": "OffSeeker: Online Reinforcement Learning Is Not All You Need for Deep Research Agents",
+      "abstract": "Deep research agents have shown remarkable potential in handling long-horizon tasks. However, state-of-the-art performance typically relies on online reinforcement learning (RL), which is financially expensive due to extensive API calls. While offline training offers a more efficient alternative, its progress is hindered by the scarcity of high-quality research trajectories. In this paper, we demonstrate that expensive online reinforcement learning is not all you need to build powerful research agents. To bridge this gap, we introduce a fully open-source suite designed for effective offline training. Our core contributions include DeepForge, a ready-to-use task synthesis framework that generates large-scale research queries without heavy preprocessing; and a curated collection of 66k QA pairs, 33k SFT trajectories, and 21k DPO pairs. Leveraging these resources, we train OffSeeker (8B), a model developed entirely offline. Extensive evaluations across six benchmarks show that OffSeeker not only leads among similar-sized agents but also remains competitive with 30B-parameter systems trained via heavy online RL.",
+      "authors": [
+        "Yuhang Zhou",
+        "Kai Zheng",
+        "Qiguang Chen",
+        "Mengkang Hu",
+        "Qingfeng Sun",
+        "Can Xu",
+        "Jingjing Chen"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-01-26T13:13:59+00:00",
+      "link": "https://arxiv.org/pdf/2601.18467v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "offline training for research agents to replace expensive online RL",
+      "llm_evidence_cn": "研究智能体的离线训练以替代昂贵的在线强化学习",
+      "llm_evidence": "研究智能体的离线训练以替代昂贵的在线强化学习",
+      "llm_tldr_en": "Proposes an offline training suite for research agents to overcome the high cost of online RL.",
+      "llm_tldr_cn": "推出开源离线训练套件，通过任务合成解决研究型智能体在线强化学习成本高的问题。",
+      "llm_tldr": "推出开源离线训练套件，通过任务合成解决研究型智能体在线强化学习成本高的问题。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-7",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2601.22718v1",
+      "title": "A Step Back: Prefix Importance Ratio Stabilizes Policy Optimization",
+      "abstract": "Reinforcement learning (RL) post-training has increasingly demonstrated strong ability to elicit reasoning behaviors in large language models (LLMs). For training efficiency, rollouts are typically generated in an off-policy manner using an older sampling policy and then used to update the current target policy. To correct the resulting discrepancy between the sampling and target policies, most existing RL objectives rely on a token-level importance sampling ratio, primarily due to its computational simplicity and numerical stability. However, we observe that token-level correction often leads to unstable training dynamics when the degree of off-policyness is large. In this paper, we revisit LLM policy optimization under off-policy conditions and show that the theoretically rigorous correction term is the prefix importance ratio, and that relaxing it to a token-level approximation can induce instability in RL post-training. To stabilize LLM optimization under large off-policy drift, we propose a simple yet effective objective, Minimum Prefix Ratio (MinPRO). MinPRO replaces the unstable cumulative prefix ratio with a non-cumulative surrogate based on the minimum token-level ratio observed in the preceding prefix. Extensive experiments on both dense and mixture-of-experts LLMs, across multiple mathematical reasoning benchmarks, demonstrate that MinPRO substantially improves training stability and peak performance in off-policy regimes.",
+      "authors": [
+        "Shiye Lei",
+        "Zhihao Cheng",
+        "Dacheng Tao"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-01-30T08:47:19+00:00",
+      "link": "https://arxiv.org/pdf/2601.22718v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "off-policy reinforcement learning algorithms",
+      "llm_evidence_cn": "离线强化学习算法",
+      "llm_evidence": "离线强化学习算法",
+      "llm_tldr_en": "Proposes a prefix importance ratio to stabilize off-policy RL training for large language models.",
+      "llm_tldr_cn": "提出前缀重要性比率，以稳定大语言模型在离线策略强化学习中的训练。",
+      "llm_tldr": "提出前缀重要性比率，以稳定大语言模型在离线策略强化学习中的训练。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2601.21268v1",
+      "title": "Reinforcement Learning from Meta-Evaluation: Aligning Language Models Without Ground-Truth Labels",
+      "abstract": "Most reinforcement learning (RL) methods for training large language models (LLMs) require ground-truth labels or task-specific verifiers, limiting scalability when correctness is ambiguous or expensive to obtain. We introduce Reinforcement Learning from Meta-Evaluation (RLME), which optimizes a generator using reward derived from an evaluator's answers to natural-language meta-questions (e.g., \"Is the answer correct?\" or \"Is the reasoning logically consistent?\"). RLME treats the evaluator's probability of a positive judgment as a reward and updates the generator via group-relative policy optimization, enabling learning without labels. Across a suite of experiments, we show that RLME achieves accuracy and sample efficiency comparable to label-based training, enables controllable trade-offs among multiple objectives, steers models toward reliable reasoning patterns rather than post-hoc rationalization, and generalizes to open-domain settings where ground-truth labels are unavailable, broadening the domains in which LLMs may be trained with RL.",
+      "authors": [
+        "Micah Rentschler",
+        "Jesse Roberts"
+      ],
+      "primary_category": "cs.NE",
+      "categories": [
+        "cs.NE"
+      ],
+      "published": "2026-01-29T05:02:08+00:00",
+      "link": "https://arxiv.org/pdf/2601.21268v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reinforcement learning methods for aligning language models",
+      "llm_evidence_cn": "用于对齐语言模型的强化学习方法",
+      "llm_evidence": "用于对齐语言模型的强化学习方法",
+      "llm_tldr_en": "Introduces RLME to optimize LLMs using meta-evaluation rewards without requiring ground-truth labels.",
+      "llm_tldr_cn": "引入RLME，利用元评估奖励优化大语言模型，无需地面真值标签。",
+      "llm_tldr": "引入RLME，利用元评估奖励优化大语言模型，无需地面真值标签。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "carryover_cache",
+      "paper_id": "2601.21268v1"
+    },
+    {
+      "id": "2602.11767v2",
+      "title": "TSR: Trajectory-Search Rollouts for Multi-Turn RL of LLM Agents",
+      "abstract": "Advances in large language models (LLMs) are driving a shift toward using reinforcement learning (RL) to train agents from iterative, multi-turn interactions across tasks. However, multi-turn RL remains challenging as rewards are often sparse or delayed, and environments can be stochastic. In this regime, naive trajectory sampling can hinder exploitation and induce mode collapse. We propose TSR (Trajectory-Search Rollouts), a training-time approach that repurposes test-time scaling ideas for improved per-turn rollout generation. TSR performs lightweight tree-style search to construct high-quality trajectories by selecting high-scoring actions at each turn using task-specific feedback. This improves rollout quality and stabilizes learning while leaving the underlying optimization objective unchanged, making TSR optimizer-agnostic. We instantiate TSR with best-of-N, beam, and shallow lookahead search, and pair it with PPO and GRPO, achieving up to 15% performance gains and more stable learning on Sokoban, FrozenLake, and WebShop tasks at a one-time increase in training compute. By moving search from inference time to the rollout stage of training, TSR provides a simple and general mechanism for stronger multi-turn agent learning, complementary to existing frameworks and rejection-sampling-style selection methods.",
+      "authors": [
+        "Aladin Djuhera",
+        "Swanand Ravindra Kadhe",
+        "Farhan Ahmed",
+        "Heiko Ludwig",
+        "Holger Boche"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-02-12T09:49:24+00:00",
+      "link": "https://arxiv.org/pdf/2602.11767v2",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reinforcement learning algorithms for LLM agents",
+      "llm_evidence_cn": "针对大语言模型智能体的强化学习算法",
+      "llm_evidence": "针对大语言模型智能体的强化学习算法",
+      "llm_tldr_en": "Introduces TSR to improve trajectory sampling and stabilize multi-turn reinforcement learning for LLMs.",
+      "llm_tldr_cn": "引入TSR方法，通过改进轨迹采样来稳定大语言模型智能体的多轮强化学习训练。",
+      "llm_tldr": "引入TSR方法，通过改进轨迹采样来稳定大语言模型智能体的多轮强化学习训练。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2602.12566v1",
+      "title": "To Mix or To Merge: Toward Multi-Domain Reinforcement Learning for Large Language Models",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) plays a key role in stimulating the explicit reasoning capability of Large Language Models (LLMs). We can achieve expert-level performance in some specific domains via RLVR, such as coding or math. When a general multi-domain expert-level model is required, we need to carefully consider the collaboration of RLVR across different domains. The current state-of-the-art models mainly employ two different training paradigms for multi-domain RLVR: mixed multi-task RLVR and separate RLVR followed by model merging. However, most of the works did not provide a detailed comparison and analysis about these paradigms. To this end, we choose multiple commonly used high-level tasks (e.g., math, coding, science, and instruction following) as our target domains and design extensive qualitative and quantitative experiments using open-source datasets. We find the RLVR across domains exhibits few mutual interferences, and reasoning-intensive domains demonstrate mutually synergistic effects. Furthermore, we analyze the internal mechanisms of mutual gains from the perspectives of weight space geometry, model prediction behavior, and information constraints. This project is named as M2RL that means Mixed multi-task training or separate training followed by model Merging for Reinforcement Learning, and the homepage is at https://github.com/mosAI25/M2RL",
+      "authors": [
+        "Haoqing Wang",
+        "Xiang Long",
+        "Ziheng Li",
+        "Yilong Xu",
+        "Tingguang Li",
+        "Yehui Tang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-02-13T03:25:13+00:00",
+      "link": "https://arxiv.org/pdf/2602.12566v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "multi-domain reinforcement learning for large language models",
+      "llm_evidence_cn": "大语言模型的多领域强化学习",
+      "llm_evidence": "大语言模型的多领域强化学习",
+      "llm_tldr_en": "Analyzes training paradigms for multi-domain reinforcement learning with verifiable rewards in LLMs.",
+      "llm_tldr_cn": "分析了大语言模型在多领域可验证奖励强化学习中的不同训练范式。",
+      "llm_tldr": "分析了大语言模型在多领域可验证奖励强化学习中的不同训练范式。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.14615v1",
+      "title": "SearchGym: Bootstrapping Real-World Search Agents via Cost-Effective and High-Fidelity Environment Simulation",
+      "abstract": "Search agents have emerged as a pivotal paradigm for solving open-ended, knowledge-intensive reasoning tasks. However, training these agents via Reinforcement Learning (RL) faces a critical dilemma: interacting with live commercial Web APIs is prohibitively expensive, while relying on static data snapshots often introduces noise due to data misalignment. This misalignment generates corrupted reward signals that destabilize training by penalizing correct reasoning or rewarding hallucination. To address this, we propose SearchGym, a simulation environment designed to bootstrap robust search agents. SearchGym employs a rigorous generative pipeline to construct a verifiable knowledge graph and an aligned document corpus, ensuring that every reasoning task is factually grounded and strictly solvable. Building on this controllable environment, we introduce SearchGym-RL, a curriculum learning methodology that progressively optimizes agent policies through purified feedback, evolving from basic interactions to complex, long-horizon planning. Extensive experiments across the Llama and Qwen families demonstrate strong Sim-to-Real generalization. Notably, our Qwen2.5-7B-Base model trained within SearchGym surpasses the web-enhanced ASearcher baseline across nine diverse benchmarks by an average relative margin of 10.6%. Our results validate that high-fidelity simulation serves as a scalable and highly cost-effective methodology for developing capable search agents.",
+      "authors": [
+        "Xichen Zhang",
+        "Ziyi He",
+        "Yinghao Zhu",
+        "Sitong Wu",
+        "Shaozuo Yu",
+        "Meng Chu",
+        "Wenhu Zhang",
+        "Haoru Tan",
+        "Jiaya Jia"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-01-21T03:16:17+00:00",
+      "link": "https://arxiv.org/pdf/2601.14615v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Training search agents via Reinforcement Learning",
+      "llm_evidence_cn": "通过强化学习训练搜索智能体",
+      "llm_evidence": "通过强化学习训练搜索智能体",
+      "llm_tldr_en": "Creates SearchGym, a simulation environment to bootstrap RL-based search agents effectively.",
+      "llm_tldr_cn": "创建SearchGym仿真环境，以有效引导基于强化学习的搜索智能体训练。",
+      "llm_tldr": "创建SearchGym仿真环境，以有效引导基于强化学习的搜索智能体训练。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.01956v1",
+      "title": "Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation",
+      "abstract": "Quantifying uncertainty in Large Language Models (LLMs) is essential for mitigating hallucinations and enabling risk-aware deployment in safety-critical tasks. However, estimating Epistemic Uncertainty(EU) via Deep Ensembles is computationally prohibitive at the scale of modern models. We propose a framework that leverages the small draft models to efficiently estimate token-level EU, bypassing the need for full-scale ensembling. Theoretically grounded in a Bias-Variance Decomposition, our approach approximates EU via Jensen-Shannon divergence among drafts (variance proxy) and KL divergence between the draft mixture and the target (bias proxy). To further ensure accuracy without significant overhead, we introduce Online Stochastic Distillation (OSD) to efficiently approximate target aggregation and the Data-Diverse Drafts (DDD) strategy to enhance draft diversity for better target approximation. Extensive experiments on GSM8K demonstrate that our method reduces the estimation error (RMSE) by up to 37% compared to baselines. Crucially, our approach achieves Hallucination Detection performance competitive with heavy perturbation-based methods like TokUR while incurring negligible inference costs, offering a practical solution for uncertainty-aware LLM deployment.",
+      "authors": [
+        "Seonghyeon Park",
+        "Jewon Yeom",
+        "Jaewon Sok",
+        "Jeongjae Park",
+        "Heejun Kim",
+        "Taesup Kim"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-02-02T11:03:37+00:00",
+      "link": "https://arxiv.org/pdf/2602.01956v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "knowledge distillation for uncertainty estimation in LLMs",
+      "llm_evidence_cn": "用于大模型不确定性估计的知识蒸馏",
+      "llm_evidence": "用于大模型不确定性估计的知识蒸馏",
+      "llm_tldr_en": "Uses knowledge distillation from small draft models to efficiently estimate epistemic uncertainty in LLMs.",
+      "llm_tldr_cn": "利用小模型的知识蒸馏来高效估计大语言模型的认知不确定性。",
+      "llm_tldr": "利用小模型的知识蒸馏来高效估计大语言模型的认知不确定性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.19362v1",
+      "title": "LLMs Can Learn to Reason Via Off-Policy RL",
+      "abstract": "Reinforcement learning (RL) approaches for Large Language Models (LLMs) frequently use on-policy algorithms, such as PPO or GRPO. However, policy lag from distributed training architectures and differences between the training and inference policies break this assumption, making the data off-policy by design. To rectify this, prior work has focused on making this off-policy data appear more on-policy, either via importance sampling (IS), or by more closely aligning the training and inference policies by explicitly modifying the inference engine. In this work, we embrace off-policyness and propose a novel off-policy RL algorithm that does not require these modifications: Optimal Advantage-based Policy Optimization with Lagged Inference policy (OAPL). We show that OAPL outperforms GRPO with importance sampling on competition math benchmarks, and can match the performance of a publicly available coding model, DeepCoder, on LiveCodeBench, while using 3x fewer generations during training. We further empirically demonstrate that models trained via OAPL have improved test time scaling under the Pass@k metric. OAPL allows for efficient, effective post-training even with lags of more than 400 gradient steps between the training and inference policies, 100x more off-policy than prior approaches.",
+      "authors": [
+        "Daniel Ritter",
+        "Owen Oertell",
+        "Bradley Guo",
+        "Jonathan Chang",
+        "Kianté Brantley",
+        "Wen Sun"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-22T22:12:51+00:00",
+      "link": "https://arxiv.org/pdf/2602.19362v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "off-policy reinforcement learning algorithm",
+      "llm_evidence_cn": "离线策略强化学习算法",
+      "llm_evidence": "离线策略强化学习算法",
+      "llm_tldr_en": "Introduces OAPL, an off-policy RL algorithm that handles policy lag in LLM training without importance sampling.",
+      "llm_tldr_cn": "引入 OAPL，一种无需重要性采样即可处理大模型训练中策略滞后的离线强化学习算法。",
+      "llm_tldr": "引入 OAPL，一种无需重要性采样即可处理大模型训练中策略滞后的离线强化学习算法。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.15609v2",
+      "title": "When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) is a central paradigm for turning large language models (LLMs) into reliable problem solvers, especially in logic-heavy domains. Despite its empirical success, it remains unclear whether RLVR elicits novel capabilities or merely sharpens the distribution over existing knowledge. We study this by formalizing over-sharpening, a phenomenon where the policy collapses onto limited modes, suppressing valid alternatives. At a high level, we discover finite-batch updates intrinsically bias learning toward sampled modes, triggering a collapse that propagates globally via semantic coupling. To mitigate this, we propose inverse-success advantage calibration to prioritize difficult queries and distribution-level calibration to diversify sampling via a memory network. Empirical evaluations validate that our strategies can effectively improve generalization.",
+      "authors": [
+        "Mingyuan Fan",
+        "Weiguang Han",
+        "Daixin Wang",
+        "Cen Chen",
+        "Zhiqiang Zhang",
+        "Jun Zhou"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-01-22T03:15:57+00:00",
+      "link": "https://arxiv.org/pdf/2601.15609v2",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement Learning with Verifiable Rewards (RLVR) and policy collapse",
+      "llm_evidence_cn": "具有可验证奖励的强化学习（RLVR）与策略崩溃",
+      "llm_evidence": "具有可验证奖励的强化学习（RLVR）与策略崩溃",
+      "llm_tldr_en": "Studies over-sharpening and mode collapse in RL for LLMs and proposes advantage calibration to mitigate it.",
+      "llm_tldr_cn": "研究了大模型强化学习中的过度锐化和模式崩溃问题，并提出了优势校准解决方法。",
+      "llm_tldr": "研究了大模型强化学习中的过度锐化和模式崩溃问题，并提出了优势校准解决方法。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.03507v1",
+      "title": "Learning to Reason Faithfully through Step-Level Faithfulness Maximization",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) has markedly improved the performance of Large Language Models (LLMs) on tasks requiring multi-step reasoning. However, most RLVR pipelines rely on sparse outcome-based rewards, providing little supervision over intermediate steps and thus encouraging over-confidence and spurious reasoning, which in turn increases hallucinations. To address this, we propose FaithRL, a general reinforcement learning framework that directly optimizes reasoning faithfulness. We formalize a faithfulness-maximization objective and theoretically show that optimizing it mitigates over-confidence. To instantiate this objective, we introduce a geometric reward design and a faithfulness-aware advantage modulation mechanism that assigns step-level credit by penalizing unsupported steps while preserving valid partial derivations. Across diverse backbones and benchmarks, FaithRL consistently reduces hallucination rates while maintaining (and often improving) answer correctness. Further analysis confirms that FaithRL increases step-wise reasoning faithfulness and generalizes robustly. Our code is available at https://github.com/aintdoin/FaithRL.",
+      "authors": [
+        "Runquan Gui",
+        "Yafu Li",
+        "Xiaoye Qu",
+        "Ziyan Liu",
+        "Yeqiu Cheng",
+        "Yu Cheng"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-03T13:28:17+00:00",
+      "link": "https://arxiv.org/pdf/2602.03507v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Mitigating over-confidence and spurious reasoning in RLVR",
+      "llm_evidence_cn": "缓解强化学习中的过度自信与伪推理",
+      "llm_evidence": "缓解强化学习中的过度自信与伪推理",
+      "llm_tldr_en": "Proposes FaithRL to optimize reasoning faithfulness and mitigate over-confidence in RL pipelines.",
+      "llm_tldr_cn": "提出FaithRL，旨在优化推理忠实度并缓解强化学习流程中的过度自信问题。",
+      "llm_tldr": "提出FaithRL，旨在优化推理忠实度并缓解强化学习流程中的过度自信问题。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "addressing Q-value overestimation in deep reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.21072v1",
+      "title": "Localized Dynamics-Aware Domain Adaption for Off-Dynamics Offline Reinforcement Learning",
+      "abstract": "Off-dynamics offline reinforcement learning (RL) aims to learn a policy for a target domain using limited target data and abundant source data collected under different transition dynamics. Existing methods typically address dynamics mismatch either globally over the state space or via pointwise data filtering; these approaches can miss localized cross-domain similarities or incur high computational cost. We propose Localized Dynamics-Aware Domain Adaptation (LoDADA), which exploits localized dynamics mismatch to better reuse source data. LoDADA clusters transitions from source and target datasets and estimates cluster-level dynamics discrepancy via domain discrimination. Source transitions from clusters with small discrepancy are retained, while those from clusters with large discrepancy are filtered out. This yields a fine-grained and scalable data selection strategy that avoids overly coarse global assumptions and expensive per-sample filtering. We provide theoretical insights and extensive experiments across environments with diverse global and local dynamics shifts. Results show that LoDADA consistently outperforms state-of-the-art off-dynamics offline RL methods by better leveraging localized distribution mismatch.",
+      "authors": [
+        "Zhangjie Xia",
+        "Yu Yang",
+        "Pan Xu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.RO"
+      ],
+      "published": "2026-02-24T16:32:50+00:00",
+      "link": "https://arxiv.org/pdf/2602.21072v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Off-dynamics offline reinforcement learning and dynamics mismatch",
+      "llm_evidence_cn": "离策动力学离线强化学习与动力学不匹配",
+      "llm_evidence": "离策动力学离线强化学习与动力学不匹配",
+      "llm_tldr_en": "Addresses dynamics mismatch in offline RL using localized domain adaptation to reuse source data.",
+      "llm_tldr_cn": "通过局部领域自适应解决离线强化学习中的动力学不匹配问题，提高数据复用。",
+      "llm_tldr": "通过局部领域自适应解决离线强化学习中的动力学不匹配问题，提高数据复用。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.18779v1",
+      "title": "POPE: Learning to Reason on Hard Problems via Privileged On-Policy Exploration",
+      "abstract": "Reinforcement learning (RL) has improved the reasoning abilities of large language models (LLMs), yet state-of-the-art methods still fail to learn on many training problems. On hard problems, on-policy RL rarely explores even a single correct rollout, yielding zero reward and no learning signal for driving improvement. We find that natural solutions to remedy this exploration problem from classical RL, such as entropy bonuses, more permissive clipping of the importance ratio, or direct optimization of pass@k objectives, do not resolve this issue and often destabilize optimization without improving solvability. A natural alternative is to leverage transfer from easier problems. However, we show that mixing easy and hard problems during RL training is counterproductive due to ray interference, where optimization focuses on already-solvable problems in a way that actively inhibits progress on harder ones. To address this challenge, we introduce Privileged On-Policy Exploration (POPE), an approach that leverages human- or other oracle solutions as privileged information to guide exploration on hard problems, unlike methods that use oracle solutions as training targets (e.g., off-policy RL methods or warmstarting from SFT). POPE augments hard problems with prefixes of oracle solutions, enabling RL to obtain non-zero rewards during guided rollouts. Crucially, the resulting behaviors transfer back to the original, unguided problems through a synergy between instruction-following and reasoning. Empirically, POPE expands the set of solvable problems and substantially improves performance on challenging reasoning benchmarks.",
+      "authors": [
+        "Yuxiao Qu",
+        "Amrith Setlur",
+        "Virginia Smith",
+        "Ruslan Salakhutdinov",
+        "Aviral Kumar"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-01-26T18:47:21+00:00",
+      "link": "https://arxiv.org/pdf/2601.18779v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement learning algorithms for reasoning and exploration",
+      "llm_evidence_cn": "用于推理和探索的强化学习算法",
+      "llm_evidence": "用于推理和探索的强化学习算法",
+      "llm_tldr_en": "Proposes POPE to improve LLM reasoning through privileged on-policy exploration in RL.",
+      "llm_tldr_cn": "提出POPE，通过特权策略内探索改进大语言模型的强化学习推理能力。",
+      "llm_tldr": "提出POPE，通过特权策略内探索改进大语言模型的强化学习推理能力。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.03773v1",
+      "title": "Reasoning Cache: Continual Improvement Over Long Horizons via Short-Horizon RL",
+      "abstract": "Large Language Models (LLMs) that can continually improve beyond their training budgets are able to solve increasingly difficult problems by adapting at test time, a property we refer to as extrapolation. However, standard reinforcement learning (RL) operates over fixed problem distributions and training budgets, which limits extrapolation amidst distribution shift at test time. To address this, we introduce RC, an iterative decoding algorithm that replaces standard autoregressive decoding during both training and inference. RC exploits an asymmetry between the response generation and summarization capabilities of LLMs to construct reasoning chains that consistently improve across iterations. Models trained to use RC can extrapolate and continually improve over reasoning horizons more than an order of magnitude longer than those seen during training. Empirically, training a 4B model with RC using a 16k-token training budget improves performance on HMMT 2025 from 40% to nearly 70% with 0.5m tokens at test time, outperforming both comparably sized models and many larger reasoning LLMs. Finally, we also show that models trained with RC can more effectively leverage existing scaffolds to further scale test-time performance, due to the improved summary-conditioned generation abilities learned through training.",
+      "authors": [
+        "Ian Wu",
+        "Yuxiao Qu",
+        "Amrith Setlur",
+        "Aviral Kumar"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-02-03T17:34:04+00:00",
+      "link": "https://arxiv.org/pdf/2602.03773v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "reinforcement learning for extrapolation",
+      "llm_evidence_cn": "用于外推的强化学习",
+      "llm_evidence": "用于外推的强化学习",
+      "llm_tldr_en": "Uses short-horizon RL to enable LLMs to extrapolate and improve reasoning over long horizons.",
+      "llm_tldr_cn": "利用短时界强化学习使大语言模型能够在长时界内进行外推并改进推理。",
+      "llm_tldr": "利用短时界强化学习使大语言模型能够在长时界内进行外推并改进推理。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.22765v1",
+      "title": "Towards Better RL Training Data Utilization via Second-Order Rollout",
+      "abstract": "Reinforcement Learning (RL) has empowered Large Language Models (LLMs) with strong reasoning capabilities, but vanilla RL mainly focuses on generation capability improvement by training with only first-order rollout (generating multiple responses for a question), and we argue that this approach fails to fully exploit the potential of training data because of the neglect of critique capability training. To tackle this problem, we further introduce the concept of second-order rollout (generating multiple critiques for a response) and propose a unified framework for jointly training generation and critique capabilities. Extensive experiments across various models and datasets demonstrate that our approach can utilize training data more effectively than vanilla RL and achieve better performance under the same training data. Additionally, we uncover several insightful findings regarding second-order rollout and critique training, such as the importance of label balance in critique training and the noise problem of outcome-based rewards, which can be mitigated through sampling techniques. Our work offers a preliminary exploration of dynamic data augmentation and joint generation-critique training in RL, providing meaningful inspiration for the further advancement of RL training",
+      "authors": [
+        "Zhe Yang",
+        "Yudong Wang",
+        "Rang Li",
+        "Zhifang Sui"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-26T08:55:58+00:00",
+      "link": "https://arxiv.org/pdf/2602.22765v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reinforcement learning framework for generation and critique",
+      "llm_evidence_cn": "用于生成和批判的强化学习框架",
+      "llm_evidence": "用于生成和批判的强化学习框架",
+      "llm_tldr_en": "Introduces second-order rollout to jointly train generation and critique capabilities in RL for LLMs.",
+      "llm_tldr_cn": "引入二阶展开概念，在强化学习中联合训练大语言模型的生成与批判能力。",
+      "llm_tldr": "引入二阶展开概念，在强化学习中联合训练大语言模型的生成与批判能力。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2601.22149v1",
+      "title": "DynaWeb: Model-Based Reinforcement Learning of Web Agents",
+      "abstract": "The development of autonomous web agents, powered by Large Language Models (LLMs) and reinforcement learning (RL), represents a significant step towards general-purpose AI assistants. However, training these agents is severely hampered by the challenges of interacting with the live internet, which is inefficient, costly, and fraught with risks. Model-based reinforcement learning (MBRL) offers a promising solution by learning a world model of the environment to enable simulated interaction. This paper introduces DynaWeb, a novel MBRL framework that trains web agents through interacting with a web world model trained to predict naturalistic web page representations given agent actions. This model serves as a synthetic web environment where an agent policy can dream by generating vast quantities of rollout action trajectories for efficient online reinforcement learning. Beyond free policy rollouts, DynaWeb incorporates real expert trajectories from training data, which are randomly interleaved with on-policy rollouts during training to improve stability and sample efficiency. Experiments conducted on the challenging WebArena and WebVoyager benchmarks demonstrate that DynaWeb consistently and significantly improves the performance of state-of-the-art open-source web agent models. Our findings establish the viability of training web agents through imagination, offering a scalable and efficient way to scale up online agentic RL.",
+      "authors": [
+        "Hang Ding",
+        "Peidong Liu",
+        "Junqiao Wang",
+        "Ziwei Ji",
+        "Meng Cao",
+        "Rongzhao Zhang",
+        "Lynn Ai",
+        "Eric Yang",
+        "Tianyu Shi",
+        "Lei Yu"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-01-29T18:59:07+00:00",
+      "link": "https://arxiv.org/pdf/2601.22149v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Model-based reinforcement learning for web agents",
+      "llm_evidence_cn": "基于模型的 Web 智能体强化学习",
+      "llm_evidence": "基于模型的 Web 智能体强化学习",
+      "llm_tldr_en": "DynaWeb trains web agents using a world model to simulate internet interactions safely.",
+      "llm_tldr_cn": "DynaWeb 通过学习 Web 世界模型来训练智能体，实现高效且安全的模拟交互训练。",
+      "llm_tldr": "DynaWeb 通过学习 Web 世界模型来训练智能体，实现高效且安全的模拟交互训练。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}

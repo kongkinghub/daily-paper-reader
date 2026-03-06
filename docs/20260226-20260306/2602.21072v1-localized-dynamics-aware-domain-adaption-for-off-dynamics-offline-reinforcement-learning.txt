@@ -1,0 +1,2532 @@
+Title: Localized Dynamics-Aware Domain Adaption for Off-Dynamics Offline Reinforcement Learning
+
+URL Source: https://arxiv.org/pdf/2602.21072v1
+
+Published Time: Wed, 25 Feb 2026 02:16:56 GMT
+
+Number of Pages: 33
+
+Markdown Content:
+Localized Dynamics-Aware Domain Adaption for Off-Dynamics Offline Reinforcement Learning 
+
+Zhangjie Xia *‡ Yu Yang †‡ Pan Xu §
+
+February 25, 2026 
+
+Abstract 
+
+Off-dynamics offline reinforcement learning (RL) aims to learn a policy for a target domain using limited target data and abundant source data collected under different transition dynamics. Existing methods typically address dynamics mismatch either globally over the state space or via pointwise data filtering; these approaches can miss localized cross-domain similarities or incur high computational cost. We propose Localized Dynamics-Aware Domain Adaptation (LoDADA), which exploits localized dynamics mismatch to better reuse source data. LoDADA clusters transitions from source and target datasets and estimates cluster-level dynamics discrepancy via domain discrimination. Source transitions from clusters with small discrepancy are retained, while those from clusters with large discrepancy are filtered out. This yields a fine-grained and scalable data selection strategy that avoids overly coarse global assumptions and expensive per-sample filtering. We provide theoretical insights and extensive experiments across environments with diverse global and local dynamics shifts. Results show that Lo-DADA consistently outperforms state-of-the-art off-dynamics offline RL methods by better leveraging localized distribution mismatch. 
+
+# 1 Introduction 
+
+The goal of reinforcement learning (RL) (Kaelbling et al., 1996; Sutton et al., 1998) is to learn a policy for optimal decision making by interacting with an environment and receiving reward feedback. However, direct interaction with the environment (the target domain ) can be dangerous or time-consuming in real-world applications such as autonomous driving (Kiran et al., 2021) and healthcare (Coronato et al., 2020). As a result, practitioners often collect experience in a structurally similar source domain and then transfer the learned policy. A key challenge is that a policy trained in the source domain may perform poorly when deployed in the target domain due to mismatched transition dynamics. This issue is usually referred to as off-dynamics RL (Eysenbach et al., 2021; He et al., 2025). In this paper, we study a practical setting, 
+
+off-dynamics offline RL (Liu et al., 2022; Wang et al., 2024), where the agent cannot interact with the 
+
+> *
+
+New York University; email: zx1357@nyu.edu 
+
+> †
+
+Duke University; email: yu.yang@duke.edu 
+
+> ‡
+
+Equal contribution 
+
+> §
+
+Duke University; email: pan.xu@duke.edu 
+
+1
+
+> arXiv:2602.21072v1 [cs.LG] 24 Feb 2026
+
+Figure 1: An overview of our proposed framework. We first perform K-means clustering on the mixed source and target dataset. Then we estimate the local KL divergence between source and target dynamics in each cluster. We use cluster-wise classifiers to selectively retain source domain transitions for downstream offline RL algorithms. We further introduce a dataset regularization term to ensure policy consistency with the target dataset. environment online and must instead learn from a limited target dataset together with a larger source dataset collected under different dynamics. There has been growing interest in off-dynamics offline RL, with prior work that can be broadly cat-egorized into three types: (i) data augmentation methods that modify rewards in the source data using dynamics-aware regularization (Liu et al., 2022; Lyu et al., 2024a; Wang et al., 2024; Guo et al., 2024); (ii) data filtering approaches that select source transitions based on their similarity to target transitions (Xu et al., 2023; Wen et al., 2024; Lyu et al., 2025); and more recently (iii) data generation methods that use source data to learn target dynamics and generate synthetic target samples (Guo et al., 2026). However, most methods treat source-target dynamics mismatch globally over the state-action space, which can be overly conservative in regions where the domains align and overly optimistic where they differ substantially. For example, methods such as Liu et al. (2022) train a single domain classifier over (s, a, s ′) tuples across the full dataset, which is challenging with limited target data. A notable exception is pointwise data filtering via optimal transport (Lyu et al., 2025), but its computational cost scales with dataset size, limiting its prac-ticality Dvurechensky et al. (2018). Therefore, existing approaches can be data-inefficient and often fail to exploit fine-grained local similarities that would enable more robust and efficient transfer from the source to the target domain. Our proposed method, Lo calized Dynamics-Aware Domain Adaptation ( LoDADA ), addresses these challenges in a novel way. Unlike prior approaches which that rely on global or pointwise assumptions, LoDADA clusters source and target next states via K-means to identify localized regions in the state space where the two datasets are well aligned. We discard source samples that are far from cluster centroids, retaining those that better match the target domain. Within each cluster, we train a classifier to distinguish source from target samples and use its outputs to estimate a local KL divergence between source and target transition dynamics. Clusters with large estimated KL divergence, indicating inconsistency between source and target transitions, are treated as less unreliable. Instead of discarding entire clusters, LoDADA retains samples from all clusters to preserve state-space coverage, while prioritizing transitions from clusters with smaller estimated KL divergence. During the policy optimization stage, we further introduce a regularization term that penalizes deviations between the learned policy and a behavior policy which is fit to the target dataset, encouraging the learned policy to remain close to the target-domain’s behavior. By selectively retaining source transitions based on cluster-level KL estimates, LoDADA reduces the bias induced by dynamics mismatch and enables more effective use of source data. This clustering-based framework provides a principled way to balance selective filtering and cross-domain adaptation under lo-calized dynamics shifts. After the filtering step, we optimize the policy using Implicit Q-Learning (IQL) 2(Kostrikov et al., 2021) as a backbone, augmented with a regularization term that encourages the learned policy to stay close to the target behavior policy. Our main contributions are summarized as follows: • We identify a key limitation of existing off-dynamics offline RL methods: they address dynamics mis-match either globally or pointwise, which can lead to data inefficiency and degraded performance. To ad-dress this, we propose LoDADA , which performs cluster-wise filtering by estimating local source-target dynamics discrepancy and retaining the most target-consistent source transitions. • We provide a theoretical analysis that establishes return lower bounds for the policy learned by LoDADA , offering performance guarantees in the target domain under dynamics mismatch. • We empirically evaluate our method in four MuJoCo environments in the offline setting with different types and levels of off-dynamics shifts and demonstrate the effectiveness of our method with an average of 19 .9% improvement over baselines in gravity and friction shifts, 32 .7% on morphology shift and 29 .3% 
+
+on local perturbation. We additionally demonstrate the superior performance of LoDADA on challenging navigation tasks in AntMaze and manipulation tasks in Adroit. 
+
+# 2 Related Work 
+
+Domain adaptation in RL. Domain adaptation in RL focuses on adapting policies across domains with differing transition dynamics. Prior work include policy and value function transfer which reuse knowledge from a source domain to accelerate learning in a target domain (Abel et al., 2018; Xu et al., 2023), and robust MDPs which optimize policies against the worst-case dynamics within a predefined uncertainty set (Liu and Xu, 2024; Liu et al., 2024b; He et al., 2025; Gu et al., 2025). However, these approaches often require carefully specified uncertainty sets and may fail to cover the true target dynamics. More importantly, they tend to be overly conservative due to the rigid assumption that there is no access to target data at all. More recent work have explored online RL domain adaptation using reward augmentation from dynamics mismatch (Eysenbach et al., 2021; Guo et al., 2024) and representation deviation (Lyu et al., 2024a). In con-trast, our method tackles domain adaptation in a purely offline setting through a clustering-based framework, enabling more flexible and efficient reuse of source data under substantial dynamics shifts. 
+
+Off-dynamics offline RL. Off-dynamics offline RL aims to leverage an abundant source dataset together with a limited target dataset to improve policy learning in the target domain where online interactions is infeasible. Prior works approached this problem by aligning source and target distributions via importance weighting (Nachum et al., 2019; Lee et al., 2021), reward augmentation (Liu et al., 2022), using adversarial domain adaptation to reduce the mismatch in state-action dynamics (Barde et al., 2020; Xu et al., 2021), or filtering source data based on similarity to the target (Liu et al., 2020; Wen et al., 2024; Lyu et al., 2025). Another line of work adopts model-based approaches, where a dynamics model is learned in the target domain to enable more principled reuse of source transitions under mismatched dynamics (Yu et al., 2020; Guo et al., 2026). These methods often struggle with severe distribution shifts: importance weighting suffers from high variance under limited coverage, adversarial adaptation can be unstable in practice, heuristic filtering may reduce sample efficiency, and model-based methods are sensitive to model bias. In contrast, our method balances robustness and coverage by retaining useful source experiences while downweighting unreliable clusters. 
+
+Clustering-based methods in RL Clustering-based methods in RL exploit structure in the state-action space by grouping similar samples into clusters, thereby reducing variance and improving generalization. Recent approaches use clustering for representation learning, such as learning latent embeddings that capture environment dynamics and then clustering them to discover reusable behaviors or intermediate objectives (Machado et al., 2017; Eysenbach et al., 2019). These approaches often rely on heuristic similarity metrics, 3which may not accurately reflect the underlying transition dynamics. Our method leverages clustering not only to structure the data, but also integrates distributional alignment within clusters, ensuring that the grouped samples are both coherent and dynamically relevant to the target domain. 
+
+Notations: H(X) is the entropy of random variable X. z = s ⊕ a is the vector concatenation of state s
+
+and action a, which can be viewed as an identity representation of (s, a ).
+
+# 3 Preliminaries 
+
+RL problems are typically formulated as a Markov Decision Process (MDP), specified by a tuple M =(S, A, P, r, γ, ρ 0), where S is the state space, A is the action space, P (s′|s, a ) is the transition kernel, r(s, a )
+
+is the reward function given state-action pair (s, a ), γ ∈ [0 , 1) is the discounting factor, and ρ0 is the initial state distribution. In the off-dynamics offline setting, we consider two MDPs: a source domain Msrc = ( S, A, P src , r, γ, ρ 0)
+
+and a target domain Mtar = ( S, A, P tar , r, γ, ρ 0). The two domains differ only in their transition dynam-ics, i.e., Psrc (s′|s, a )̸ = Ptar (s′|s, a ), while sharing the same reward function rsrc (s, a ) = rtar (s, a ). In the offline setting, the agent cannot interact with the environment and must learn from static datasets (Levine et al., 2020). Suppose we are given a source dataset Dsrc = {(s, a, s ′, r )src } and a smaller target dataset 
+
+Dtar = {(s, a, s ′, r )tar }. The goal is to learn a policy π that maximizes the expected return in the target domain, max π Eπ,P tar 
+
+[ ∑ ∞ 
+
+> t=0
+
+γtrtar (st, a t)], by leveraging the mixed dataset Dmix = Dsrc ∪ Dtar . Typically we have |Dtar | ≪ | Dsrc |.
+
+# 4 Methodology 
+
+In this section, we analyze the target-domain performance gap between the optimal target policy and the pol-icy learned from a filtered source dataset. This analysis motivates a clustering-based procedure to estimate local KL divergence for filtering source transitions, which we then integrate into policy optimization. Finally, we summarize the complete algorithm for off-dynamics offline RL. All proofs are deferred to Section A. 
+
+4.1 Theoretical Insights 
+
+The goal of data filtering in the off-dynamics setting is to create a filtered source dataset ˜Dsrc out of the source dataset Dsrc such that the dynamics discrepancy between ˜Dsrc and the target dataset Dtar is mini-mized. Following Lyu et al. (2024a), we have the following proposition. 
+
+Proposition 4.1. For any (s, a ), denote its representation as z, and suppose s′ 
+
+> src
+
+∼ PMsrc (·| z), s ′ 
+
+> tar
+
+∼
+
+PMtar (·| z). Then measuring the representation deviation between the source domain and the target domain is equivalent to measuring the dynamics mismatch between two domains, i.e., DKL 
+
+(P (z|s′
+
+> src
+
+)∥P (z|s′
+
+> tar
+
+)) =
+
+DKL 
+
+(P (s′
+
+> src
+
+|z)∥P (s′
+
+> tar
+
+|z)) + H(s′
+
+> src
+
+) − H(s′
+
+> tar
+
+).The difference between Theorem 4.1 and Theorem 4.3 of Lyu et al. (2024a) lies in the direction of the KL divergence. We derive the KL divergence from the source representation distribution to the target representation distribution (rather than the reverse). This choice matches our goal of characterizing how far the policy learned from filtered source data can be from the target-optimal policy (Theorem 4.2). Because KL divergence is asymmetric, we reproduce the proof in Section A for completeness. Since the entropy terms are constants for fixed source/target domains, minimizing dynamics deviation is equivalent to minimizing representation deviation. Concretely, let H(s′
+
+> src
+
+) − H(s′
+
+> tar
+
+) = B be a constant. 4If the representation deviation is bounded by ϵ, i.e., DKL (P (z|s′
+
+> src
+
+)∥P (z|s′
+
+> tar
+
+)) ≤ ϵ, then the dynamics deviation DKL (P (s′
+
+> src
+
+|z)∥P (s′
+
+> tar
+
+|z)) is bounded by ϵ − B.The following assumption from Eysenbach et al. (2021) quantifies the performance gap that the optimal target policy π∗ may suffer when evaluated under source dynamics. 
+
+Assumption 1. Let π∗ = arg max π Ep
+
+[ ∑ γtr(st, a t)] be the reward-maximizing policy in the target do-main. Then the expected reward in source and target domains differs by at most 2Rmax 
+
+√1 − eB−ϵ:
+
+∣∣∣∣Eπ∗,P src 
+
+[ ∑ 
+
+> t
+
+γtr(st, a t)
+
+]
+
+− Eπ∗,P tar 
+
+[ ∑ 
+
+> t
+
+γtr(st, a t)
+
+]∣∣∣∣
+
+≤ 2Rmax 
+
+√
+
+1 − eB−ϵ,
+
+where B = H(s′ 
+
+> src
+
+) − H(s′
+
+> tar
+
+).
+
+Now we present an upper bound for the performance gap in the target domain between the policy learned from the filtered source dataset and the optimal target policy. 
+
+Theorem 4.2 (Offline performance bound) . Let ˆπ∗
+
+> ˜Dsrc
+
+be the policy that maximizes the reward in the filtered 
+
+source dataset ˜Dsrc , π∗ 
+
+> Dtar
+
+be the policy that maximizes the reward in the unfiltered target dataset Dtar ,and π∗ be the policy that maximizes the reward in the target domain. Assume that π∗ satisfies Assump-tion 1 and let C be the offline RL performance bound without dynamics shift, i.e., EPtar ,π ∗
+
+[ ∑ γtr(st, a t)
+
+]
+
+−
+
+EPtar ,π ∗
+
+> Dtar
+
+[ ∑ γtr(st, a t)
+
+]
+
+≤ C. Then ˆπ∗
+
+> ˜Dsrc
+
+receives near-optimal reward on the target domain: 
+
+EPtar ,ˆπ∗
+
+> ˜Dsrc
+
+[ ∑ 
+
+> t
+
+γtr(st, a t)
+
+]
+
+≥ EPtar ,π ∗
+
+[ ∑ 
+
+> t
+
+γtr(st, a t)
+
+]
+
+− C︸︷︷︸ 
+
+> offline algorithm error
+
+− 4Rmax 
+
+1 − γ
+
+√
+
+1 − eB−ϵ
+
+︸ ︷︷ ︸
+
+> dynamics deviation
+
+− 2Rmax 
+
+1 − γ Eρ 
+
+> ˆπ∗
+> ˜Dsrc
+> Msrc , P src
+
+[
+
+DTV 
+
+(ˆπ∗ 
+
+> ˜Dsrc
+
+(·| s′)∥π∗ 
+
+> Dtar
+
+(·| s′))]︸ ︷︷ ︸
+
+> filtering deviation
+
+.
+
+Remark 4.3. Compared with the performance bounds from Wen et al. (2024) and Lyu et al. (2025), our the-orem offers two key advantages: (1) Guarantee against the true optimal target policy: The bound compares the learned policys return in the target domain directly to the optimal target policy, ensuring the guarantee is stated against what is best achievable in the target environment. (2) Avoids reliance on the source behavior policy: Prior works often compare against the source behavior policy, implicitly favoring imitation of the source dataset. In contrast, our bound measures policy deviation against the policy trained on the target dataset, which better reflects the objective of filtering. 
+
+4.2 Clustering-Based KL Estimation 
+
+Theorem 4.2 motivates a clustering-based filtering strategy. In particular, the bound suggests that effective filtering should jointly reduce the dynamics deviation and the filtering deviation . Thus, to reduce the policy discrepancy between ˆπ∗
+
+> ˜Dsrc
+
+and π∗ 
+
+> Dtar
+
+, the filtered source dataset ˜Dsrc should match the target dataset Dtar 
+
+as measured by the KL divergence of the dynamics mismatch. We can equivalently view dynamics mismatch as a discrepancy at the representation level. Concretely, we propose a clustering-based estimator for the representation divergence DKL 
+
+(P (z|s′
+
+> src
+
+)∥P (z|s′
+
+> tar
+
+)). The 5key idea is to cluster similar next states so that, within each cluster, differences between source and target state-action pairs primarily reflect localized dynamics mismatch. Given two datasets Dsrc = {(si, a i, s ′
+
+> i
+
+)}Nsrc  
+
+> i=1
+
+and Dtar = {(sj , a j , s ′ 
+
+> j
+
+)}Ntar  
+
+> j=1
+
+, we first merge them and run K-means on the next states s′. This yields K disjoint clusters {N n}Kn=1 , where each cluster N n contains source and target transitions with similar next states. We then pair each s′ in N n with its corresponding 
+
+(s, a ), forming N n = {(zi, s ′
+
+> i
+
+)}N n   
+
+> 0+Nn
+> 1
+> i=1
+
+with zi = si ⊕ ai, where N n 
+
+> 0
+
+and N n 
+
+> 1
+
+are the numbers of source and target samples in N n, respectively. We assign binary labels within each cluster: target samples ztar 
+
+> i
+
+are labeled as class 1 and source samples zsrc  
+
+> i
+
+as class 0. The goal is to train a cluster-specific classifier 
+
+Dn(z) = P (y = 1 |z) using the following cross-entropy loss 
+
+L = −Ez∼P (z|s′
+
+> tar )
+
+[log Dn(z)] − Ez∼P (z|s′
+
+> src )
+
+[log(1 − Dn(z))] . (4.1) By Bayes’ rule, the classifier output satisfies 
+
+Dn(z) = P (z|y = 1) P (y = 1) 
+
+P (z|y = 1) P (y = 1) + P (z|y = 0) P (y = 0) . (4.2) 
+
+Within each cluster, the next states s′ are similar by construction. We therefore assume that the representation 
+
+z primarily reflects source domain and target domain label information, i.e., P (z|y = 1) ≈ P (z|s′
+
+> tar
+
+) and 
+
+P (z|y = 0) ≈ P (z|s′
+
+> src
+
+). Define a density ratio as w(z) = P (z|s′
+
+> tar
+
+)/P (z|s′
+
+> src
+
+). Plug this approximation into Equation (4.2) and we get 
+
+Dn(z) = Aw n(z)
+
+Aw n(z) + (1 − A) =⇒ ˆwn(z) = (1 − A)Dn(z)
+
+A(1 − Dn(z)) ,
+
+where A = P (y = 1) = N n 
+
+> 1
+
+/(N n 
+
+> 1
+
++ N n 
+
+> 0
+
+) and 1 − A = P (y = 0) = N n 
+
+> 0
+
+/(N n 
+
+> 1
+
++ N n 
+
+> 0
+
+). Since the KL divergence can be written as DKL (P (z|s′
+
+> src
+
+)∥P (z|s′
+
+> tar
+
+)) = Ez∼P (z|s′
+
+> src )
+
+[log 1 /w (z)] , we can estimate it using source samples: 
+
+ˆDn 
+
+> KL
+
+= 1
+
+N n 
+
+> 0
+> Nn
+> 0
+
+∑
+
+> i=1
+
+log 1ˆwn(zsrc  
+
+> i
+
+) , (4.3) where ˆDn 
+
+> KL
+
+is a cluster estimate of the KL divergence using cluster-specific classifier and log 1 / ˆwn(zsrc  
+
+> i
+
+) =: 
+
+di is a point estimate of KL divergence. 
+
+4.3 Policy Optimization 
+
+We now describe the policy optimization module of our approach. In offline RL, a key challenge is pre-venting out-of-distribution (OOD) actions at deployment time. Advantage-weighted methods (Peng et al., 2019) mitigate this issue by weighting behavior cloning with estimated advantages, encouraging the policy to imitate dataset actions with higher values. In off-dynamics settings, however, naively imitating the mixed dataset, especially source transitions collected under mismatched dynamics, can degrade target-domain per-formance. To address this, we (i) filter the source dataset using our KL estimates and (ii) use the (normal-ized) pointwise KL estimates to adaptively reweight learning. Intuitively, source transitions with smaller estimated KL divergence are more consistent with the target dynamics and therefore should have higher influence during optimization. We use the following value-function objective: 
+
+LQ = EDtar 
+
+[( Qθ − T Qθ
+
+)2] + E(s,a,s ′,d )∼ ˜Dsrc 
+
+[ exp ( − α · ˆdi
+
+)( Qθ − T Qθ
+
+)2], (4.4) 6where α is a hyperparameter and ˆdi = di−max i di   
+
+> max idi−min idi
+
+for i ∈ { 1, . . . , | ˜Dsrc |} is the normalized pointwise KL estimate. After filtering, the retained source samples are expected to be more target-consistent than the discarded ones. Since the target dataset is small (and can be noisy), assigning slightly higher aggregate weight to the filtered source data can improve data efficiency by leveraging abundant high-quality transitions. In addition to KL-based reweighting, we introduce a policy-regularization term that encourages the learned policy to stay close to the support of the target dataset. Following Lyu et al. (2025), we train a conditional variational autoencoder (CVAE), denoted by ˆπtar  
+
+> b
+
+(a|s), to model the target behavior policy. The policy is then optimized according to 
+
+Lreg  
+
+> π
+
+= Lπ − λEs∼ ˜Dsrc ∪Dtar 
+
+[ log ˆ πtar 
+
+> b
+
+(π(·| s)|s)] , (4.5) where Lπ is the policy loss of the underlying offline RL algorithm, and λ controls the strength of policy regularization. 
+
+Algorithm 1 Localized Dynamics-Aware Domain Adaptation (LoDADA)  
+
+> 1:
+
+Input: Source data Dsrc , target data Dtar  
+
+> 2:
+
+Initialize: Policy πϕ, value function Qθ, batch size B, number of clusters K, diameter threshold δ,critic importance ratio α, regularization weight λ, filtering ratio ξ1, ξ 2, ξ 3 
+
+> 3:
+
+Localize Dtar ∪ Dsrc into {N i}Ki=1 based on s′ 
+
+> 4:
+
+for i=1, 2..., K do  
+
+> 5:
+
+Train classifiers Dn(z) based on Equation (4.1)  
+
+> 6:
+
+Calculate KL divergence ˆDnKL with Equation (4.3)  
+
+> 7:
+
+end for  
+
+> 8:
+
+Sort {N i}Ki=1 based on ˆDnKL and filter selectively per cluster to get ˜Dsrc  
+
+> 9:
+
+for each gradient step do  
+
+> 10:
+
+Sample a mini-batch bsrc := {(s, a, r, s ′)} of size N/ 2 from ˜Dsrc  
+
+> 11:
+
+Sample a mini-batch btar := {(s, a, r, s ′)} of size N/ 2 from Dtar  
+
+> 12:
+
+Optimize the value function Qθ with Equation (4.4)  
+
+> 13:
+
+Optimize the policy πϕ with Equation (4.5)  
+
+> 14:
+
+end for 
+
+Formally, we layout the framework of LoDADA in Figure 1 and display the algorithm in Algorithm 1. The implementation and technical details are deferred to Section C.6. We use IQL (Kostrikov et al., 2021) as the backbone. 
+
+# 5 Experiment 
+
+In this section, we conduct extensive experiments to evaluate the performance of LoDADA on the ODRL benchmark for off-dynamics reinforcement learning (Lyu et al., 2024b). We begin with MuJoCo locomo-tion tasks (HalfCheetah, Ant, Walker2d, and Hopper) under multiple types and levels of dynamics shifts. In addition, we evaluate LoDADA on navigation tasks in AntMaze and manipulation tasks in Adroit to demon-strate effectiveness beyond standard locomotion benchmarks. Finally, we conduct ablation studies to better understand the contributions of individual components and the sensitivity to key hyperparameters. We also conduct experiments to compare the runtime complexity if LoDADA with that of other data filtering strate-gies to demonstrate the computational efficiency of our algorithm. Results on Androit tasks and runtime complexity comparisons are deferred to Sections D.3 and D.4. 7Table 1: Performance comparison on MuJoCo tasks (HalfCheetah, Ant, Walker2D, Hopper) under a medium-level offline dataset with dynamics shifts in gravity and friction at levels 0.1, 0.5, 2.0, 5.0. Source domains remain unchanged; target domains are shifted. We report normalized target-domain scores (mean ´s std over five seeds). Best and second-best scores are highlighted in green and blue, respectively. 
+
+Env Shift Level BOSA IQL DARA IGDF OTDF Ours HalfCheetah Gravity 0.1 9.31 ±1.94 12.90 ±1.01 9.62 ±4.27 7.65 ±6.63 12.17 ±3.58 14.09 ±3.83 
+
+0.5 39.92 ±5.63 43.68 ±2.96 40.87 ±5.46 39.73 ±4.62 37.12 ±4.88 45.00 ±2.95 
+
+2.0 28.47 ±1.23 31.12 ±0.3 30.49 ±0.54 30.16 ±1.5 25.38 ±3.12 28.02 ±1.67 5.0 11.27 ±1.77 20.87 ±21.45 32.42 ±18.54 30.08 ±34.02 24.01 ±17.88 71.11 ±1.63 
+
+HalfCheetah Friction 0.1 12.53 ±3.61 23.69 ±16.46 26.39 ±11.35 20.56 ±11.22 10.31 ±1.68 9.97 ±0.47 0.5 63.65 ±9.14 68.26 ±1.42 68.41 ±3.19 66.30 ±1.79 66.32 ±0.46 68.51 ±0.44 
+
+2.0 45.53 ±2.01 42.68 ±2.64 46.17 ±1.72 46.22 ±1.27 45.84 ±0.34 48.19 ±0.75 
+
+5.0 38.26 ±10.82 48.97 ±4.68 45.31 ±9.83 54.75 ±5.6 38.36 ±9.82 54.65 ±1.56 Ant Gravity 0.1 25.58 ±2.21 11.03 ±1.24 12.53 ±1.11 13.55 ±2.13 18.82 ±5.51 22.38 ±1.28 0.5 17.75 ±2.48 10.53 ±1.06 9.08 ±0.88 11.34 ±1.89 16.77 ±3.13 18.61 ±2.79 
+
+2.0 37.17 ±0.96 38.26 ±3.09 38.54 ±2.19 41.59 ±4.63 37.11 ±0.74 45.82 ±1.33 
+
+5.0 33.48 ±1.70 31.51 ±1.97 32.51 ±1.71 34.44 ±2.77 34.58 ±0.25 48.29 ±3.68 
+
+Ant Friction 0.1 58.95 ±0.71 55.12 ±0.24 55.56 ±0.46 54.88 ±0.60 53.38 ±0.42 53.76 ±1.37 0.5 59.72 ±3.57 58.92 ±0.80 59.28 ±0.80 55.64 ±5.03 58.20 ±0.84 55.54 ±3.80 2.0 20.18 ±3.79 17.54 ±2.47 19.84 ±3.20 19.63 ±4.15 32.33 ±3.45 62.27 ±2.23 
+
+5.0 9.88 ±1.17 7.79 ±0.31 7.78 ±0.26 13.97 ±7.68 13.17 ±8.28 28.62 ±3.43 
+
+Walker2d Gravity 0.1 18.75 ±12.02 20.12 ±5.74 16.04 ±7.60 24.95 ±16.19 63.77 ±6.43 71.41 ±1.99 
+
+0.5 40.09 ±2.37 29.72 ±16.02 42.05 ±10.52 37.36 ±5.49 32.47 ±7.04 44.65 ±1.49 
+
+2.0 8.91 ±2.28 32.20 ±1.05 25.69 ±10.67 34.89 ±6.73 37.23 ±2.16 40.27 ±1.77 
+
+5.0 5.25 ±0.50 5.44 ±0.08 5.42 ±0.29 5.66 ±0.32 4.92 ±0.08 8.55 ±3.85 
+
+Walker2d Friction 0.1 7.88 ±1.88 5.65 ±0.06 5.72 ±0.23 7.21 ±1.80 30.40 ±7.54 20.21 ±7.90 0.5 53.42 ±20.06 67.91 ±7.03 68.92 ±11.43 70.83 ±4.22 69.06 ±9.44 81.41 ±6.47 
+
+2.0 39.06 ±17.36 72.91 ±0.37 65.40 ±7.13 62.55 ±10.36 59.93 ±14.53 62.01 ±4.36 5.0 5.89 ±3.42 5.38 ±0.09 5.28 ±0.19 5.21 ±0.36 14.98 ±9.15 15.93 ±3.09 
+
+Hopper Gravity 0.1 27.82 ±13.41 23.4 ±11.62 13.10 ±0.98 13.89 ±4.70 33.41 ±1.92 37.68 ±6.32 
+
+0.5 17.74 ±7.93 17.78 ±6.85 14.68 ±5.24 19.81 ±9.56 35.22 ±5.94 43.72 ±9.72 
+
+2.0 13.18 ±2.10 14.71 ±1.67 14.94 ±1.08 14.71 ±0.87 19.82 ±1.77 16.99 ±3.74 5.0 7.97 ±0.61 7.78 ±0.37 7.81 ±0.48 8.03 ±0.50 8.78 ±0.03 9.28 ±0.26 
+
+Hopper Friction 0.1 25.55 ±2.69 26.13 ±4.24 24.16 ±4.50 24.02 ±5.00 24.76 ±1.21 28.06 ±7.97 
+
+0.5 25.86 ±2.17 24.75 ±3.58 24.84 ±4.63 29.12 ±3.01 29.89 ±6.17 33.57 ±1.31 
+
+2.0 10.32 ±0.06 10.15 ±0.03 10.15 ±0.06 10.35 ±0.60 10.52 ±0.29 10.44 ±0.13 5.0 6.92 ±1.97 7.92 ±0.06 7.84 ±0.04 7.90 ±0.17 8.07 ±0.04 8.04 ±0.05 Total 826.06 894.82 886.84 916.98 1007.10 1207.05 
+
+5.1 Experimental Setup 
+
+Task and Environments. We evaluate LoDADA on the ODRL benchmark (Lyu et al., 2024b) across Mu-JoCo environments with different dynamics shifts. Each environment includes three types of dynamics shifts: gravity, friction and morphology shifts. The source dataset is collected in the original MuJoCo environment from D4RL (Fu et al., 2020), and the target dataset is collected by the behavior policy in the corresponding environment with dynamics shifts. All datasets are collected using SAC (Haarnoja et al., 2018) trained to a medium performance level in either the original or dynamics-shifted environment. We use the datasets provided by ODRL, where the source dataset contains 1 million transitions while the target one has 5000 transitions. To construct dynamics-shifted target environments, we follow ODRL and modify MuJoCo sim-ulator parameters for gravity, friction and morphology. For gravity, we rescale the global gravity magnitude while keeping its direction unchanged. For friction, we rescale the friction parameters. In both cases, we consider four shift levels {0.1, 0.5, 2.0, 5.0}, where the original gravity or friction is multiplied by the cor-responding factor. Morphology shifts are created by changing the size of specific limbs or the torso of the 8robot. In addition to the locomotion tasks, we evaluate on AntMaze problems with different map layouts fol-lowing ODRL. We focus on the medium-sized AntMaze setting and use 6 different map layouts as target environments, denoted as {1, 2, 3, 4, 5, 6}. We use the play and diverse datasets as source datasets, both drawn from D4RL (Fu et al., 2020), while the target dataset is collected by an agent trained directly in the target environment and provided by ODRL. The diverse dataset consists of trajectories that start from random locations and reach random goals, whereas the play dataset contains trajectories that start from hand-picked locations and reach a fixed hand-picked goal. Consequently, these two source datasets exhibit different state coverage. Finally, we evaluate LoDADA on manipulation tasks from the Adroit benchmark. We consider the 
+
+pen and door environments. Similar to the MuJoCo experiments, we construct target environments by introducing kinematic and morphological shifts. For kinematic shifts, we restrict the rotation ranges of hand joints, referred to as broken-joint . For morphological shifts, we shrink the sizes of fingers, referred to as 
+
+shrink-finger . We consider shift levels of medium and hard in our experiments. The source dataset is drawn from D4RL at the human level, while the target dataset is obtained from ODRL. Additional details about all these environments can be found in Section C. We defer the Adroit results in Section D.3. 
+
+Baselines. We compare LoDADA against several strong baseline methods including DARA (Eysenbach et al., 2021), BOSA (Liu et al., 2024a), IQL (Kostrikov et al., 2021), IGDF (Wen et al., 2024), and OTDF (Lyu et al., 2025). DARA applies reward augmentation learned from the discrepancy between source and target dynamics to the source dataset to mimic the trajectories in the target environment. BOSA enforces support constraints with two objectives to mitigate OOD stateaction pairs and OOD dynamics while filtering unreliable transitions. IQL is an offline RL algorithm that learns a value function and an advantage-weighted policy to achieve higher performance, which demonstrates strong performance in offline RL tasks trained on mixed datasets without explicit domain adaptation (Wen et al., 2024). IGDF learns a contrastive repre-sentation to estimate a mutual information-based domain gap for filtering source transitions. OTDF is the most recent state-of-the-art method which uses optimal transport to match sourcetarget transitions and per-forms non-parametric filtering based on the optimal transport cost. Implementation details for all methods, including the architecture and hyperparameters, are presented in Section C. 
+
+5.2 Results on MuJoCo Locomotion Tasks 
+
+We first summarize the performance of LoDADA and the baseline methods on MuJoCo locomotion tasks under various dynamics shifts, including gravity, friction, morphology shifts, and local perturbations. We evaluate performance using the normalized score Normalized Score = score −random score expert score −random score × 100 , where the random score is achieved by a random policy and the expert score is achieved by SAC (Haarnoja et al., 2018) trained to the expert level in the target domain. 
+
+Results on gravity and friction shifts. As shown in Table 1, LoDADA achieves a total score of 1207.05, yielding a 19.9% improvement over the second-best method OTDF (Lyu et al., 2025) and a 34.9% improve-ment over the backbone algorithm IQL (Kostrikov et al., 2021). Across the 32 evaluation tasks (8 envi-ronments × 4 shift levels), LoDADA achieves best (21) or second-best (6) performance in 27 out of 32 tasks and remains competitive on the remaining 5 tasks. These results indicate that LoDADA improves target-domain performance by effectively leveraging localized filtering. 
+
+The policy optimization module in LoDADA builds on IQL. Compared to vanilla IQL, we introduce (i) adaptive weighting in critic learning and (ii) an additional CVAE-based behavior-cloning regularizer. As shown in Table 1, these modifications yield significant gains over IQL on 27 out of 32 tasks. These observa-tions suggest that combining localized filtering with target-aware regularization improves adaptation 
+
+9Table 2: Performance comparison on MuJoCo tasks (Halfcheetah, Ant, Walker2d, Hopper) under a medium-level offline dataset. Target domains remain unchanged; source datasets are shifted by adding local perturba-tions with varying shift levels across regions. We report normalized target-domain scores (mean ´ s std over five seeds). Best and second-best scores are highlighted in green and blue, respectively.                                                                                                                                                               
+
+> Env # Groups Shift Level BOSA DARA IQL IGDF OTDF Ours HalfCheetah 30.1-0.5-2.0 27.36 ±2.22 19.86 ±4.42 17.57 ±3.41 14.59 ±3.13 29.26 ±3.10 34.97 ±0.85
+> 0.2-1.0-4.0 25.28 ±3.10 16.94 ±3.31 16.07 ±3.45 13.16 ±4.83 24.21 ±2.82 28.36 ±2.76
+> 0.3-1.5-6.0 20.75 ±2.66 6.59 ±0.45 10.73 ±2.88 8.73 ±2.31 22.84 ±0.54 27.24 ±4.37
+> 50.1-0.2-0.3-0.4-0.5 19.30 ±2.38 12.43 ±1.95 10.83 ±1.05 11.27 ±2.35 28.99 ±1.85 34.28 ±2.91
+> 0.2-0.4-0.6-0.8-1.0 23.59 ±5.81 13.18 ±2.09 14.77 ±2.41 11.43 ±3.96 21.41 ±3.95 25.73 ±5.38
+> 0.3-0.6-0.9-1.2-1.5 23.95 ±2.23 7.10 ±0.97 8.98 ±2.61 7.37 ±3.03 11.53 ±2.04 18.74 ±1.55 Walker2d 30.1-0.5-2.0 5.28 ±0.54 17.85 ±10.67 36.44 ±15.19 14.02 ±10.20 34.52 ±11.33 37.45 ±18.71
+> 0.2-1.0-4.0 6.42 ±1.10 19.79 ±3.58 15.29 ±9.44 14.62 ±8.16 20.66 ±7.06 31.10 ±18.00
+> 0.3-1.5-6.0 7.16 ±2.91 9.86 ±4.44 12.28 ±8.14 11.14 ±3.69 16.78 ±9.39 18.69 ±10.51
+> 50.1-0.2-0.3-0.4-0.5 7.17 ±1.48 8.10 ±3.46 6.96 ±2.01 6.99 ±2.77 33.87 ±16.17 35.84 ±16.01
+> 0.2-0.4-0.6-0.8-1.0 6.51 ±4.60 13.90 ±9.23 12.07 ±7.55 9.37 ±2.01 13.87 ±6.95 24.92 ±5.96
+> 0.3-0.6-0.9-1.2-1.5 6.43 ±2.53 8.65 ±3.18 7.91 ±3.80 8.99 ±5.44 18.52 ±15.46 12.98 ±3.88 Hopper 30.1-0.5-2.0 7.84 ±2.84 8.70 ±6.67 8.14 ±6.31 13.08 ±10.44 33.96 ±4.57 40.77 ±5.04
+> 0.2-1.0-4.0 11.91 ±2.60 9.61 ±5.56 11.97 ±5.99 8.35 ±3.56 32.58 ±6.89 37.51 ±9.16
+> 0.3-1.5-6.0 11.85 ±3.19 8.11 ±3.54 10.17 ±5.50 6.59 ±2.59 31.77 ±3.04 33.41 ±2.72
+> 50.1-0.2-0.3-0.4-0.5 10.42 ±3.55 6.37 ±1.67 6.92 ±1.85 15.81 ±9.78 22.25 ±8.74 40.30 ±4.61
+> 0.2-0.4-0.6-0.8-1.0 11.63 ±1.87 14.07 ±5.65 9.82 ±4.29 11.24 ±7.86 21.42 ±9.11 36.06 ±4.59
+> 0.3-0.6-0.9-1.2-1.5 13.97 ±5.15 11.14 ±4.01 12.01 ±2.06 15.63 ±10.74 29.95 ±5.01 35.02 ±5.70
+> Ant 30.1-0.5-2.0 55.51 ±10.37 69.67 ±8.59 69.65 ±10.93 63.79 ±9.55 70.30 ±5.24 85.28 ±6.52
+> 0.2-1.0-4.0 31.75 ±10.39 54.02 ±5.97 59.71 ±7.84 55.91 ±7.68 54.55 ±6.35 61.51 ±6.89
+> 0.3-1.5-6.0 14.41 ±4.68 67.13 ±5.07 69.03 ±9.18 50.24 ±7.41 34.47 ±4.88 53.54 ±7.07 50.1-0.2-0.3-0.4-0.5 44.36 ±8.50 75.03 ±7.08 66.50 ±8.95 63.40 ±10.26 58.51 ±10.29 78.96 ±7.34
+> 0.2-0.4-0.6-0.8-1.0 30.26 ±11.22 56.84 ±5.10 67.07 ±4.40 55.65 ±13.74 47.99 ±8.48 61.92 ±10.42 0.3-0.6-0.9-1.2-1.5 13.14 ±5.58 51.81 ±6.79 46.98 ±9.14 51.36 ±8.39 15.23 ±4.79 48.51 ±9.77 Total 436.25 586.77 607.87 542.73 729.44 943.09
+
+to the target domain. Results on morphology shift. For MuJoCo locomotion tasks with morphology shifts, the results and detailed analysis are deferred to Section D.1. The key takeaway is that LoDADA achieves the best score in 13 out of 16 tasks, yielding a 32.7% improvement over the second-best method. 
+
+5.3 Experiments on Localized Perturbations 
+
+In this experiment, we evaluate our localized filtering method under locally perturbed dynamics. Unlike the previous setting with global shifts (e.g., gravity or friction changes that affect transitions uniformly), here the dynamics vary across regions of the state space. This setting is more challenging because the distribution mismatch is heterogeneous and cannot be well addressed by methods that rely on global assumptions, such as DARA (Eysenbach et al., 2021) and IGDF (Wen et al., 2024). We keep the target domain unchanged and perturb only the source dataset to simulate localized varia-tions. Policies are trained on the perturbed source dataset and evaluated in the unchanged target domain. For the target dataset, we randomly sample 5,000 transitions from D4RL (Fu et al., 2020) without intro-ducing any dynamics shift. For the source dataset, we start from the original D4RL dataset and partition the next-state space into 15 regions using K-means. We then divide the regions into M groups and inject Gaussian noise into state variables, with all samples in the same group sharing the same noise variance. We evaluate performance using the normalized score defined above. We consider all four MuJoCo environ-10 ments (Ant, Hopper, HalfCheetah, Walker2d) and set M ∈ { 3, 5}. When M = 3 , the noise variances are 
+
+{0.1, 0.5, 2.0}, {0.2, 1.0, 4.0}, and {0.3, 1.5, 6.0}. When M = 5 , the variances are {0.1, 0.2, 0.3, 0.4, 0.5},
+
+{0.2, 0.4, 0.6, 0.8, 1.0}, and {0.3, 0.6, 0.9, 1.2, 1.5}.As shown in Table 2, LoDADA achieves a total score of 943.09, corresponding to a 29.3% improvement over the second-best approach OTDF and a 55.1% improvement over IQL. Across the 24 evaluation tasks (4 environments × 6 shift levels), LoDADA achieves best (19) or second-best (3) performance in 22 out of 24 tasks. In contrast, DARA and IGDF often underperform in this setting due to their reliance on global mis-match assumptions. These results demonstrate that LoDADA is particularly effective under localized perturbations, where cluster-aware filtering becomes more beneficial than under global shifts. 
+
+Table 3: Performance comparison on AntMaze tasks under the diverse source dataset with dynamics shifts in the map. Source domains remain unchanged; target domains are shifted. We report normalized target-domain scores (mean ´ s std over five seeds) with the mean of 50 episodes. Best and second-best scores are highlighted in green and blue, respectively.                                                                                                          
+
+> Env Shift Level BOSA DARA IQL IGDF OTDF Ours Antmaze Medium 143 .6±11 .253 .6±9.976.5 ±8.4 60 .4±9.151 .6±10 .53 66 .8±4.6
+> 222 .4±5.533 .6±3.352 .8±7.945 .2±7.856 .4±4.34 69.2 ±8.9
+> 339 .6±11 .550 .8±3.057 .6±7.765 .2±6.671.6 ±5.90 73.2 ±7.3
+> 440 .0±3.248 .8±8.358 .4±4.860 .4±6.252 .4±8.53 65.2 ±5.9
+> 521 .2±7.641 .6±12 .766.4 ±8.3 56 .8±7.657 .2±7.16 66.8 ±4.8
+> 624 .8±14 .059 .2±12 .472 .4±10 .773 .6±1.765 .2±9.86 75.2 ±6.7
+> Total 191.6 287.6 384.1 361.6 354.4 416.4
+
+5.4 Results on Antmaze 
+
+In this section, we present results on the navigation tasks described in Section 5.1. We compare LoDADA with baseline methods on the medium-sized AntMaze setting using the diverse source dataset across six target environments. The results are summarized in Table 3. As shown in Table 3, LoDADA consistently outperforms the baselines on the AntMaze-medium benchmark with the diverse dataset. Overall, LoDADA achieves the highest total score of 416.4, corresponding to an 8.4% improvement over the second-best method. LoDADA also achieves the best performance on 5 out of 6 maps and the second-best score on the remaining map. These results demonstrate that LoDADA generalizes beyond locomotion tasks and achieves strong performance on navigation problems. 
+
+In structured map environments, our localized filtering strategy effectively retains source transitions that are closer to the target transitions. Specifically, LoDADA only keep the source transitions that have similar map positions in state space with the transition in the target dataset. In contrast, prior methods such as DARA and IGDF often fail to preserve these informative transitions, limiting their effectiveness. Results using the play dataset are reported in Section D.2 in Table 9. 
+
+5.5 Ablation study 
+
+In this section, we conduct several ablation studies to gain deeper insight into LoDADA and the effect of key hyperparameters in locomotion tasks. For demonstration, we study sensitivity in the Hopper environment in gravity shift with four shift levels (0.1, 0.5, 2.0, 5.0), focusing on the number of clusters K and the policy-regularization weight λ.11 Number of clusters K. K controls the level of locality of the state space partition used in our cluster-aware filtering mechanism. A smaller K induces coarser clusters, which may merge heterogeneous transi-tion dynamics, while a large K can lead to overly fine partitions with insufficient samples per cluster. To study this trade-off, we sweep K ∈ { 10 , 30 , 50 , 100 } and run LoDADA in the hopper-gravity environment with medium-level source and target datasets. As shown in Figure 2a, performance degrades when K is ei-ther too small ( e.g. , 10) or too large ( e.g. , 100), while intermediate values achieve consistently better results. 
+
+These results indicate that a moderate level of locality is critical for effective cluster-aware filtering, balancing dynamics homogeneity and data sufficiency. As a result, we set K = 30 or 50 in all of our experiments. 0.1 0.5 2.0 5.0       
+
+> Hopper Gravity Shift Level
+> 0
+> 10
+> 20
+> 30
+> 40
+> Normalized Score  10
+> 30
+> 50
+> 100
+> (a) Ablation study on K.0.1 0.5 2.0 5.0
+> Hopper Gravity Shift Level
+> 0
+> 10
+> 20
+> 30
+> 40
+> Normalized Score  0.0
+> 0.1
+> 0.5
+> 1.0 (b) Ablation study on λ.
+
+Figure 2: Parameter sensitivity study. 
+
+Policy regularization weight λ. λ controls the strength of the regularization term in policy optimization, which encourages the learned policy to stay close to the target behavior policy. A larger λ enforces stronger regularization, potentially restricting policy improvement, while a smaller λ allows more aggressive policy updates but may incur instability or overfitting to imperfect filtered data. To study this trade-off, we sweep 
+
+λ ∈ { 0, 0.1, 0.5, 1.0} and run LoDADA in the hopper-gravity environment with medium-level source and target datasets. Results shown in Figure 2b demonstrate that diminishing the role of dataset regularization (i.e. , λ = 0 ) leads to poor performance. LoDADA is sensitive to the choice of λ and the best λ can vary for different tasks ( e.g. , 0.1 for hopper-gravity-0.1 and 1.0 for hopper-gravity-0.5). However, as shown in Figure 2b, choosing λ = 0 .5 serves as a generally effective default policy regularization weight across different settings in MuJoCo. 
+
+# 6 Conclusion 
+
+In this work, we studied off-dynamics offline RL through a localized dynamics-aware data filtering method. We provided a theoretical performance bound that motivates us to perform data filtering from a local per-spective and introduce a dataset regularization term to encourage the learned policy to align with the target behavior. Building on this insight, we proposed LoDADA and conducted extensive experiments under vari-ous types and levels of both global and local dynamics shifts. Experiment results demonstrate that LoDADA outperforms existing baselines across a wide range of tasks, with particularly strong gains under local per-turbed dynamics. Future works include exploring the effectiveness of LoDADA in real-world environments, and exploring more principled clustering mechanisms to better capture fine-grained state-action structures. 12 Impact Statement 
+
+This paper aims to advance research in off-dynamics offline reinforcement learning. By enabling effective policy learning under dynamics mismatch using limited target-domain data, our approach has the potential to reduce the need for extensive data collection in real-world environments. This is particularly beneficial in safety critical or costly scenarios such as robotics, autonomous systems, and healthcare treatment, where collecting data under new dynamics may be unsafe, expensive, or impractical. We do not have any significant negative societal impacts arising from this work. 
+
+# A Proof of the Main Theoretical Results 
+
+A.1 Proof of Theorem 4.1 
+
+Proof of Theorem 4.1. This proof is similar to that of Theorem 4.3 in Lyu et al. (2024a). However, we derive this result by calculating the KL divergence between the source representation distribution and the target representation distribution, rather than vice versa. This is because our proposed method LoDADA requires characterizing the distance between the policy learned from the filtered source data and the target optimal policy, as demonstrated in Theorem 4.2. Due to the asymmetry of KL divergence, we reproduce the proof here for the completeness of our work. We would like to establish a connection between the representation deviations in the two domains and the dynamics discrepancies between the two domains. To achieve this, we introduce the concept of mutual information: 
+
+h (z; s′
+
+> src
+
+, s ′
+
+> tar
+
+) = I (z; s′
+
+> src
+
+) − I (z; s′
+
+> tar
+
+)
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+) log P (z, s ′
+
+> src
+
+)
+
+P (z)P (s′
+
+> src
+
+) dzds ′ 
+
+> src
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+) log P (z, s ′
+
+> tar
+
+)
+
+P (z)P (s′
+
+> tar
+
+) dzds ′
+
+> tar
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+) log P (z|s′
+
+> src
+
+)
+
+P (z) dzds ′ 
+
+> src
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+) log P (z|s′
+
+> tar
+
+)
+
+P (z) dzds ′
+
+> tar
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+, s ′
+
+> tar
+
+) log P (z|s′
+
+> src
+
+)
+
+P (z) dz ds ′ 
+
+> src
+
+ds ′
+
+> tar
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+, s ′
+
+> src
+
+) log P (z|s′
+
+> tar
+
+)
+
+P (z) dz ds ′ 
+
+> tar
+
+ds ′
+
+> src
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+, s ′
+
+> tar
+
+) log P (z|s′
+
+> src
+
+)
+
+P (z|s′
+
+> tar
+
+) dzds ′
+
+> src
+
+ds ′
+
+> tar
+
+= DKL 
+
+(P (z|s′
+
+> src
+
+) ∥P (z|s′
+
+> tar
+
+)) .
+
+Note that the definition of the KL-divergence already involves expectations over s′ 
+
+> src
+
+and s′ 
+
+> tar
+
+. While one can also write Es′ 
+
+> src ,s ′
+> tar
+
+[DKL (P (z|s′
+
+> src
+
+) ∥P (z|s′
+
+> tar
+
+))] and it should not affect the result. At the same time, we also have 
+
+h (z; s′
+
+> src
+
+, s ′
+
+> tar
+
+) = I (z; s′
+
+> src
+
+) − I (z; s′
+
+> tar
+
+)
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+) log P (z, s ′
+
+> src
+
+)
+
+P (z)P (s′
+
+> src
+
+) dz ds ′ 
+
+> src
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+) log P (z, s ′
+
+> tar
+
+)
+
+P (z)P (s′
+
+> tar
+
+) dz ds ′
+
+> tar
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+) log P (s′
+
+> src
+
+|z)
+
+P (s′
+
+> src
+
+) dz ds ′ 
+
+> src
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+) log P (s′
+
+> tar
+
+|z)
+
+P (s′
+
+> tar
+
+) dz ds ′
+
+> tar
+
+13 =
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+, s ′
+
+> tar
+
+) log P (s′
+
+> src
+
+|z)
+
+P (s′
+
+> src
+
+) dz ds ′ 
+
+> src
+
+ds ′
+
+> tar
+
+−
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> tar
+
+, s ′
+
+> src
+
+) log P (s′
+
+> tar
+
+|z)
+
+P (s′
+
+> tar
+
+) dz ds ′ 
+
+> tar
+
+ds ′
+
+> src
+
+=
+
+∫
+
+> Z
+
+∫
+
+> S
+
+∫
+
+> S
+
+P (z, s ′
+
+> src
+
+, s ′
+
+> tar
+
+) log P (s′
+
+> src
+
+|z)
+
+P (s′
+
+> tar
+
+|z) dz ds ′ 
+
+> src
+
+ds ′
+
+> tar
+
+−
+
+∫
+
+> S
+
+P (s′
+
+> src
+
+) log P (s′
+
+> src
+
+) ds ′ 
+
+> src
+
++
+
+∫
+
+> S
+
+P (s′
+
+> tar
+
+) log P (s′
+
+> tar
+
+) ds ′
+
+> tar
+
+= DKL 
+
+(P (s′
+
+> src
+
+|z) ∥ P (s′
+
+> tar
+
+|z)) + H (s′
+
+> src
+
+) − H (s′
+
+> tar
+
+) .
+
+One can see that the defined function is also connected to the dynamics discrepancy term 
+
+DKL (P (s′
+
+> src
+
+|z) ∥ P (s′
+
+> tar
+
+|z)) and two entropy terms. Nevertheless, we observe that the source domain and the target domain are specified and fixed, and their state distributions are also fixed, indicating that the entropy terms are constants. So in the end we have 
+
+DKL 
+
+(P (z|s′
+
+> src
+
+) ∥P (z|s′
+
+> tar
+
+)) ︸ ︷︷ ︸
+
+> representation deviation
+
+= DKL 
+
+(P (s′ 
+
+> src
+
+|z) ∥P (s′
+
+> tar
+
+|z)) ︸ ︷︷ ︸
+
+> dynamics deviation
+
++ H (s′
+
+> src
+
+) − H (s′
+
+> tar
+
+)︸ ︷︷ ︸
+
+> constants
+
+.
+
+This completes the proof. 
+
+A.2 Proof of Theorem 4.2 
+
+Proof of Theorem 4.2. For simplicity, denote ˜r = ∑ γtr (st, a t). Since It is infeasible to directly interact an online policy π∗ with an offline policy ˆπ∗
+
+> ˜Dsrc
+
+in different domains, we introduce π∗ 
+
+> src
+
+∈ Πno exploit that maximizes the reward in the filtered source domain. Then we have 
+
+EPtar ,π ∗ (˜ r) − EPtar ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r) = EPtar ,π ∗ (˜ r) − EPsrc ,π ∗ (˜ r)
+
+︸ ︷︷ ︸
+
+> (a)
+
++ EPsrc ,π ∗ (˜ r) − EPsrc ,π ∗ 
+
+> src
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> (b)
+
++ EPsrc ,π ∗ 
+
+> src
+
+(˜ r) − EPtar ,π ∗
+
+> Dtar
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> (c)
+
++ EPtar ,π ∗
+
+> Dtar
+
+(˜ r) − EPtar ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> (d)
+
+.
+
+First note that term (b) is 0 because π∗ 
+
+> src
+
+is the optimal policy in the filtered source domain, which should be identical to the target domain, meaning π∗ 
+
+> src
+
+is almost the same as π∗ and they should achieve the same reward in the same domain. Term (a) is bounded above by 2Rmax 
+
+√1 − eB−ϵ by Assumption 1. To bound term (c), we first need the following result by applying Lemma 1: 
+
+EPsrc ,π ∗ 
+
+> src
+
+(˜ r) − EPtar ,π ∗ (˜ r) ≤ EPsrc ,π ∗ 
+
+> src
+
+(˜ r) − EPtar ,π ∗ 
+
+> src
+
+(˜ r) ≤ 2Rmax 
+
+√
+
+1 − eB−ϵ.
+
+Next we can use this and the performance bound of usual offline RL algorithm to find a bound for term (c): 
+
+EPsrc ,π ∗ 
+
+> src
+
+(˜ r) ≤ 2Rmax 
+
+√
+
+1 − eB−ϵ + EPtar ,π ∗ (˜ r) ≤ 2Rmax 
+
+√
+
+1 − eB−ϵ + C + EPtar ,π ∗
+
+> Dtar
+
+(˜ r).
+
+Rearrange the terms can we find the upper bound for term (c). Finally we will deal with term (d): 
+
+(d) = EPtar ,π ∗
+
+> Dtar
+
+(˜ r) − EPsrc ,π ∗
+
+> Dtar
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> I1
+
++ EPsrc ,π ∗
+
+> Dtar
+
+(˜ r) − EPsrc ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> I2
+
++ EPsrc ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r) − EPtar ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r)
+
+︸ ︷︷ ︸
+
+> I3
+
+.
+
+14 We bound I2 by applying Lemma 3: 
+
+I2 ≤
+
+∣∣∣EPsrc ,ˆπ∗
+
+> ˜Dsrc
+
+(˜ r) − EPsrc ,π ∗
+
+> Dtar
+
+(˜ r)
+
+∣∣∣
+
+=
+
+∣∣∣∣∣
+
+11 − γ Eρ 
+
+> ˆπ∗
+> ˜Dsrc
+> Msrc
+
+(s,a ),s ′∼Psrc 
+
+[
+
+Ea′∼ˆπ∗
+
+> ˜Dsrc
+
+[
+
+Qπ∗
+
+> Dtar
+
+Msrc 
+
+(s′, a ′)]
+
+− Ea′∼π∗
+
+> Dtar
+
+[
+
+Qπ∗
+
+> Dtar
+
+Msrc 
+
+(s′, a ′)]] ∣∣∣∣∣
+
+= 11 − γ Eρ 
+
+> ˆπ∗
+> ˜Dsrc
+> Msrc
+
+(s,a ),s ′∼Psrc 
+
+∣∣∣∣∣∑
+
+a′∈A 
+
+(ˆπ∗
+
+˜Dsrc (a′|s′) − π∗
+
+Dtar (a′|s′))Qπ∗
+
+> Dtar
+
+Msrc (s′, a ′)
+
+∣∣∣∣∣
+
+≤ Rmax 
+
+1 − γ Eρ 
+
+> ˆπ∗
+> ˜Dsrc
+> Msrc
+
+(s,a ),s ′∼Psrc 
+
+∣∣∣∣∣∑
+
+a′∈A 
+
+(ˆπ∗
+
+˜Dsrc (a′|s′) − π∗
+
+Dtar (a′|s′)) 
+
+∣∣∣∣∣
+
+= 2Rmax 
+
+1 − γ Eρ 
+
+> ˆπ∗
+> ˜Dsrc
+> Msrc
+
+(s,a ),s ′∼Psrc 
+
+[
+
+DTV 
+
+(ˆπ∗
+
+˜Dsrc (·| s′) ∥ π∗
+
+Dtar (·| s′))]
+
+.
+
+We bound I1 by applying Lemma 2: 
+
+I1 ≤
+
+∣∣∣EPsrc ,π ∗
+
+> Dtar
+
+(˜ r) − EPtar ,π ∗
+
+> Dtar
+
+(˜ r)
+
+∣∣∣
+
+=
+
+∣∣∣∣∣
+
+γ
+
+1 − γ Eρπ∗ 
+
+> Dtar
+> Msrc
+
+(s,a )
+
+[
+
+Es′∼Psrc 
+
+[
+
+V π∗
+
+> Dtar
+
+Mtar 
+
+(s′)]
+
+− Es′∼Ptar 
+
+[
+
+V π∗
+
+> Dtar
+
+Mtar 
+
+(s′)]] ∣∣∣∣∣
+
+=
+
+∣∣∣∣∣
+
+γ
+
+1 − γ Eρπ∗ 
+
+> Dtar
+> Msrc
+
+(s,a )
+
+[∫ 
+
+S
+
+(PMsrc 
+
+(s′ | s, a ) − PMtar 
+
+(s′ | s, a )) V π∗
+
+> Dtar
+
+Mtar 
+
+(s′) ds ′
+
+]∣∣∣∣∣
+
+≤ γ
+
+1 − γ Eρπ∗ 
+
+> Dtar
+> Msrc
+
+(s,a )
+
+[∣ ∣∣∣∫
+
+S
+
+(PMsrc 
+
+(s′ | s, a ) − PMtar 
+
+(s′ | s, a )) ∣∣∣∣ ×
+
+∣∣∣∣V π∗
+
+> Dtar
+
+Mtar 
+
+(s′)∣∣∣∣ ds ′
+
+]
+
+≤ 2γ
+
+1 − γ Rmax [DTV (PMsrc (· | s, a )∥PMtar (· | s, a ))] 
+
+≤ 2γ
+
+1 − γ Rmax 
+
+√
+
+1 − eB−ϵ.
+
+Similarly for I3, we get the same upper bound. Combining all bounds together, we get the desired result. 
+
+# B Useful Lemmas 
+
+Lemma 1. Let Rmax be the maximum (entropy-regularized) return of any trajectory. Then the following inequality holds: 
+
+∣∣∣Eπ,P src 
+
+[∑ γtr (st, a t)
+
+]
+
+− Eπ,P tar 
+
+[∑ γtr (st, a t)
+
+]∣ ∣∣ ≤ 2Rmax 
+
+√
+
+1 − eB−ϵ.
+
+Note that the original result from Eysenbach et al. (2021) was derived within a policy class, Πno exploit ,which is defined to be set of policies that have constrained dynamics discrepancy. Since in our case we assume the KL divergence between the source and target dynamics is bounded by ϵ − B, the above result is not restricted to the policy class Πno exploit anymore. 15 Proof. This proof is similar to that of Lemma B.2 in Eysenbach et al. (2021), and the only difference is that we use B-H bound for TV distance instead of Pinsker’s inequality in the last step. We repeat the proof here for readers’ reference. We know z = f (s, a ) is injective, and apply Holder’s inequality and BretagnolleHuber bound, which is never worse than Pinsker’s inequality (Canonne, 2022), to obtain the desired result: 
+
+∣∣∣EPsrc 
+
+[∑ γtr (st, a t)
+
+]
+
+− EPtar 
+
+[∑ γtr (st, a t)
+
+]∣ ∣∣ =
+
+∣∣∣∣∣∑
+
+> τ
+
+(Psrc (τ ) − Ptar (τ )) 
+
+(∑ γtr (st, a t)
+
+)∣∣∣∣∣
+
+≤
+
+∥∥∥∑ γtr (st, a t)
+
+∥∥∥∞ · ∥ Psrc (τ ) − Ptar (τ )∥1
+
+≤
+
+(
+
+max 
+
+> τ
+
+∑ γtr (st, a t)
+
+)
+
+· 2
+
+√
+
+1 − e−DKL (Psrc (τ )∥Ptar (τ )) 
+
+≤ 2Rmax 
+
+√
+
+1 − eB−ϵ.
+
+This completes the proof. 
+
+Lemma 2 (Telescoping lemma, Lemma 4.3 from Luo et al. (2019)) . . Denote M1 = ( S, A, P 1, r, γ ) and 
+
+M2 = ( S, A, P 2, r, γ ) as two MDPs that only differ in their transition dynamics. Then for any policy π, we have 
+
+JM1 (π) − JM2 (π) = γ
+
+1 − γ Eρπ 
+
+> M1(s,a )
+
+[Es′∼P1
+
+[V π
+
+> M2
+
+(s′)] − Es′∼P2
+
+[V π
+
+> M2
+
+(s′)]] .
+
+Lemma 3. Denote M = ( S, A, P, r, γ ) as the underlying MDP. Suppose we have two policies π1, π 2, then the performance difference of these policies in the MDP gives: 
+
+JM (π1) − JM (π2) = 11 − γ Eρπ1
+
+> M(s,a ),s ′∼P
+
+[Ea′∼π1
+
+[Qπ2
+
+> M
+
+(s′, a ′)] − Ea′∼π2
+
+[Qπ2
+
+> M
+
+(s′, a ′)]] .
+
+Proof. This is Lemma B.3 in Lyu et al. (2024a), please check the proof there. 
+
+# C Experiment Details 
+
+In this section, we provide more details for the experiment settings and hyperparameters in Section 5. 
+
+C.1 Locomotion tasks 
+
+In this section, we demonstrate the detailed modification in the MuJoCo xml file to construct the target environment. In the locomotion tasks, we follow the ODRL, providing three dynamics shifts including gravity, friction and morphology shift. In the gravity and friction shift, we consider the shift level with 
+
+{0.1, 0.5, 2.0, 5.0}. In the morphology shift, we consider the medium and hard level shift. 16 Gravity Shift. Following the ODRL benchmark (Lyu et al., 2024b), we modify the gravity of the environ-ment by editing the gravity attribute. For example, the gravity of the HalfCheetah in the target is modified to 0.5 times the gravity in the source domain with the following code.     
+
+> #gravity <option gravity="0 0 -4.905" timestep="0.01"/>
+
+Friction Shift. The friction shift is generated by modifying the friction attribute in the geom elements. The frictional components are adjusted to 0.1, 0.5, 2.0, 5.0 times the frictional components in the source domain, respectively. 
+
+Morphology Shift. The morphology shift is achieved by modifying the size of specific limbs or torsos of the simulated robot in MuJoCo without altering the state space and action space. Visualizations can be found in Figure 3, Figure 4, Figure 5 and Figure 6.    
+
+> (a) alllegs (M) (b) alllegs (H) (c) halflegs (M) (d) halflegs (H)
+
+Figure 3: Visualization of morphology shift environments for Ant.    
+
+> (a) thigh (M) (b) thigh (H) (c) torso (M) (d) torso (H)
+
+Figure 4: Visualization of morphology shift environments for HalfCheetah. 
+
+C.2 Navigation tasks 
+
+In this section, we present the detailed modification in the AntMaze map to construct the target environment. In this setting, we follow the ODRL benchmark and consider the medium size with six different target maps. 17 (a) foot (M) (b) foot (H) (c) torso (M) (d) torso (H) 
+
+Figure 5: Visualization of morphology shift environments for Hopper.    
+
+> (a) leg (M) (b) leg (H) (c) torso (M) (d) torso (H)
+
+Figure 6: Visualization of morphology shift environments for Walker2d. 18 Visualization of the map can be found in Figure 7.     
+
+> (a) antmaze-medium-1 (b) antmaze-medium-2 (c) antmaze-medium-3
+> (d) antmaze-medium-4 (e) antmaze-medium-5 (f) antmaze-medium-6
+
+Figure 7: Visualization of the AntMaze map structure. We consider medium size map with 6 different map layouts. 
+
+C.3 Manipulation tasks 
+
+In this section, we discuss the detailed modifications in the Adroit environment. In this setting, we follow the ODRL benchmark using the pen and door as the tasks. The pen task is to control the 24-DoF shadow hand robot to twirl a pen, and the door task is to open a door. We consider the two types of dynamics shifts under this environment, denoted as the kinematic shift and the morphology task. We only consider the 
+
+medium and hard level shift. Visualizations can be found in Figure 8 and Figure 9. 
+
+Kinematic Shift. The kinematic shift in the Adroit robot hand occurs at all finger joints of the index finger and the thumb. We make constraints on the range of torsos. We use two types of shift levels, denoted as medium and hard level for the kinematic shift. 
+
+Morphology Shift. The morphology shift in the Adroit robot hand occurs on the fingers. We shrink the sizes of these fingers with the medium and hard levels, which multiply by 0.25 and 0.125 for the size of the 19 fingers, respectively.    
+
+> (a) broken-joint (M) (b) broken-joint (H) (c) shrink-finger (M) (d) shrink-finger (H)
+
+Figure 8: Visualization of morphology and kinematic shift environments for Adroit Pen.    
+
+> (a) broken-joint (M) (b) broken-joint (H) (c) shrink-finger (M) (d) shrink-finger (H)
+
+Figure 9: Visualization of morphology and kinematic shift environments for Adroit Door. 
+
+C.4 Datasets 
+
+Note that we follow D4RL and adopt the normalized score metric to better characterize the agents perfor-mance across different tasks. The normalized score in the target domain is defined as: 
+
+NS = J − Jr
+
+Je − Jr
+
+× 100 ,
+
+where J denotes the return achieved by the agent in the target domain, and Jr, Je represent the returns obtained by the random and expert policies in the same domain, respectively. We summarize the reference scores of Jr and Je under different dynamics shift scenarios in Table 4, Table 5 and Table 6. 
+
+C.5 Technical Details about Baseline Algorithms 
+
+In this section, we describe the implementation details of the baseline methods, following the ODRL bench-mark (Lyu et al., 2024b). Furthermore, we list the hyperparameter setup used for all methods in Table 7. 20 Table 4: The referenced minimum and maximum scores for MuJoCo datasets under various dynamics shift scenarios. These reference scores are used to compute normalized performance in the target domain. 
+
+Task Name Dynamics Shift Type Reference Min Score ( Jr) Reference Max Score ( Je)
+
+HalfCheetah Gravity - 0.1 -280.18 2466.85 Gravity - 0.5 -280.18 9509.15 Gravity - 2.0 -280.18 9509.15 Gravity - 5.0 -280.18 3756.24 Friction - 0.1 -280.18 41696.55 Friction - 0.5 -280.18 7357.07 Friction - 2.0 -280.18 11255.97 Friction - 5.0 -280.18 10199.33 Local -280.18 12135.0 Hopper Gravity - 0.1 -26.34 3234.3 Gravity - 0.5 -26.34 3234.3 Gravity - 2.0 -26.34 3234.3 Gravity - 5.0 -26.34 3234.3 Friction - 0.1 -26.34 3234.3 Friction - 0.5 -26.34 3234.3 Friction - 2.0 -26.34 3234.3 Friction - 5.0 -26.34 3234.3 Local -20.272305 3234.3 Walker2d Gravity - 0.1 10.08 2074.90 Gravity - 0.5 10.08 5194.71 Gravity - 2.0 10.08 5056.45 Gravity - 5.0 10.08 3665.39 Friction - 0.1 10.08 3360.18 Friction - 0.5 10.08 4229.35 Friction - 2.0 10.08 5180.04 Friction - 5.0 10.08 4988.84 Local 1.629008 4592.3 Ant Gravity - 0.1 -325.6 2782.09 Gravity - 0.5 -325.6 4317.07 Gravity - 2.0 -325.6 6705.12 Gravity - 5.0 -325.6 6226.89 Friction - 0.1 -325.6 7938.96 Friction - 0.5 -325.6 8301.34 Friction - 2.0 -325.6 5167.38 Friction - 5.0 -325.6 4545.02 Local -325.6 3879.7 21 Table 5: The referenced minimum and maximum scores for AntMaze medium datasets under various dy-namics shift scenarios. These reference scores are used to compute normalized performance in the target domain. 
+
+Task Name Dynamics Shift Type Reference Min Score ( Jr) Reference Max Score ( Je)
+
+AntMaze-medium 1 0.0 1.0 2 0.0 1.0 3 0.0 1.0 4 0.0 1.0 5 0.0 1.0 6 0.0 1.0 Table 6: The referenced minimum and maximum scores for Adroit datasets under various dynamics shift scenarios. These reference scores are used to compute normalized performance in the target domain. 
+
+Task Name Dynamics Shift Type Reference Min Score ( Jr) Reference Max Score ( Je)
+
+Pen broken-joint-medium -12.17 6408.38 broken-joint-hard -12.17 6408.38 shrink-finger-medium -12.17 6408.38 shrink-finger-hard -12.17 6408.38 Door broken-joint-medium -52.34 2880.57 broken-joint-hard -52.34 2880.57 shrink-finger-medium -52.34 2880.57 shrink-finger-hard -52.34 2880.57 
+
+BOSA (Liu et al., 2024a). BOSA deals with the OOD state–action pairs through a supported policy op-timization and addresses the OOD dynamics issue through a supported value optimization by data filtering. Specifically, the policy is updated by maximizing the following objective function: 
+
+Lactor = Es∼Dsrc ∪Dtrg , a ∼πϕ(s)
+
+[Q(s, a )], s.t. Es∼Dsrc ∪Dtrg 
+
+[ˆπθoffline (πϕ(s) | s)] > ϵ. 
+
+Here, ϵ is the threshold, ˆπθoffline is the learned policy for the combined offline dataset. The value critic is updated with 
+
+Lcritic = E(s,a )∼Dsrc 
+
+[Q(s, a )]
+
++ E(s,a,r,s ′)∼Dsrc ∪Dtrg , a ′∼πϕ(·| s′)
+
+[
+
+I (ˆptrg (s′ | s, a ) > ϵ ′) ( Qθi (s, a ) − y)2]
+
+,
+
+where I(·) is the indicator function, ˆptrg (s′ | s, a ) = argmax E(s,a,s ′)∼Dtrg 
+
+[ log ˆ ptrg (s′ | s, a )] is the es-timated target domain dynamics and ϵ′ is the threshold. The above objective is transformed to a relaxed Lagrangian form for optimization. Both the behavior policy and the dynamics models are modeled by the CVAE. We implement BOSA by following the instructions in the original paper. BOSA is trained for 500K gradient steps in practice by drawing samples from both the source domain dataset and the target domain dataset. 22 IQL (Kostrikov et al., 2021). IQL learns the state value function and state–action value function simulta-neously by minimizing the following expectile regression loss function 
+
+LV = E(s,a )∼Dsrc ∪Dtrg 
+
+[Lτ
+
+> 2
+
+(Qθ(s, a ) − Vψ(s))] ,
+
+where Lτ 
+
+> 2
+
+(u) = |τ − I(u < 0) |∥ u∥2, I(·) is the indicator function, and θ is the target network parameter. The state–action value function is then updated by 
+
+LQ = E(s,a,r,s ′)∼Dsrc ∪Dtrg 
+
+[(r(s, a ) + γV ψ(s′) − Qθ(s, a ))2]
+
+.
+
+The advantage function is A(s, a ) = Q(s, a )−V (s). The policy is optimized by the advantage-weighted behavior cloning 
+
+Lactor = E(s,a )∼Dsrc ∪Dtrg 
+
+[ exp (β · A(s, a )) log πϕ(a | s)],
+
+where β is the inverse temperature coefficient. We implement IQL by following its official codebase and also train the IQL agent on offline datasets from both domains for 500K gradient steps. 
+
+DARA (Eysenbach et al., 2021). DARA is the offline version of DARC (Eysenbach et al., 2021). It trains two domain classifiers qθSAS (target | st, a t, s t+1 ), qθSA (target | st, a t) with the following objectives 
+
+L(θSAS ) = EDtar [log qθSAS (target | st, a t, s t+1 )] + EDsrc 
+
+[log (1 − qθSAS (target | st, a t, s t+1 ))] ,
+
+L(θSA ) = EDtar [log qθSA (target | st, a t)] + EDsrc 
+
+[log (1 − qθSA (target | st, a t))] ,
+
+to estimate the dynamics gap 
+
+log PMtar (st+1 | st, a t)
+
+PMsrc (st+1 | st, a t)
+
+between the source domain and the target domain. DARA approximates this term by leveraging the trained classifiers and proposes to modify the source domain rewards as follows 
+
+ˆrDARA = r − λ × δr, δr (st, a t) = − log qθSAS (target | st, a t, s t+1 ) qθSA (source | st, a t)
+
+qθSAS (source | st, a t, s t+1 ) qθSA (target | st, a t) ,
+
+where λ is an important hyperparameter that controls the strength of the reward penalty, which is set to be 0.1 by default. After that, DARA is trained on data from both domains for 500K gradient steps. We implement DARA by following the original paper and clip the reward penalty term to lie in [−10 , 10] . We use IQL as the base algorithm for DARA. 
+
+IGDF (Wen et al., 2024). IGDF captures the dynamics gap between the source domain and the target domain through contrastive learning. It trains a score function h(·) using (s, a, s ′
+
+> tar
+
+) ∼ Dtar from the target domain as positive samples, and mixed transition (s, a, s ′
+
+> src
+
+) as negative samples, where (s, a ) ∼ Dtar , s ′ 
+
+> src
+
+∼
+
+Dsrc . The score function is optimized via the following contrastive learning objective: 
+
+Lcontrastive = −E(s,a,s ′
+
+> tar )
+
+ES′− 
+
+[
+
+log h(s, a, s ′
+
+> tar
+
+)
+
+∑ 
+
+> s′∼S′− ∪s′
+> tar
+
+h(s, a, s ′)
+
+]
+
+,
+
+23 where S′− is a collection of the next states in negative samples. Practically, IGDF adopts two neural net-works ϕ(s, a ), ψ (s′) to learn representations of state-action pairs and states, and approximate the score function with a linear parameterization of them: 
+
+h(s, a, s ′) = exp (ϕ(s, a )⊤ψ(s′)).
+
+Based on the measured score function, IGDF proposes to filter out source domain data when training value functions: 
+
+Lcritic = 12 EDtar 
+
+[(Qθ − T Qθ)2] + 12 α · h(s, a, s ′) E(s,a,s ′)∼Dsrc 
+
+[1 (h(s, a, s ′) > h ξ%
+
+) (Qθ − T Qθ)2] ,
+
+where α is the importance coefficient for weighting the TD error of the source domain data, and ξ is the data selection ratio akin to that in OTDF. We run IGDF by using its official codebase and use IQL as its backbone. 
+
+OTDF (Lyu et al., 2025). OTDF performs off-dynamics offline policy adaptation by aligning the transition dynamics of the source and target domains using optimal transport. It first solves the optimal transport problem using 
+
+W (u, u ′) = min 
+
+> μ∈M |Dsrc |
+
+∑
+
+> t=1
+> |Dtar |
+
+∑
+
+> t′=1
+
+C(ut, u ′ 
+
+> t′
+
+) μt,t ′ ,
+
+given cost function C. Suppose the optimal coupling obtained is μ∗, then it defines the deviation between a source domain data point and the target domain dataset as: 
+
+d(ut) = −
+
+> |Dtar |
+
+∑
+
+> t′=1
+
+C(ut, u ′ 
+
+> t′
+
+) μ∗ 
+
+> t,t ′
+
+, u t = ( ssrc  
+
+> t
+
+, a src  
+
+> t
+
+, (s′
+
+> src
+
+)t) ∼ Dsrc .
+
+After computing and normalizing d, it trains the value function via 
+
+LQ = E(s,a,s ′)∼Dtar 
+
+[
+
+(Qθ − T Qθ)2]
+
++ E(s,a,s ′)∼Dsrc 
+
+[
+
+exp ( ˆd) · 1(d > d ξ%) ( Qθ − T Qθ)2]
+
+,
+
+where ˆd is normalized d and 1(·) is the indicator function. It then trains a Conditional Variational Autoen-coder (CVAE) using loss function 
+
+LCVAE = E(s,a )∼Dtar , z ∼Eν (s,a )
+
+[
+
+(a − Dς (s, z )) 2]
+
++ DKL 
+
+(Eν (s, a ) ∥ N (0 , I )),
+
+where Eν (s, a ) is the encoder and Dς (s, z ) is the decoder, to model the target dynamics and generates multiple latent transitions. Finally, they train the policy via 
+
+ˆLπ = Lπ − β Es∼Dsrc ∪Dtar 
+
+[
+
+log 
+
+( M∑
+
+> i=1
+
+exp ( log ˆ πi
+
+> tar
+
+(π(·| s) | s)))] 
+
+,
+
+where ˆπi 
+
+> tar
+
+denotes the i-th constructed Gaussian behavior policy in the target domain. A data selection mechanism filters source samples whose generated transitions closely match the target. We run OTDF using its official codebase. 24 Table 7: Hyperparameters of LoDADA and baselines. 
+
+Methods Hyperparameter Value Shared among all methods 
+
+Actor network (256, 256) Critic network (256, 256) Learning rate 3 × 10 −4
+
+Optimizer Adam Discount factor 0.99 Replay buffer size 10 6
+
+Nonlinearity ReLU Target update rate 5 × 10 −3
+
+Source domain batch size 128 Target domain batch size 128 
+
+DARA 
+
+Temperature coefficient 0.2 Maximum log std 2Minimum log std −20 
+
+Classifier network (256, 256) Reward penalty coefficient λ 0.1 
+
+BOSA 
+
+Temperature coefficient 0.2 Maximum log std 2Minimum log std −20 
+
+Policy regularization coefficient λpolicy 0.1 Transition coefficient λtransition 0.1 Threshold parameter ϵ, ϵ ′ log(0 .01) 
+
+Value weight ω 0.1 CVAE ensemble size 1 (behavior), 5 (dynamics) 
+
+IGDF 
+
+Representation dimension {16, 64} Contrastive encoder network (256, 256) Encoder pretraining steps 7000 Importance coefficient 1.0 Data selection ratio ξ 75% 
+
+OTDF 
+
+CVAE training steps 10000 CVAE learning rate 0.001 Number of sampled latents M 10 Gaussian std √0.1
+
+Cost function cosine Policy coefficient β 0.5 Data selection ratio ξ 80% 
+
+IQL 
+
+Temperature coefficient 0.2 Maximum log std 2Minimum log std −20 
+
+Inverse temperature β 3.0 Expectile τ 0.7 
+
+LoDADA 
+
+Number of clusters K {30, 50} Diameter threshold {1.5, 5.0} Filtering ratio (ξ1, ξ 2, ξ 3) (90%, 80%, 70%) Input noise std σ 1.0 Importance weight α 1.0 25 C.6 Technical Details about LoDADA 
+
+The LoDADA algorithm (Localized Dynamics-Aware Domain Adaptation), summarized in Algorithm 2, leverages clustering and divergence-based filtering to improve off-dynamics policy learning. First, target domain data are clustered by next-state variables to form clusters, and source samples are assigned to clusters based on proximity to centroids within a diameter threshold. For each cluster, a classifier estimates KL divergence between source and target distributions, and clusters are ranked accordingly. Source samples are then filtered adaptively based on the divergence ranking of their assigned clusters, which are divided into three classes according to their KL divergence: low, medium, and high. Clusters in the low-divergence class, which are most similar to the target dataset, admit the largest proportion ξ1 of their source samples; clusters in the medium-divergence class admit a moderate proportion ξ2; and clusters in the high-divergence classindicating greater dissimilarityadmit only a small fraction ξ3.After filtering, each retained source sample is assigned an importance weight derived from its normal-ized KL estimate, so that samples from more similar clusters have higher influence during training, while samples from less similar clusters are down-weighted. During training, mini-batches from both domains are used to update the value function, compute target values, and optimize the state-action value function with divergence-weighted losses. Finally, the target network is updated, and the policy is optimized on filtered source samples using CVAE, enabling effective adaptation across domains. For the policy regular-ization weight λ, we find that λ = 0 .1 can be used to achieve good performance for all friction experiments, 
+
+λ = 0 .5 for gravity experiments, λ = 1 .0 for morphology experiments, and λ ∈ { 0.5, 1.0} for all local perturbation experiments. In the AntMaze setting, we sweep the number of clusters over {10 , 20 , 30 , 50 } and observe that smaller cluster counts consistently yield better performance. We hypothesize that, unlike locomotion tasks in Mu-JoCo environments, the aligned transitions in both the source and target AntMaze environments are concen-trated within a small number of clusters (i.e., map position with overlap) induced by the map layout. As a result, using a smaller number of clusters is sufficient and yields better performance. For the policy regu-larization weight λ, we sweep λ = {0.1, 0.5, 1.0} to achieve the best performance. In the Adroit settings, we follow similar hyperparameters in MuJoCo tasks. We sweep the number of clusters in {30 , 50 } and the policy regularization weight in λ = {0.1, 1.0}.
+
+C.7 Compute Infrastructure 
+
+We run the experiment on a single GPU: NVIDIA RTX A5000-24564MiB with 8-CPUs: AMD Ryzen Threadripper 3960X 24-Core. Each experiment requires 12GB RAM and require 20GB available disk space for storage of the data. 
+
+# D More Experimental Results 
+
+In this section, we provide more experimental results that are omitted from the main text. We present the comprehensive normalized score comparison of LoDADA against other baselines under tasks with morphol-ogy shifts. 
+
+D.1 Results under morphology shifts 
+
+As shown in Table 8, our method improves the total score to 597.88, yielding a 32.7% improvement over the second best approach OTDF, and a 63% improvement over backbone algorithm IQL. Across the 16 26 Algorithm 2 LoDADA : Localized Dynamics-Aware Domain Adaptation  
+
+> 1:
+
+Input: Source domain data Dsrc , target domain data Dtar  
+
+> 2:
+
+Initialize: Policy πϕ, value networks Vψ, Q θ, target Q function Qθ′ , batch size B, number of clusters K,diameter threshold δ, critic importance ratio α, regularization weight λ, filtering ratio ξ1, ξ 2, ξ 3, target update rate η, CVAE with encoder Eν (s, a ) and decoder Dς (s, z ), number of sampled latent variables 
+
+M 
+
+> 3:
+
+Train CVAE policy to model the behavior policy in the target domain dataset using 
+
+LCVAE = E(s,a )∼D tar , z ∼Eν (s,a )
+
+[∥ ∥a − Dς (s, z )∥∥22 + DKL 
+
+(Eν (s, a )∥N (0 , I ))] . 
+
+> 4:
+
+Cluster Dtar into {N i}Ki=1 based on s′, with centroid ci and diameter di 
+
+> 5:
+
+for each source sample (s, a, s ′) ∈ Dsrc do  
+
+> 6:
+
+Find nearest centroid ci among {N i}Ki=1  
+
+> 7:
+
+if dist (s′, c i) ≤ δ · 1
+
+> K
+
+∑Ki=1 di then  
+
+> 8:
+
+Assign (s, a, s ′) to neighborhood N i 
+
+> 9:
+
+end if  
+
+> 10:
+
+end for  
+
+> 11:
+
+for i=1, 2..., K do  
+
+> 12:
+
+Train classifiers Dn(z) based on Equation (4.1)  
+
+> 13:
+
+Calculate cluster estimate of KL divergence ˆDnKL based on Equation (4.3)  
+
+> 14:
+
+end for  
+
+> 15:
+
+Sort {N i}Ki=1 based on ˆDnKL from smallest to largest and get {N (j)}Kj=1  
+
+> 16:
+
+for each neighborhood N (j), j = 1 , . . . , K do  
+
+> 17:
+
+Rank point estimates {dji }|N (j)0 | 
+
+> i=1
+
+of sampled source data  
+
+> 18:
+
+Admit the top ξg(j)% samples, where g(j) = 
+
+
+
+1, j ≤ ⌈ K/ 3⌉,
+
+2, ⌈K/ 3⌉ < j ≤ ⌈ 2K/ 3⌉,
+
+3, j > ⌈2K/ 3⌉. 
+
+> 19:
+
+end for  
+
+> 20:
+
+Normalize point estimate of KL divergence via ˆdi = di−max i di   
+
+> max idi−min idi
+
+, i ∈ { 1, ..., | ˜Dsrc |}  
+
+> 21:
+
+for each gradient step do  
+
+> 22:
+
+Sample a mini-batch bsrc of size B/ 2 from ˜Dsrc and btar of size B/ 2 from Dtar  
+
+> 23:
+
+Update the state value function Vψ via: LV = E(s,a )∼ ˜Dsrc ∪Dtar 
+
+[
+
+Lτ
+
+> 2
+
+(Qθ′ (s, a ) − Vψ(s))] 
+
+> 24:
+
+Compute the target value via: y = r + γV ψ(s′) 
+
+> 25:
+
+Optimize the state-action value function Qθ on bsrc ∪ btar via: 
+
+LQ = EDtar [( Qθ − y)2] + E(s,a,s ′,d )∼ ˜Dsrc [exp( −α · ˆdi)( Qθ − y)2]. 
+
+> 26:
+
+Update the target network via: θ′ ← ηθ + (1 − η)θ′ 
+
+> 27:
+
+Decode M actions from the CVAE and construct Gaussian distributions {ˆπtar  
+
+> i
+
+(· | s)}Mi=1 . 
+
+> 28:
+
+Compute the advantage A and optimize the policy πϕ on bsrc ∪ btar using 
+
+Lπ = E(s,a )∼ ˜Dsrc ∪D tar [exp ( A) log πϕ(a | s)] − λEs∼ ˜Dsrc ∪D tar 
+
+[
+
+log 
+
+( M∑
+
+> i=1
+
+ˆπi 
+
+> tar
+
+(πϕ(· | s) | s)
+
+)] 
+
+. 
+
+> 29:
+
+end for 
+
+27 Table 8: Performance comparison on HalfCheetah, Ant, Walker2d, and Hopper environments under mor-phology shifts across 5 seeds. We use M and H to denote the medium and hard levels of the dynamics shift. Env Type Level BOSA IQL DARA IGDF OTDF Ours HalfCheetah morph-thigh M 25.12 ±4.33 22.22 ±1.13 20.68 ±2.49 19.31 ±4.35 21.94 ±6.30 26.42 ±3.44                                                                                                        
+
+> H20.74 ±3.22 15.90 ±1.47 16.35 ±0.97 15.57 ±2.06 22.75 ±2.76 25.81 ±5.29
+> morph-torso M0.66 ±0.90 1.95 ±1.69 1.40 ±1.66 1.84 ±0.37 3.38 ±1.30 9.96 ±4.07
+> H16.44 ±12.82 30.87 ±10.00 29.89 ±5.88 28.85 ±3.89 26.06 ±6.00 23.44 ±4.82 Ant morph-halflegs M64.52 ±7.46 67.15 ±4.33 65.82 ±5.31 69.07 ±5.76 73.86 ±0.79 77.48 ±0.77
+> H37.21 ±6.15 54.27 ±5.60 61.31 ±5.71 60.08 ±2.09 59.76 ±9.27 64.47 ±4.62
+> morph-alllegs M31.09 ±7.09 30.05 ±7.41 26.49 ±4.52 37.87 ±17.24 32.98 ±4.91 77.55 ±3.44
+> H13.89 ±1.46 5.65 ±3.30 3.21 ±3.26 7.24 ±1.40 12.84 ±2.06 24.25 ±0.02
+> Walker2d morph-torso M8.63 ±3.49 11.44 ±0.91 14.80 ±1.69 14.16 ±2.19 11.47 ±4.93 29.67 ±11.80
+> H1.93 ±0.53 4.78 ±1.13 6.86 ±2.38 5.38 ±1.34 7.05 ±0.57 7.76 ±2.42
+> morph-leg M28.10 ±8.64 40.61 ±4.78 43.87 ±6.22 41.71 ±10.14 45.07 ±10.09 52.86 ±8.82
+> H10.17 ±1.60 20.54 ±5.17 20.33 ±3.49 18.78 ±3.84 15.13 ±3.25 59.01 ±1.76
+> Hopper morph-foot M12.87 ±0.09 25.62 ±18.89 20.05 ±7.32 14.91 ±4.52 22.56 ±8.65 13.11 ±0.05 H9.84 ±0.17 10.72 ±2.84 25.74 ±10.70 18.35 ±8.08 66.78 ±9.79 67.53 ±14.03
+> morph-torso M13.43 ±0.37 13.66 ±0.98 14.70 ±4.48 13.06 ±4.33 16.84 ±1.44 27.81 ±9.08
+> H11.28 ±0.24 11.30 ±0.44 10.82 ±0.19 10.66 ±1.19 12.23 ±0.15 10.75 ±0.89 Total 305.92 366.73 382.32 376.84 450.70 597.88
+
+evaluation tasks (8 environments Œ 2 shift levels), LoDADA achieves best performance in 13 out of 16 tasks. These results indicate that our proposed approach consistently enhances robustness under morphology shifts. Relative to the baseline IQL, our method delivers consistent and significant performance gains across 13 out of 16 tasks. 
+
+D.2 Results on Antmaze with play source dataset 
+
+In this section, we present additional experiment results on the AntMaze benchmark using the play source dataset. We follow the same evaluation procedure as in the diverse dataset setting and report normalized target environment performance across 6 AntMaze medium environments.The results are summarized in Table 9. As shown in Table 9, our proposed LoDADA achieves the best overall performance under the play dataset, with a total score of 398.8, outperforming all baseline methods. Compared to the second-best method, LoDADA improves the total score by 5.3%, demonstrating its robustness under limited state coverage in the source dataset. Our method achieves the best performance on 3 out of 6 target maps and ranks second on 2 additional maps. Specifically, LoDADA performs best on maps {2, 3, 4} and achieves second-best performance on maps {5, 6}.
+
+D.3 Results on Adroit tasks 
+
+We report the performance of our method and baseline approaches on the Adroit manipulation benchmarks in Table 10. As shown in Table 10, our proposed LoDADA consistently outperforms all baseline methods across both the Pen and Door tasks. Overall, LoDADA achieves the highest total score of 402.24, yield-ing a substantial improvement over the second-best method (OTDF) with a total score of 330.41. This demonstrates the strong robustness of our approach under severe morphology and kinematic mismatches in real-world application. These results indicate that LoDADA generalizes well beyond navigation tasks and achieves strong performance on challenging manipulation benchmarks. By leveraging localized dynamics-28 Table 9: Performance comparison on Antmaze tasks under the play offline dataset with dynamics shifts in the map. Source domains remain unchanged; target domains are shifted. We report normalized target-domain scores (mean ´ s std over five seeds). Best and second-best scores are highlighted in green and blue, respectively. Env Shift Level BOSA DARA IQL IGDF OTDF Ours Antmaze Medium 1 33 .6 ± 8.0 52 .4 ± 7.8 76.4 ±10.1 58 .0 ± 12 .4 56 .8 ± 6.87 52 .8 ± 9.4
+
+2 25 .2 ± 4.6 29 .6 ± 6.2 46 .8 ± 4.1 42 .4 ± 8.2 63 .2 ± 7.95 67.6 ±6.7 
+
+3 30 .0 ± 8.1 56 .4 ± 11 .1 66 .4 ± 6.7 64 .8 ± 7.0 69 .6 ± 5.90 71.6 ±3.8 
+
+4 34 .0 ± 8.9 52 .8 ± 6.3 48 .8 ± 6.9 58 .0 ± 1.4 44 .8 ± 3.90 71.6 ±6.8 
+
+5 22 .8 ± 13 .9 34 .4 ± 9.3 73.6 ±8.2 54 .4 ± 6.2 55 .2 ± 3.03 60 .8 ± 7.2
+
+6 12 .8 ± 4.8 62 .8 ± 3.0 66 .8 ± 8.1 74.8 ±4.1 70 .8 ± 5.93 74 .4 ± 3.0
+
+Total 158.4 288.4 378.8 352.4 360.4 398.8 
+
+Table 10: Performance comparison on the Door and Pen environments under morphology shifts and kine-matic shifts across 5 seeds. We use M and H to denote the medium and hard levels of the dynamics shift.                                                                   
+
+> Env Type Level BOSA IQL DARA IGDF OTDF Ours Pen kin-broken-joint M42.56 ±11.31 45.46 ±8.54 46.17 ±6.26 50.74 ±11.20 52.14 ±6.51 64.31 ±11.33
+> H19.36 ±5.42 24.02 ±5.16 22.41 ±4.73 18.62 ±10.47 20.95 ±7.23 28.16 ±18.04
+> morph-shrink-finger M10.33 ±2.79 15.64 ±2.97 15.33 ±2.39 13.19 ±4.41 18.02 ±5.64 19.88 ±8.02
+> H19.47 ±5.01 19.40 ±5.05 18.24 ±2.59 19.05 ±3.87 20.34 ±2.85 33.06 ±11.48
+> Door kin-broken-joint M20.65 ±10.72 40.17 ±7.10 36.82 ±4.63 37.76 ±7.02 39.82 ±4.75 55.12 ±12.50
+> H19.80 ±15.61 52.37 ±5.52 49.31 ±5.53 52.61 ±4.83 58.24 ±6.37 59.81 ±7.23
+> morph-shrink-finger M41.05 ±15.36 54.85 ±7.79 54.49 ±5.88 54.73 ±5.28 59.15 ±4.89 71.48 ±8.80
+> H38.92 ±18.85 61.84 ±4.16 58.91 ±3.05 61.07 ±6.89 61.74 ±3.24 70.42 ±4.26
+> Total 212.15 313.75 301.67 307.78 330.41 402.24
+
+aware filtering, our method is able to retain source transitions that align well with the target dynamics, while prior methods relying on global assumption struggle under morphology and kinematic shifts. 
+
+D.4 Time comparison of data filtering methods 
+
+To understand what is the merit of LoDADA compared with other filtering methods, we study the runtime for the data filtering process between our method and IGDF (Wen et al., 2024) and OTDF (Lyu et al., 2025). We only compare the runtime of the filtering process instead of the whole training process as all these methods can share the same policy optimization backbone, so the main difference in runtime lies before the training begins. Specifically, we choose ant-gravity-0.5 environment and modify the replay buffer so that it samples without replacement, meaning it will go over the entire dataset per epoch. We fix the batch size to be 32 and number of epochs to be 7000 for fairness. As shown in Table 11, given that the target dataset is fixed, for OTDF, since it computes optimal transport pointwise between source and target datasets, its runtime significantly scales with data size, which makes it data-inefficient especially in real-world scenarios. For IGDF, while its runtime is the least in all three cases, based on results in Table 1 and Table 2, we argue that its performance is the poorest in all three filtering methods, indicating that the efficiency gains come at the cost of substantially degraded policy quality and its filtering mechanism is insufficient to capture reliable transitions under dynamics shifts. This further demonstrates the superiority of our method compared with other filtering methods by balancing model performance and data efficiency. 29 Table 11: Runtime comparison in Ant-Gravity-0.5 with different numbers of source samples. # Sources IGDF OTDF LoDADA 1000000 ∼41.49s ∼4597.82s ∼134.62s 100000 ∼38.71s ∼628.16s ∼80.18s 10000 ∼55.64s ∼126.39s ∼72.92s 30 References 
+
+ABEL , D., J INNAI , Y., G UO , S. Y., K ONIDARIS , G. and L ITTMAN , M. (2018). Policy and value transfer in lifelong reinforcement learning. In International conference on machine learning . PMLR. 3 BARDE , P., R OY , J., J EON , W., P INEAU , J., P AL , C. and N OWROUZEZAHRAI , D. (2020). Adversarial soft advantage fitting: Imitation learning without policy optimization. Advances in Neural Information Processing Systems 33 12334–12344. 3 CANONNE , C. L. (2022). A short note on an inequality between kl and tv. arXiv preprint arXiv:2202.07198 
+
+. 16 CORONATO , A., N AEEM , M., D E PIETRO , G. and P ARAGLIOLA , G. (2020). Reinforcement learning for intelligent healthcare applications: A survey. Artificial intelligence in medicine 109 101964. 1 DVURECHENSKY , P., G ASNIKOV , A. and K ROSHNIN , A. (2018). Computational optimal transport: Com-plexity by accelerated gradient descent is better than by sinkhorns algorithm. In International conference on machine learning . PMLR. 2 EYSENBACH , B., C HAUDHARI , S., A SAWA , S., L EVINE , S. and S ALAKHUTDINOV , R. (2021). Off-dynamics reinforcement learning: Training for transfer with domain classifiers. In International Confer-ence on Learning Representations .URL https://openreview.net/forum?id=eqBwg3AcIAK 1, 3, 5, 9, 10, 15, 16, 23 EYSENBACH , B., G UPTA , A., I BARZ , J. and L EVINE , S. (2019). Diversity is all you need: Learning skills without a reward function. In International Conference on Learning Representations .URL https://openreview.net/forum?id=SJx63jRqFm 3FU, J., K UMAR , A., N ACHUM , O., T UCKER , G. and L EVINE , S. (2020). D4rl: Datasets for deep data-driven reinforcement learning. arXiv preprint arXiv:2004.07219 . 8, 9, 10 GU, J., H E, Y., L IU , Z. and X U, P. (2025). Policy regularized distributionally robust markov decision processes with linear function approximation. arXiv preprint arXiv:2510.14246 . 3 GUO , Y., W ANG , Y., S HI , Y., X U, P. and L IU , A. (2024). Off-dynamics reinforcement learning via domain adaptation and reward augmented imitation. In Advances in Neural Information Processing Systems ,vol. 37. 2, 3 GUO , Y., Y ANG , Y., X U, P. and L IU , A. (2026). MOBODY: Model-based off-dynamics offline reinforce-ment learning. In The Fourteenth International Conference on Learning Representations .URL https://openreview.net/forum?id=7c0YS3cuno 2, 3 HAARNOJA , T., Z HOU , A., A BBEEL , P. and L EVINE , S. (2018). Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In International conference on machine learning . Pmlr. 8, 9 HE, Y., L IU , Z., W ANG , W. and X U, P. (2025). Sample complexity of distributionally robust off-dynamics reinforcement learning with online interaction. In Forty-second International Conference on Machine Learning .URL https://openreview.net/forum?id=pJdMOKqdSV 1, 3 31 KAELBLING , L. P., L ITTMAN , M. L. and M OORE , A. W. (1996). Reinforcement learning: A survey. 
+
+Journal of artificial intelligence research 4 237–285. 1 KIRAN , B. R., S OBH , I., T ALPAERT , V., M ANNION , P., A L SALLAB , A. A., Y OGAMANI , S. and P ÉREZ ,P. (2021). Deep reinforcement learning for autonomous driving: A survey. IEEE transactions on intelli-gent transportation systems 23 4909–4926. 1 KOSTRIKOV , I., N AIR , A. and L EVINE , S. (2021). Offline reinforcement learning with implicit q-learning. 
+
+arXiv preprint arXiv:2110.06169 . 3, 7, 9, 23 LEE , J., J EON , W., L EE , B., P INEAU , J. and K IM , K.-E. (2021). Optidice: Offline policy optimization via stationary distribution correction estimation. In International Conference on Machine Learning . PMLR. 3LEVINE , S., K UMAR , A., T UCKER , G. and F U, J. (2020). Offline reinforcement learning: Tutorial, review, and perspectives on open problems. arXiv preprint arXiv:2005.01643 . 4 LIU , J., Z HANG , H. and W ANG , D. (2022). Dara: Dynamics-aware reward augmentation in offline rein-forcement learning. arXiv preprint arXiv:2203.06662 . 1, 2, 3 LIU , J., Z HANG , Z., W EI , Z., Z HUANG , Z., K ANG , Y., G AI , S. and W ANG , D. (2024a). Beyond ood state actions: Supported cross-domain offline reinforcement learning. In Proceedings of the AAAI Conference on Artificial Intelligence , vol. 38. 9, 22 LIU , Y., S WAMINATHAN , A., A GARWAL , A. and B RUNSKILL , E. (2020). Provably good batch off-policy reinforcement learning without great exploration. Advances in neural information processing systems 33 
+
+1264–1274. 3 LIU , Z., W ANG , W. and X U, P. (2024b). Upper and lower bounds for distributionally robust off-dynamics reinforcement learning. arXiv preprint arXiv:2409.20521 . 3 LIU , Z. and X U, P. (2024). Distributionally robust off-dynamics reinforcement learning: Provable efficiency with linear function approximation. In International Conference on Artificial Intelligence and Statistics .PMLR. 3 LUO , Y., X U, H., L I, Y., T IAN , Y., D ARRELL , T. and M A, T. (2019). Algorithmic framework for model-based deep reinforcement learning with theoretical guarantees. In International Conference on Learning Representations .URL https://openreview.net/forum?id=BJe1E2R5KX 16 LYU , J., B AI , C., Y ANG , J.-W., L U, Z. and L I, X. (2024a). Cross-domain policy adaptation by capturing representation mismatch. In International Conference on Machine Learning . PMLR. 2, 3, 4, 13, 16 LYU , J., X U, K., X U, J., Y ANG , J.-W., Z HANG , Z., B AI , C., L U, Z., L I, X. ET AL . (2024b). Odrl: A benchmark for off-dynamics reinforcement learning. Advances in Neural Information Processing Systems 
+
+37 59859–59911. 7, 8, 17, 20 LYU , J., Y AN , M., Q IAO , Z., L IU , R., M A, X., Y E, D., Y ANG , J.-W., L U, Z. and L I, X. (2025). Cross-domain offline policy adaptation with optimal transport and dataset constraint. In The Thirteenth Interna-tional Conference on Learning Representations . 2, 3, 5, 7, 9, 24, 29 32 MACHADO , M. C., B ELLEMARE , M. G. and B OWLING , M. (2017). A laplacian framework for option discovery in reinforcement learning. In International Conference on Machine Learning . PMLR. 3 NACHUM , O., C HOW , Y., D AI , B. and L I, L. (2019). Dualdice: Behavior-agnostic estimation of discounted stationary distribution corrections. Advances in neural information processing systems 32 . 3 PENG , X. B., K UMAR , A., Z HANG , G. and L EVINE , S. (2019). Advantage-weighted regression: Simple and scalable off-policy reinforcement learning. arXiv preprint arXiv:1910.00177 . 6 SUTTON , R. S., B ARTO , A. G. ET AL . (1998). Reinforcement learning: An introduction , vol. 1. MIT press Cambridge. 1 WANG , R., Y ANG , Y., L IU , Z., Z HOU , D. and X U, P. (2024). Return augmented decision transformer for off-dynamics reinforcement learning. arXiv preprint arXiv:2410.23450 . 1, 2 WEN , X., B AI , C., X U, K., Y U, X., Z HANG , Y., L I, X. and W ANG , Z. (2024). Contrastive representation for data filtering in cross-domain offline reinforcement learning. arXiv preprint arXiv:2405.06192 . 2, 3, 5, 9, 10, 23, 29 XU, H., Z HAN , X., L I, J. and Y IN , H. (2021). Offline reinforcement learning with soft behavior regular-ization. arXiv preprint arXiv:2110.07395 . 3 XU, K., B AI , C., M A, X., W ANG , D., Z HAO , B., W ANG , Z., L I, X. and L I, W. (2023). Cross-domain policy adaptation via value-guided data filtering. Advances in Neural Information Processing Systems 36 
+
+73395–73421. 2, 3 YU, T., T HOMAS , G., Y U, L., E RMON , S., Z OU , J. Y., L EVINE , S., F INN , C. and M A, T. (2020). Mopo: Model-based offline policy optimization. Advances in Neural Information Processing Systems 33 14129– 14142. 3 33
