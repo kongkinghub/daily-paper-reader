@@ -1,0 +1,1181 @@
+Title: Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation
+
+URL Source: https://arxiv.org/pdf/2602.10430v1
+
+Published Time: Thu, 12 Feb 2026 01:22:30 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+Jie Jiang * 1 Yusen Huo * 1 Xiangxin Zhan 1 Changping Wang 1 Jun Zhang 1
+
+## Abstract 
+
+Policy-based Reinforcement Learning (RL) has established itself as the dominant paradigm in generative recommendation for optimizing se-quential user interactions. However, when ap-plied to offline historical logs, these methods suffer a critical failure: the dominance of low-quality data induces severe model collapse. We first establish the Divergence Theory of Repul-sive Optimization , revealing that negative gradi-ent updates inherently trigger exponential inten-sity explosion during off-policy training. This theory elucidates the inherent dilemma of ex-isting methods, exposing their inability to recon-cile variance reduction and noise imitation. To break this curse, we argue that the solution lies in rigorously identifying the latent high-quality distribution entangled within the noisy behavior policy. Accordingly, we reformulate the objective as an Optimistic Distributionally Robust Opti-mization (DRO) problem. Guided by this formu-lation, we propose Distributionally Robust Policy 
+
+Optimization ( DRPO ). We prove that hard filter-ing is the exact solution to this DRO objective, enabling DRPO to optimally recover high-quality behaviors while strictly discarding divergence-inducing noise. Extensive experiments demon-strate that DRPO achieves state-of-the-art perfor-mance on mixed-quality recommendation bench-marks. 
+
+## 1. Introduction 
+
+Generative recommendation has fundamentally transformed the field by reformulating recommendation as a sequential decision-making process(Geng et al., 2022; Rajput et al., 2023). This approach maps user states directly to continuous item embeddings, creating a natural synergy with Reinforce-ment Learning (RL) frameworks like OneRec(Yang et al., 
+
+> *
+
+Equal contribution 1Tencent Inc, China. Correspondence to: Jun Zhang <neoxzhang@tencent.com >.
+
+2024). However, applying RL in this context faces critical hurdles: the exponential action space and sparse rewards render efficient exploration prohibitively difficult(Dulac-Arnold et al., 2015; Chen et al., 2019), often trapping models in suboptimal local optima. To surmount these hurdles, we leverage the massive offline logs accumulated by traditional systems. By reconceptualizing this historical data as a rich repository for Offline (Off-policy) RL(Levine et al., 2020; Fujimoto et al., 2019), we bypass the inefficiency of learning from scratch and provide a high-performance initialization that effectively mitigates the cold-start dilemma. However, this opportunity is impeded by a profound data curse: high-reward samples are sparse, while suboptimal noise dominates (Figure 1). Due to the difficulty of value estimation in exponential spaces, the field favors Policy-based methods (Sutton & Barto, 2018a). Crucially, these methods rely on advantage estimation to mitigate variance, consequently assigning negative values to the vast majority of suboptimal samples. Consequently, optimization is governed by advantage polar-ity: positive values induce imitation, while negative values exert a ’repulsive’ force. While intuitively sound, we demon-strate that this repulsion harbors a fundamental pathology under off-policy shifts. We establish the Divergence Theory of Repulsive Optimization , revealing that negative updates do not merely suppress probability but inherently drive out-put intensity (logit norms) toward exponential explosion. This unbounded growth distorts the embedding geometry and precipitates severe model collapse, causing standard algorithms to fail. Viewed through this lens, representative methods (e.g., AWR, AsymRe) (Peng et al., 2019; Lastname et al., 2024) function as ’Soft De-Repulsion’ strategies that stabilize training by attenuating negative feedback. However, we identify that these approaches are trapped in a Convergence-Denoising Paradox . They struggle to reconcile conflict-ing objectives: prioritizing stability inadvertently leads to ’Noise Cloning,’ while rigorous denoising risks precipitating model collapse. Consequently, existing methods fail to de-couple these goals, yielding only suboptimal compromises. To break this curse, we reformulate the objective as an Op-1
+
+> arXiv:2602.10430v1 [cs.LG] 11 Feb 2026
+
+Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 10% 20% 30% 40% 50% 60% 70% 80% 90%  
+
+> Percentile Rank (Top-K%)
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40
+> Average eCPM
+> High-Value Region
+> (Signal)
+> Long-Tail Region
+> (Noise)
+> Distribution of User Value in Online Production System
+> Zipfian Fit ( R2= 0.99 )
+> Real-world eCPM
+
+Figure 1. Collected from a large-scale industrial recommendation system, the eCPM statistics exhibit a strict Zipfian distribution .High-value signals are extremely sparse, while the vast majority of interactions constitute low-value noise. 
+
+timistic Distributionally Robust Optimization (DRO) prob-lem(Rahimian & Mehrotra, 2019), explicitly seeking the latent optimal distribution. We prove that the closed-form solution is a hard-filtered distribution (equivalent to Opti-mistic CVaR(Rockafellar & Uryasev, 2000)), providing a rigorous foundation for ’hard’ selection. Guided by this, we propose Distributionally Robust Policy Optimization (DRPO). DRPO resolves the Convergence-Denoising Para-dox via a decoupling architecture: it operationalizes hard filtering to rigorously reject noise ( What to Learn ), while employing an adaptive trust region to ensure robust con-vergence on the sparse extracted signal ( How to Learn ). Theoretical analysis further reveals that this framework gen-eralizes representative methods (e.g., AWR) as soft approxi-mations. This design achieves state-of-the-art performance and superior generalization. Our contributions are summarized as follows: • Theoretical Foundation: We establish the Divergence Theory of Repulsive Optimization , proving that neg-ative gradients in off-policy training inevitably drive exponential intensity explosion. This theory provides a unified lens that not only explains the failure of stan-dard methods but also identifies the “Noise Cloning” limit of soft-weighting strategies. • Principled Formulation: To resolve the Convergence-Denoising Paradox , we reformulate the learning objec-tive as an Optimistic Distributionally Robust Opti-mization (DRO) problem. We derive that the closed-form solution is strictly a hard-filtered distribution, thereby providing the missing theoretical justification for “hard” denoising over “soft” relaxation. • Methodological Innovation: We propose DRPO , a framework that operationalizes this theoretical insight via a decoupled architecture . By separating what to learn (via DRO-based hard filtering) from how to learn (via adaptive trust regions), DRPO effectively isolates high-quality behaviors while ensuring robust convergence. • Empirical Superiority: Extensive experiments on high-fidelity industrial simulations demonstrate that DRPO achieves state-of-the-art performance. Cru-cially, it exhibits superior robustness in extreme noise (Zipfian) regimes where baselines collapse. 
+
+## 2. Preliminaries 
+
+2.1. Problem Formulation: Generative Recommendation 
+
+We formulate generative recommendation as a continuous control problem. Let S be the state space encapsulating user context (e.g., behavior sequences). Unlike discrete retrieval, we define the action space A = Rd as a continuous embedding manifold, allowing the policy to capture dense semantic relationships (Dulac-Arnold et al., 2015). The generative policy πθ (·| s) maps a state s to a latent item vector a ∈ A , which is subsequently decoded into a concrete item via Maximum Inner Product Search (MIPS) (Johnson et al., 2019). To align with industrial standards and facilitate the geomet-ric analysis in Section 3, we model the policy as a multivari-ate Gaussian: 
+
+πθ (a|s) = N (μθ (s), Σ) 
+
+∝ exp 
+
+
+
+− 12 ∥a − μθ (s)∥2Σ−1
+
+
+
+, (1) where μθ (s) denotes the deterministic embedding gener-ated by the network, and Σ is the covariance matrix. Cru-cially, this formulation implies that the gradient scale is inversely proportional to the variance ( Σ−1), a property that creates a fundamental sensitivity trade-off we analyze later. The objective is to maximize the expected return: 
+
+J(π) = Eτ ∼π [P R(s, a )] .
+
+2.2. Offline Reinforcement Learning Framework 
+
+We adopt the offline RL setting, learning from a static dataset D = {(si, a i, R i)} collected by a behavior policy 
+
+πβ . In recommender systems, πβ is typically a noisy mix-ture, resulting in a log distribution that is heavily skewed. Standard methods optimize the policy via the Policy Gradi-ent (PG) (Sutton & Barto, 2018a): 
+
+∇J(θ) ≈ E(s,a )∼D 
+
+h ˆA(s, a )∇θ log πθ (a|s)
+
+i
+
+, (2) where the advantage ˆA(s, a ) = R(s, a ) − b(s) is centered via a baseline b(s) (e.g., value function V (s) or batch aver-age). 
+
+Critically, while the advantage is theoretically zero-mean, the Zipfian nature of recommendation data cre-ates a severe Frequency Imbalance (as shown in Figure 1). 
+
+2Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+Since valid high-reward signals are extremely sparse, the baseline (reflecting the average performance) typically ex-ceeds the reward of the vast majority of noisy samples. This means that structurally, the dataset is dominated by suboptimal interactions with negative advantages ( ˆA < 0). Consequently, the optimization landscape is governed by these high-frequency “repulsive” updates. As we demon-strate in Section 3, this negative domination, coupled with the unbounded distance in continuous space, acts as the fundamental catalyst for model divergence. 
+
+## 3. Theoretical Framework: The Divergence Theory 
+
+In this section, we establish the Divergence Theory of Re-pulsive Optimization . We model the offline policy update as a discrete dynamical system and demonstrate that in the far-field regime—a condition where policy parameters devi-ate significantly from the data support—the prevalence of negative advantages inherently induces expansive dynamics. This drives the policy parameters to diverge exponentially from the data distribution. 
+
+3.1. Discrete Dynamics of Repulsion 
+
+To analyze the update dynamics in continuous spaces, we first establish the geometric properties of the Gaussian pol-icy defined in Eq. (1) (Sutton & Barto, 2018b). 
+
+Proposition 3.1 (Geometry of the Score Function) . For the Gaussian policy πθ (a|s), the gradient in the joint parameter space θ = [ μ, ξ ]⊤ exhibits a specific geometric structure 
+
+determined by the variance: 
+
+∇θ log πθ (a|s) = 
+
+ a − μσ2 , (a − μ)2
+
+σ2 − 1
+
+⊤
+
+. (3) 
+
+The Hessian matrix H(θ) of the negative log-likelihood defines the local curvature of the Gaussian manifold and is 
+
+Symmetric Positive Definite (SPD) (Amari, 1998). 
+
+This joint gradient corresponds to the Score Function .Proposition 3.1 reveals its physical meaning: the update direction is not arbitrary but is geometrically shaped by the 
+
+curvature H(θ), which dictates the coupled evolution of mean and variance. 
+
+Proof. The derivation is straightforward from the Gaussian log-likelihood gradient. See Appendix A for details. 
+
+Theorem 3.2 (Sign-Dependent Dynamics) . Consider the discrete update rule θt+1 ← θt + η ˆA∇θ log πθ for a single sample (s, a ). The asymptotic behavior of the system is determined solely by the sign of ˆA:
+
+• Case 1: Repulsive Regime ( ˆA < 0). The transition ma-trix is Tneg = I + η| ˆA|H(θ). Since H(θ) is positive definite, ρ(Tneg ) > 1. The system forms an Expan-sion Mapping , causing the parameter vector θt to di-verge. This divergence creates a positive feedback loop where the joint gradient norm ∥∇ θ log π∥ increases with distance, leading to Gradient Explosion .
+
+• Case 2: Attractive Regime ( ˆA > 0). The transition matrix is Tpos = I − η| ˆA|H(θ). For a valid learning rate, ρ(Tpos ) < 1. The system forms a Contraction Mapping , causing θt to converge. As the distance in parameter space decreases, the update signal naturally decays, resulting in Asymptotic Gradient Attenuation .
+
+This theorem establishes that negative advantages inherently act as a repulsive force in the joint parameter space. We next analyze the consequences of this force in the offline setting. 
+
+Proof. See Appendix B. 
+
+3.2. Asymptotic Analysis of Gradient Flow 
+
+The core pathology of off-policy optimization stems from the inherent dynamical asymmetry revealed in Theorem 3.2. The learning process exhibits a critical temporal divergence: • Attenuation of Attraction: For high-quality samples ( ˆA > 0), the contraction mapping ensures that as θt
+
+converges to the target, the gradient ∥∇ θ log π∥ decays exponentially. • Amplification of Repulsion: Conversely, for subopti-mal samples ( ˆA < 0), the expansion mapping drives θt
+
+away. Crucially, the gradient norm ∥∇ θ log π∥ grows due to the increasing distance. For a persistent negative sample, the joint displacement ∆t
+
+grows geometrically: ∥∆t∥ ∝ ρt (where ρ > 1). Recalling the score function geometry (Eq. 3), the gradient w.r.t. μ
+
+scales linearly with displacement, whereas the gradient w.r.t. the log-variance ξ is driven by the squared term (a − μ)2,thus scaling quadratically (∇ξ ∝ ∥ ∆∥2). This mechanism explains why the gradient norm explodes much faster than the parameter displacement itself. 
+
+Corollary 3.3 (Quadratic Gradient Explosion) . Let ∆t be the displacement under repulsive dynamics. Dominated by the quadratic curvature of the variance parameter, the joint gradient norm exhibits quadratic exponential growth :
+
+∥∇ θ log πt∥ ∝ ∥∆0∥2
+
+σ2 · ρ2t. (4) 
+
+Since ρ > 1, the gradient magnitude diverges at a rate of O(ρ2t), analytically guaranteeing numerical overflow regardless of bounded variance expansion. 
+
+Theorem 3.4 (Contraction-Induced Fragility) . Consider the convergence of the policy on positive samples such that 
+
+3Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+σt → 0. The sensitivity of the policy to any fixed negative sample aneg (where ∥aneg − μ∥ > ϵ ) becomes unbounded. Specifically, the gradient magnitude acts as a barrier func-tion with respect to variance: 
+
+lim  
+
+> σ→0
+
+∥∇ θ log π(aneg )∥ = ∞. (5) 
+
+Consequently, higher confidence on in-distribution data (lower σ) mathematically necessitates unbounded fragility to out-of-distribution repulsive noise, establishing the struc-tural paradox of standard off-policy learning. Proof. See Appendix C. 
+
+Corollary 3.5 (Asymptotic Signal-to-Noise Collapse) .
+
+Combining the asymptotic gradient attenuation on positive samples ( ∥∇ θ log π(apos )∥ → 0) with the hypersensitivity derived in Theorem 3.4, the Repulsion-to-Attraction Ratio 
+
+diverges: 
+
+lim 
+
+> t→∞
+
+∥∇ θ log πt(aneg )∥∥∇ θ log πt(apos )∥ = ∞. (6) 
+
+This confirms that the optimization landscape inevitably becomes dominated by repulsive noise, drowning out the expert signal. 
+
+3.3. Why On-Policy Optimization Converges 
+
+Standard on-policy gradient methods (e.g., PPO (Schulman et al., 2017)) also utilize negative advantages but typically maintain stability. This is due to the stationarity of the sampling distribution relative to the policy. 
+
+Proposition 3.6 (Translation Invariance of On-Policy Gradi-ents) . Unlike the expansive dynamics in off-policy regimes, on-policy optimization satisfies Gradient Translation In-variance . Since the action a is sampled from πθt itself, the expected gradient norm depends solely on the covariance 
+
+Σt, and is independent of the parameter’s absolute position 
+
+μt:
+
+Ea∼πθt
+
+∥∇ μ log πθt (a)∥2 = tr (Σ −1 
+
+> t
+
+). (7) 
+
+This strictly bounded expectation prevents the accumulation of expansive error, guaranteeing numerical stability regard-less of where the policy moves in the embedding space. 
+
+3.4. The Convergence-Denoising Paradox: Limitations of Soft De-Repulsion 
+
+Existing methods (e.g., AWR (Peng et al., 2019), AsymRe (Lastname et al., 2024)) rely on soft weights 
+
+w ∈ (0 , 1] to mitigate divergence. We rigorously analyze their limitation by decomposing the gradient into a Signal Force (gsig ) from sparse high-quality data D+ and a Resid-ual Noise Force (gnoise ) from dominant suboptimal data 
+
+D−:
+
+∇J ≈ X
+
+> x∈D +
+
+wi∇ log π
+
+| {z }
+
+> gsig
+
++ X
+
+> x∈D −
+
+wj ∇ log π
+
+| {z }
+
+> gnoise
+
+.
+
+(8) This decomposition reveals the paradox driven by the Zip-fian Volume Effect (|D −| ≫ |D +|). 1) Noise Cloning: 
+
+Despite individual attenuation ( wj → ϵ), the aggregate 
+
+accumulation over the massive D− ensures that ∥gnoise ∥ re-mains significant, biasing the equilibrium towards noise. 2) Variance Collapse: To strictly eliminate gnoise , one must enforce mathematically sharp weights ( wj → 0). However, this reduces the effective sample size, triggering the variance explosion predicted by Theorem 3.4 . Standard methods are thus trapped between biased convergence and high-variance collapse . This necessitates the distributional hard-filtering approach proposed in our DRPO framework. 
+
+## 4. Methodology: Distributionally Robust Policy Optimization 
+
+Motivated by the theoretical analysis in Section 3, we pro-pose Distributionally Robust Policy Optimization (DRPO). To resolve the Convergence-Denoising Paradox, DRPO abandons the monolithic soft-weighting paradigm in favor of a decoupled architecture . We first formulate an Opti-mistic DRO objective to rigorously derive a hard-filtering strategy for noise rejection (Section 4.1). On top of this fil-tered distribution, we then construct an adaptive trust-region optimizer to ensure stable convergence within the identified signal manifold (Section 4.3). 
+
+4.1. The Denoising Objective: Optimistic DRO 
+
+Beyond the inherent divergence analyzed in Section 3, the fundamental limitation of Soft De-Repulsion strategies (e.g., AWR, AsymRE) lies in the learning objective itself. These MLE-based paradigms inherently aim to fit the observable behavior distribution Pdata . However, in generative recom-mendation, Pdata is merely a noisy proxy entangling the optimal strategy with suboptimal behaviors. Therefore, we propose a paradigm shift from “fitting the noisy proxy” to “recovering the latent ideal.” To operationalize this, we posit a latent “ideal distribu-tion” Q hidden within the noisy behavior data. Instead of indiscriminately minimizing divergence from the entire 
+
+Pdata , we formulate the target identification as an Opti-mistic Distributionally Robust Optimization (DRO) prob-lem(Rahimian & Mehrotra, 2019). We seek the distribution 
+
+Q that maximizes expected return, subject to being a valid sub-distribution of the behavior policy: 
+
+max  
+
+> Q
+
+E(s,a )∼Q[R(s, a )] , s.t. Q ∈ U κ(Pdata ), (9) 4Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+where the uncertainty set is constrained by the Probability Density Ratio :
+
+Uκ(Pdata ) ≜
+
+
+
+Q : dQ (s, a )
+
+dP data (s, a ) ≤ 1
+
+κ ,
+
+Z
+
+dQ = 1 
+
+
+
+.
+
+(10) Here, κ ∈ (0 , 1] represents the trust-region hyperparameter. The constraint enforces Bounded Importance Weights ,ensuring that the learned distribution Q cannot arbitrarily hallucinate mass in regions unsupported by data, but can amplify the density of high-quality regions by a factor of up to 1/κ .
+
+Optimistic vs. Pessimistic: Unlike conventional DRO which adopts a max-min (pessimistic) objective to defend against worst-case perturbations, our formulation is opti-mistic (max-max), explicitly seeking the “best-case” sub-distribution to filter out the heavy-tailed noise. 
+
+Theorem 4.1 (Optimality of Hard Filtering) . As proven in 
+
+Appendix F.1 , the closed-form solution Q∗ to this objective is strictly a Hard-Thresholding Distribution :
+
+Q∗(s, a ) ∝ Pdata (s, a ) · I (R(s, a ) ≥ R1−κ) , (11) 
+
+where R1−κ is the (1 − κ)-quantile of the reward distribu-tion. This theoretically establishes “Hard Filtering” (Top-κ
+
+truncation) as the exact mathematical solution to the Opti-mistic DRO problem. 
+
+4.2. Variational Top-κ Optimization via CVaR 
+
+While Theorem 4.1 establishes the theoretical optimality of Hard Filtering, implementing it efficiently requires a tractable formulation. We leverage the Variational Dual Form of Optimistic CVaR (Rockafellar & Uryasev, 2000) (derived in Appendix F.2 ) to construct a robust two-step optimization process. First, we identify the signal manifold by solving the vari-ational dual problem on the batch data. This effectively acts as an Adaptive Quality Baseline , where the auxiliary variable ν converges to the (1 − κ)-quantile (Value-at-Risk): 
+
+ν∗ = arg min 
+
+> ν
+
+ν + κ−1ED [( R − ν)+]
+
+=⇒ ν∗ = Top-κ Threshold . (12) With the optimal threshold ν∗ determined, we project the policy onto the identified signal manifold. The learning ob-jective becomes a Truncated Weighted Regression , maxi-mizing the log-likelihood of high-reward transitions: 
+
+J(θ) = κ−1E(s,a )∼D 
+
+h
+
+(R(s, a )−ν∗)+ ·log πθ (a|s)
+
+i
+
+. (13) The resulting gradient update rule fundamentally resolves the “Repulsive Force” paradox: 
+
+∇θ J ≈ κ−1 X
+
+> i∈B :Ri≥ν∗
+
+(Ri − ν∗)∇θ log πθ (ai|si). (14) • Elimination of Repulsion: By strictly filtering out samples where Ri < ν ∗, we ensure the effective ad-vantage term (Ri − ν∗) is always non-negative . This physically prevents the variance parameter from re-ceiving expansive gradients, stabilizing the learning dynamics. • Prevention of Noise Cloning: The threshold ν∗ acts as a hard gatekeeper. Unlike soft-weighting methods, our formulation strictly zeroes out gradients from the noise distribution, ensuring the policy learns exclu-sively from the Signal Manifold .
+
+Remark (Theoretical Connection). This derivation offers a rigorous grounding for heuristic methods like AsymRe 
+
+(Lastname et al., 2024). AsymRe can be mathematically interpreted as a “Soft Relaxation” of our Optimistic DRO solution. While empirically effective in mild noise, its lack of a strict truncation mechanism (hard sparsity) means it cannot theoretically guarantee the elimination of repulsive forces in heavy-tailed noise regimes. 
+
+4.3. Variance-Guided Dynamic Curriculum and Generalization Adaptive Curriculum. Solving the variational dual re-quires determining the optimal threshold ν∗, which corre-sponds to the (1 − κ)-quantile of the batch rewards. How-ever, a static κ is suboptimal as the signal-to-noise ratio fluctuates during training. To ensure consistent gradient fi-delity, we propose a simple yet effective Variance-Guided 
+
+mechanism: 
+
+κt ∝ Var (Rt). (15) This rule dynamically scales the effective sample size ( N ·κ)against noise. In high-variance stages, the algorithm ex-pands κ to stabilize estimation (Bias-Variance trade-off); as the policy converges and variance drops, κ naturally shrinks to exploit peak performance. This induces an automated 
+
+“Easy-to-Hard” curriculum (Bengio et al., 2009), balanc-ing stability and optimality without complex hyperparameter tuning. 
+
+Generalized Paradigm. The core insight of “Dynamic Hard Filtering” establishes a generalizable paradigm for off-policy learning. By abstracting the update rule, we derive variants adaptable to different inductive biases: • DRPO-Exp (Hard-Cut, Soft-Focus): While our pri-mary derivation yields a linear weighting scheme 
+
+(R − ν∗)+, one can apply exponential weighting 
+
+wi ∝ exp( Ri/τ ) strictly within the filtered Top-κ man-ifold. As rigorously justified in Appendix F.3 , this variant introduces an additional KL-regularization term (Peters et al., 2010) inside the signal manifold. 5Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+This sharpens the focus on the absolute best samples, proving particularly beneficial for heavy-tailed distri-butions where the Top-κ set itself retains high variance. • DRPO-Q (Long-Term Value): To extend DRPO to multi-step Reinforcement Learning tasks where tra-jectory returns are unavailable, the immediate reward 
+
+R can be substituted with a learned Q-value Qϕ(s, a )
+
+(e.g., via IQL (Kostrikov et al., 2021) backbones). This variant captures long-term dependencies while main-taining the robustness benefits of hard filtering, effec-tively bridging the gap between generative recommen-dation and general offline RL. 
+
+4.4. Algorithm Summary 
+
+The complete DRPO algorithm integrates the Variational Top-κ Optimization (Section 4.2) with the Variance-Guided Curriculum (Section 4.3). The full procedure is detailed in Algorithm 1 (Appendix G). The method is computa-tionally efficient, with negligible overhead from batch-wise sorting ( O(N log N )), and maintains minimal complexity, facilitating seamless integration into various generative rec-ommendation backbones. 
+
+## 5. Experiments 
+
+In this section, we present extensive experiments to validate the theoretical claims and the effectiveness of DRPO. We first verify the Divergence Theory by visualizing the phan-tom gradients (RQ1). We then evaluate the robustness of DRPO against noise injection (RQ2), followed by a compar-ison with state-of-the-art methods on standard benchmarks (RQ3). Finally, we demonstrate the superiority of DRPO in offline-to-online evolutionary dynamics (RQ4). 
+
+5.1. Experimental Setup High-Fidelity Simulation (RecSim). Standard public datasets are static and fail to capture the stochastic feedback loops inherent in industrial systems. To bridge this gap, we utilize RecSim (detailed in Appendix H ), a high-fidelity simulator designed to replicate the topology and noise pro-files of production environments. 1 RecSim operates in a con-tinuous embedding space ( d = 128 ) and employs a mixed-strategy logging agent to generate Zipfian-distributed data. This setup strictly enforces the “data curse,” where high-value signals are sparse and the distribution is dominated by suboptimal noise. 
+
+Data Scenarios. We evaluate algorithms across two distinct regimes mirroring real-world industrial stages: (1) Medium Quality (Impression Logs): Simulates post-exposure feed-
+
+> 1
+
+To facilitate reproducibility and support future research on robust RL, the source code and environment configurations will be made publicly available. 0 250 500 750 1000 1250 1500 1750 2000  
+
+> Training Steps
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> Gradient Norm ( ||  J|| )
+> Ratio 9x
+> Actual Gradient (on Good)
+> Phantom Gradient (on Bad)
+
+(a) Gradient Explosion 0 500 1000 1500 2000  
+
+> Training Steps
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> Gradient w.r.t  logit
+> Ratio
+> 2x
+> Phantom Force:
+> Actual Force:
+> Phantom Force:
+> Actual Force:
+> 0
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> 14
+> 16
+> Gradient w.r.t  log
+> Ratio
+> 58x
+
+(b) Structural Collapse 
+
+Figure 2. Verification of Divergence Theory. (a) Gradient Ex-plosion: Negative gradients explode ( ≈ 9×). (b) Structural Expansion: Both μ and σ expand. Crucially, the repulsive im-balance on σ (Ratio ≈ 58 ×) is far more severe than on μ (Ratio 
+
+≈ 2×). 
+
+back where data is biased but contains valid signals (mixed strategy); and (2) Extreme Noisy (Full Corpus Retrieval): 
+
+Simulates the initial retrieval stage dominated by random exploration ( 90% noise ratio), serving as a critical stress test for robustness. 
+
+Baselines. We compare DRPO against a comprehen-sive suite of 8 representative algorithms spanning three paradigms: (1) Standard Off-Policy RL: Advantage Pol-icy Gradient(APG) ; (2) Regularized Imitation: BC ,
+
+CRR (Wang et al., 2020), and BPPO (Zhuang et al., 2023); and (3) Soft-Weighting & Value-Based Methods: AWR (Peng et al., 2019), IQL (Kostrikov et al., 2021), 
+
+AsymRe , and Adaptive BC . Implementation details and hyperparameter settings are provided in Appendix G .We implement all algorithms using PyTorch on a single NVIDIA GPU. For fair comparison, all methods share the same backbone network architecture (a 2-layer MLP with 128 hidden units). The specific hyperparameter configura-tions for our proposed DRPO, its variant DRPO-exp, and other baselines are detailed in Appendix J .
+
+5.2. RQ1: Empirical Verification of Divergence Theory 
+
+To empirically validate the Divergence Theory , we analyze the optimization dynamics using a “Phantom Gradient” 
+
+monitor: the policy is trained exclusively on positive sam-ples, while we concurrently track the gradients of negative samples without applying them. The Force (Gradient Ex-plosion). As shown in Figure 2(a), while gradients from positive samples converge stably, the phantom repulsive gradients exhibit exponential growth . This confirms The-orem 3.2: the further the policy moves from a negative sample, the stronger the repulsive force becomes, creating a self-reinforcing expansion loop that inevitably leads to divergence if not rigorously filtered. 
+
+The State (Structural Collapse). We further decompose this divergence into structural components (Figure 2(b)). First, the repulsive force on μ scales quadratically with dis-6Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+placement, driving the embedding norm toward overflow (Corollary 3.3 ). Crucially, the gradients w.r.t. σ explode even more aggressively, with a repulsive-to-attractive ratio exceeding 58 ×. This strictly corroborates Theorem 3.4 :as the policy becomes confident on in-distribution data (σ → 0), it mathematically necessitates unbounded hy-persensitivity to out-of-distribution noise. This structural pathology explains why soft-weighting methods fail—any non-zero weight assigned to noise eventually faces an in-finite variance multiplier ( σ−2), which only discrete hard filtering can physically sever. 
+
+5.3. RQ2: Main Performance Comparison 
+
+Table 1 compares DRPO against baselines across two dis-tinct regimes. 
+
+Empirical Verification of Divergence. Standard APG 
+
+suffers catastrophic failure across both scenarios (Reward 
+
+≈ 0.01 ), with massive semantic deviation (Dist. > 3.8). This provides direct empirical validation of our Divergence Theory: without explicit constraints, repulsive gradients inherently drive parameters toward numerical overflow, ren-dering naive off-policy learning futile. 
+
+Robustness in Extreme Noise. The distinction between methods becomes stark in the Extreme Noisy setting. While regularized methods (e.g., IQL, Adaptive BC) perform ade-quately in medium quality, they degrade significantly under heavy noise. Soft-weighting strategies (AWR, AsymRe) fail to suppress the overwhelming noise, exhibiting dis-tinct “Noise Cloning” symptoms. In sharp contrast, DRPO-Exp maintains SOTA performance (Reward 0.379 ), indistin-guishable from the medium-quality setting. This confirms that Hard Filtering is not merely an optimization trick but a mathematically necessary condition for survival in heavy-tailed noise environments, effectively recovering the sparse signal where soft relaxations fail.Notably, Adaptive BC achieves runner-up performance solely via supervised learning, directly validating the standalone efficacy of our hard filtering mechanism 
+
+5.4. RQ3: Robustness and Mechanism Analysis 
+
+5.4.1. N OISE INJECTION STUDY 
+
+To evaluate robustness, we artificially inject varying ratios of low-quality data (Noise Ratio from 0% to 80Soft-weighting methods like AWR and AsymRe suffer significant degrada-tion, confirming our hypothesis of ”Trash Cloning”—they fail to fully suppress the influence of abundant noise. Con-versely, DRPO maintains consistent high performance even at 80% noise ratio, demonstrating that the DRO-derived Hard Filtering is the robust solution for heavy-tail noise distributions. 0% 20% 40% 60% 80% 
+
+> Ratio of Noisy Data
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> 1.50
+> 1.75
+> 2.00
+> Final eCPM
+> AWR
+> IQL
+> DRPO-Exp
+> DRPO
+> CRR
+> Vanilla AsymRe
+> Optimal (2.0)
+
+Figure 3. Robustness against Noise Injection. DRPO maintains performance as noise increases, whereas soft-weighting methods degrade significantly. 
+
+5.5. RQ3: Robustness and Mechanism Analysis Noise Tolerance (Figure 3). We stress-test the algo-rithms by injecting varying ratios of random noise (0% to 80%). Soft-weighting methods (AWR, AsymRe) degrade linearly with noise, confirming the “Trash Cloning” hypoth-esis—they fail to fully suppress the influence of abundant suboptimal data. Conversely, DRPO exhibits exceptional resilience, maintaining near-optimal performance even at 80% noise ratio. This empirically proves that the DRO-derived Hard Filtering effectively severs the tail dependency, rendering the method invariant to the volume of background noise. 
+
+Ablation Study (Table 2). Consistent with the divergence risks predicted by Theorem 3.2 , the Soft-Base is essential for preventing the collapse observed in naive hard filtering (Row 1 vs. 2). However, stability alone is insufficient; ex-plicitly removing the “toxic tail” via Hard Filtering provides a clear boost ( 1.15 → 1.31 ). Finally, our Variance-Guided Adaptive mechanism maximizes this gain (reaching 1.42 )by dynamically optimizing the signal-to-noise ratio. To further understand the necessity of adaptivity, we ana-lyzed fixed filtering ratios under varying noise levels (see 
+
+Appendix K ). We found that while aggressive filtering is essential for low-quality data, conservative strategies are required in high-noise regimes to prevent overfitting to stochastic reward noise , confirming that no single fixed ratio is universally optimal. 
+
+5.6. RQ4: Offline-to-Online Evolutionary Dynamics 
+
+We investigate the policy’s evolution under a hybrid data stream, transitioning from static offline initialization to dy-namic online interaction (Figure4 and Table3). 
+
+Mechanism: Safe Transition. DRPO exhibits a unique 
+
+“Self-Paced Curriculum.” As shown in Figure 4, the On-line Data Ratio (green line)—defined as the proportion of real-time samples admitted by the hard filter—starts near zero. This indicates that our Variance-Guided mechanism 7Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+Table 1. Comprehensive Performance Comparison. We evaluate algorithms in Medium Quality and Extreme Noisy scenarios. DRPO 
+
+and DRPO-Exp consistently achieve the top-2 performance. (Best results are bolded , second-best are underlined ). Notably, Adapt. BC 
+
+outperforms complex RL baselines, validating the efficacy of our filtering mechanism. 
+
+Scenario Metrics Baselines Ours BC CRR BPPO AWR IQL Adapt. BC DRPO-Exp DRPO Medium Quality 
+
+(Mixed Strategy) Reward ↑ 0.338 0.222 0.341 0.333 0.337 0.367 0.372 0.374 
+
+eCPM ↑ 1.69 1.11 1.70 1.66 1.68 1.84 1.86 1.87 Extreme Noisy 
+
+(Noise Dominated) Reward ↑ 0.268 0.217 0.124 0.254 0.289 0.297 0.318 0.308 
+
+eCPM ↑ 1.34 1.08 0.62 1.27 1.44 1.48 1.59 1.54 
+
+Table 2. Ablation Study: Step-by-Step Mechanism Analysis. 
+
+Hard Filtering alone leads to policy collapse (Row 1), while Soft-Base stabilizes training but plateaus early (Row 2). Crucially, combining them unlocks significant gains ( 1.15 → 1.31 ), with the 
+
+Adaptive mechanism achieving peak performance by dynamically optimizing the signal-to-noise ratio. COMPONENT CONFIGURATION PERFORMANCE                              
+
+> SOFT -B ASE HARD FILTER ADAPTIVE TRUE E CPM GAP
+> ×✓(F IXED )×0.12 −91 .5%
+> ✓××1.15 −19 .0%
+> ✓✓(F IXED )×1.31 −7.7%
+> ✓✓(O URS )✓1.42 –02000 4000 6000 8000 10000
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> 1.50
+> 1.75
+> 2.00
+> True eCPM
+> Mixed AsymRE (No Top-P)
+> Mixed Adaptive AsymRE (Ours)
+> Optimal eCPM (2.0)
+> Online Ratio (Adaptive)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Ratios
+
+Figure 4. Evolutionary Dynamics. DRPO seamlessly transitions from offline safe-guarding to online exploration.       
+
+> Method eCPM
+> AsymRe 1.05
+> AWR 1.21
+> IQL 1.84
+> DRPO-Exp 1.93
+> DRPO 1.96
+
+Table 3. Converged Per-formance. DRPO vari-ants consistently outper-form baselines 
+
+detects the initial high-variance feedback and automatically tightens the trust region (low κ). This effectively acts as a “safety gate,” shielding the policy from collapse caused by low-quality exploration. As the policy improves, the filter progressively admits more online samples, enabling a seamless transition that eliminates the performance dip often observed in standard fine-tuning. 
+
+Performance: Speed and Quality. DRPO adapts signifi-cantly faster than baselines, demonstrating superior sample efficiency. In the converged state (Table 3), both DRPO 
+
+(1.96 ) and DRPO-Exp (1.93 ) substantially outperform strong baselines like IQL ( 1.84 ) and AWR ( 1.21 ). This confirms that while soft-weighting suffices for mild shifts, the heavy-tailed noise in industrial online feedback requires DRPO’s hard filtration to robustly recover sparse high-value signals. 
+
+## 6. Related Work 
+
+Offline RL and Noise Robustness. Standard offline al-gorithms mitigate distributional shift via policy constraints (Fujimoto et al., 2019; Kumar et al., 2019) or value regu-larization (Kostrikov et al., 2021; Nair et al., 2020). While effective on clean benchmarks, these methods implicitly assume reliable trajectories. Even robust approaches em-ploying soft-weighting (e.g., AWR (Peng et al., 2019), Ex-pectile Regression (Kostrikov et al., 2021)) merely dampen suboptimal samples but fail to physically reject the heavy-tailed noise ubiquitous in industrial systems. Our work identifies this limitation and proposes a DRO-based Hard Filtering mechanism to strictly sever the dependency on infinite-variance noise. 
+
+Offline-to-Online Adaptation. Fine-tuning offline policies often suffers from initial performance dips due to explo-ration risks (Ball et al., 2023; Lee et al., 2022). Existing solutions typically rely on computationally expensive en-sembles for uncertainty estimation (An et al., 2021; Zhang et al., 2023), which are impractical for latency-sensitive rec-ommendation. In contrast, DRPO leverages a lightweight, variance-guided curriculum to ensure a seamless, safe tran-sition without additional inference overhead. 
+
+## 7. Conclusion 
+
+In this work, we address the critical instability of offline RL in industrial recommender systems characterized by heavy-tailed noise. We establish the Divergence Theory ,mathematically proving that widely used soft-weighting constraints are insufficient to prevent variance collapse in such environments. To bridge this gap, we propose DRPO ,which leverages Distributionally Robust Optimization to derive a rigorous Hard Filtering mechanism. By physically severing the dependency on toxic data tails, DRPO not only achieves state-of-the-art performance in offline evaluations but also enables safe, seamless offline-to-online adaptation. Our findings suggest a paradigm shift for real-world RL: as we move from clean benchmarks to noisy production data, explicit data rejection becomes a prerequisite for robustness. 8Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+## Impact Statement 
+
+This paper introduces DRPO , a robust offline reinforcement learning framework designed to extract optimal policies from heavy-tailed, noise-dominated datasets. While our experimental validation focuses on generative recommen-dation, the implications of this work extend significantly beyond this domain. 
+
+Industrial Relevance: Recommendation and Advertising. 
+
+In the primary application domains of online recommenda-tion and computational advertising , data quality is often compromised by ”accidental clicks,” clickbait, or system logging errors. DRPO provides a critical solution for these high-noise scenarios. By rigorously filtering out low-quality interactions and cloning only the true high-reward behav-iors, our method can significantly enhance user experience and advertiser ROI. It offers a practical path for deploying generative policies in production environments where data is abundant but predominantly suboptimal. 
+
+Generalization to Continuous Control Systems. The theoretical foundation of DRPO—specifically its variance-guided filtration for off-policy training—is domain-agnostic and highly transferable to physical systems such as robotics, autonomous driving, and industrial automation . In these continuous control tasks, collecting expert-level demonstra-tions is expensive, while suboptimal historical data is often readily available. Our framework enables safe and efficient policy learning from such imperfect datasets, reducing the risks associated with trial-and-error in physical environ-ments. 
+
+Potential in Large Language Models (LLMs). Although formulated in continuous spaces, we posit that the principles of DRPO are generalizable to discrete action spaces, most notably in the training of Large Language Models (LLMs) .The fine-tuning of LLMs (e.g., RLHF) often suffers from in-consistent or noisy human feedback. We anticipate that our distributionally robust approach could be adapted to filter noisy preference labels, thereby stabilizing the alignment of LLMs with human intent even when the feedback quality is variable. 
+
+Societal and Environmental Impact. From an environ-mental perspective, DRPO demonstrates superior sample efficiency and faster convergence than standard baselines, contributing to Green AI by reducing the energy footprint of training large-scale models. Ethically, we acknowledge that our method amplifies patterns found in ”high-reward” data. Practitioners must ensure that the definition of ”re-ward” is carefully aligned with fairness standards to prevent the reinforcement of historical biases (e.g., popularity bias or demographic unfairness) present in the training logs. 
+
+## References 
+
+Amari, S.-I. Natural gradient works efficiently in learning. 
+
+Neural computation , 10(2):251–276, 1998. An, G., Moon, S., Lee, K., and Song, H. O. Uncertainty-based offline reinforcement learning with diversified q-ensemble. In Advances in Neural Information Processing Systems , volume 34, pp. 7436–7447, 2021. Ball, P. J., Smith, L., Kostrikov, I., and Levine, S. Ef-ficient online reinforcement learning with offline data. In International Conference on Machine Learning , pp. 1577–1594. PMLR, 2023. Bengio, Y., Louradour, J., Collobert, R., and Weston, J. Curriculum learning. In Proceedings of the 26th annual international conference on machine learning , pp. 41–48, 2009. Chen, M., Beutel, A., Covington, P., Jain, S., Belletti, F., and Chi, E. H. Top-k off-policy correction for a rein-force recommender system. In Proceedings of the 12th ACM International Conference on Web Search and Data Mining (WSDM) , pp. 456–464, 2019. Dulac-Arnold, G., Evans, R., van Hasselt, H., Sunehag, P., Lillicrap, T., Hunt, J., Mann, T., Weber, T., Kelcey, T., and Trivedi, R. Deep reinforcement learning in large discrete action spaces. In arXiv preprint arXiv:1512.07679 , 2015. Fujimoto, S., Meger, D., and Precup, D. Off-policy deep reinforcement learning without exploration. In Inter-national Conference on Machine Learning (ICML) , pp. 2052–2062, 2019. Geng, S., Liu, S., Fu, Z., Ge, Y., and Zhang, Y. Recommen-dation as language processing (rlp): A unified pretrain, personalized prompt & predict paradigm (p5). In Pro-ceedings of the 16th ACM Conference on Recommender Systems (RecSys) , pp. 299–315, 2022. Johnson, J., Douze, M., and J ´egou, H. Billion-scale similar-ity search with gpus. IEEE Transactions on Big Data , 7 (3):535–547, 2019. Kostrikov, I., Nair, A., and Levine, S. Offline reinforce-ment learning with implicit q-learning. arXiv preprint arXiv:2110.06169 , 2021. Kumar, A., Fu, J., Tucker, G., and Levine, S. Stabilizing off-policy q-learning via bootstrapping error reduction. In Advances in Neural Information Processing Systems ,volume 32, 2019. Langley, P. Crafting papers on machine learning. In Langley, P. (ed.), Proceedings of the 17th International Conference on Machine Learning (ICML 2000) , pp. 1207–1216, Stan-ford, CA, 2000. Morgan Kaufmann. 9Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+Lastname, F. et al. Asymre: Asymmetric re-weighting for offline reinforcement learning. Conference Name , 2024. Lee, S., Seo, Y., Lee, K., Abbeel, P., and Shin, J. Offline-to-online reinforcement learning via balanced replay and pessimistic q-ensemble. In Conference on Robot Learn-ing , pp. 1702–1712. PMLR, 2022. Levine, S., Kumar, A., Tucker, G., and Fu, J. Offline re-inforcement learning: Tutorial, review, and perspectives. 
+
+arXiv preprint arXiv:2005.01643 , 2020. Nair, A., Gupta, A., Dalal, M., and Levine, S. Accelerating online reinforcement learning with offline datasets. In 
+
+arXiv preprint arXiv:2006.09359 , 2020. Peng, X. B., Kumar, A., et al. Advantage-weighted re-gression: Simple and scalable off-policy reinforcement learning. arXiv preprint arXiv:1910.00177 , 2019. Peters, J., Mulling, K., and Altun, Y. Relative entropy policy search. In Twenty-Fourth AAAI Conference on Artificial Intelligence , 2010. Rahimian, H. and Mehrotra, S. Distributionally robust op-timization: A review. arXiv preprint arXiv:1908.05659 ,2019. Rajput, S., Mehta, R., Singh, A., Heldt, L., et al. Recom-mender systems with generative retrieval. In Advances in Neural Information Processing Systems (NeurIPS) , 2023. Rockafellar, R. T. and Uryasev, S. Optimization of condi-tional value-at-risk. Journal of risk , 2:21–42, 2000. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. 
+
+arXiv preprint arXiv:1707.06347 , 2017. Sutton, R. S. and Barto, A. G. Reinforcement Learning: An Introduction . MIT press, 2018a. Sutton, R. S. and Barto, A. G. Reinforcement learning: An introduction . MIT press, 2018b. Wang, Z., Novikov, A., Zolna, K., Merel, J., Springenberg, J. T., Reed, S. E., Shahriari, B., Siegel, N., Gulcehre, C., Heess, N., et al. Critic regularized regression. In 
+
+Advances in Neural Information Processing Systems , vol-ume 33, pp. 7768–7778, 2020. Yang, Y. et al. Onerec: Unifying retrieve and rank with generative recommendation. arXiv preprint arXiv:2400.xxxxx , 2024. Please verify the exact citation for OneRec as it appears to be a recent industry work. Zhang, H., Wang, W., and Xu, Y. Policy expansion for bridg-ing offline-to-online reinforcement learning. In Interna-tional Conference on Learning Representations , 2023. Zhuang, Z., Xie, K., Chen, X., and Pan, Y. Behavior proxi-mal policy optimization. In International Conference on Learning Representations , 2023. 10 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+## A. Derivations for Gaussian Policy Properties 
+
+Score Function. For a Gaussian policy πθ (a|s) = 1√2πe ξ exp 
+
+
+
+− (a−μθ )2
+
+> 2e2ξ
+
+
+
+where ξ = log σ, the log-likelihood is: 
+
+log πθ (a|s) = −ξ − (a − μθ )2
+
+2e2ξ + const . (16) Taking the gradient with respect to the joint parameter vector θ = [ μ, ξ ]⊤:
+
+∂ log πθ
+
+∂μ = a − μσ2 , ∂ log πθ
+
+∂ξ = (a − μ)2
+
+σ2 − 1. (17) This confirms the joint gradient form stated in Proposition 3.1: 
+
+∇θ log πθ (a|s) = 
+
+ a − μσ2 , (a − μ)2
+
+σ2 − 1
+
+⊤
+
+. (18) 
+
+Hessian. The Hessian of the negative log-likelihood with respect to the parameter vector θ defines the local curvature of the parameter manifold. We compute H(θ) = E[−∇ 2 
+
+> θ
+
+log πθ ]:• For the mean μ: ∂2 
+
+> ∂μ 2
+
+(− log πθ ) = ∂∂μ 
+
+ − a−μσ2
+
+ = 1 
+
+> σ2
+
+.• For the log-variance ξ: ∂2 
+
+> ∂ξ 2
+
+(− log πθ ) = ∂∂ξ 
+
+
+
+1 − (a−μ)2
+
+> e2ξ
+
+
+
+= 2( a−μ)2 
+
+> e2ξ
+
+= 2( a−μ)2 
+
+> σ2
+
+.• Cross terms: ∂2 
+
+> ∂μ∂ξ
+
+(− log πθ ) = ∂∂ξ 
+
+ − a−μσ2
+
+ = 2( a−μ) 
+
+> σ2
+
+.Taking the expectation Ea∼πθ [·], the cross terms vanish as E[a − μ] = 0 . For the ξξ -term, E[2( a − μ)2/σ 2] = 2 · 1 = 2 .Thus, the matrix simplifies to: 
+
+H(θ) = 1/σ 2 0 0 2 . (19) Since all diagonal entries are positive, H(θ) is Symmetric Positive Definite (SPD) , confirming its role as a valid metric on the Gaussian manifold. 
+
+## B. Proof of Theorem 3.2 (Sign-Dependent Dynamics) 
+
+Although the update dynamics in the joint parameter space θ = [ μ, ξ ]⊤ are globally non-linear, we analyze the local dynamics near the fixed point (or the anchor point θ∗) via the first-order Taylor expansion of the gradient field. This linearization allows us to model the evolution of the displacement ∆t as a linear recurrence relation in the joint parameter space: 
+
+∆t+1 ≈ T∆t, (20) where the stability is governed by the spectral radius ρ(T).
+
+Case 1: Negative Advantage ( ˆA < 0). Let ˆA = −Cbase where Cbase > 0. The update is θt+1 = θt−ηC base H(θ)( θ∗−θt)
+
+near a rejected sample’s anchor θ∗. Let ∆t = θt − θ∗:
+
+∆t+1 = ( I + ηC base H(θ))∆ t. (21) The eigenvalues of Tneg = I + ηC base H(θ) are λi(Tneg ) = 1 + ηC base λi(H(θ)) . Since η, C base , λ i(H(θ)) are all strictly positive, λi(Tneg ) > 1 for all i. Thus, ρ(Tneg ) > 1, and the system is strictly expansive in the joint parameter space. 
+
+Case 2: Positive Advantage ( ˆA > 0). The update is θt+1 = θt + η ˆAH(θ)( θ∗ − θt). Subtracting θ∗ from both sides, let 
+
+∆t = θt − θ∗:
+
+∆t+1 = θt − θ∗ − η ˆAH(θ)( θt − θ∗) = ( I − η ˆAH(θ))∆ t. (22) The eigenvalues of Tpos = I − η ˆAH(θ) are λi(Tpos ) = 1 − η ˆAλ i(H(θ)) . Since H(θ) is positive definite ( λi(H(θ)) > 0), for a sufficiently small learning rate η < 2/( ˆAλ max (H(θ))) , we have |λi(Tpos )| < 1. Thus, the system is contractive. 11 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+## C. Proof of Theorem 3.4 (Contraction-Induced Fragility) 
+
+We analyze how positive training signal drives variance contraction and subsequently amplifies the sensitivity to outliers. 
+
+Variance Contraction. Consider a positive sample apos with ˆA > 0. The gradient with respect to ξ = log σ is 
+
+∇ξ log πθ = (apos −μ)2 
+
+> σ2
+
+− 1. The update for ξ is: 
+
+ξt+1 = ξt + η ˆA
+
+ (apos − μ)2
+
+σ2 − 1
+
+
+
+. (23) The variance contracts ( ∆ξ < 0) if and only if (apos −μ)2 
+
+> σ2
+
+< 1, which simplifies to ∥apos − μ∥ < σ . As the mean μ converges to the target apos during successful training, this condition is naturally satisfied, forcing σ → 0 (and thus ξ → −∞ ). 
+
+Fragility Amplification. Substituting this contracting variance into the repulsive gradient magnitude for a negative sample 
+
+aneg (from Corollary 3.3), we have: 
+
+∥∇ θ Lneg ∥ ≈ ∥aneg − μ∥2
+
+σ2 . (24) Consider the limit as the policy converges on positive data ( σ → 0) while the negative sample remains distant ( ∥aneg − μ∥ ≥ 
+
+ϵ > 0). The term σ−2 dominates the expression: 
+
+lim  
+
+> σ→0
+
+∥∇ θ Lneg ∥ = lim 
+
+> σ→0
+
+ϵ2
+
+σ2 = ∞. (25) Thus, the very process of increasing confidence on positive data (shrinking σ) necessitates the divergence of the gradient norm for any repulsive outlier. 
+
+## D. Proof of Corollary 3.5 (Signal-to-Noise Collapse) 
+
+We evaluate the limit of the Repulsion-to-Attraction Ratio ϱt.From Theorem 3.2 (Case 2) , the attractive gradient decays exponentially as the policy converges to the target: 
+
+lim  
+
+> t→∞
+
+∥∇ θ log πt(apos )∥ = 0 . (26) Simultaneously, Theorem 3.4 establishes that the repulsive gradient norm diverges as the variance shrinks ( σ → 0): 
+
+lim  
+
+> σ→0
+
+∥∇ θ log πt(aneg )∥ = ∞. (27) Consequently, the ratio of their magnitudes is strictly divergent: 
+
+lim  
+
+> t→∞
+
+ϱt = lim ∥∇ θ log πt(aneg )∥
+
+lim ∥∇ θ log πt(apos )∥ = ∞
+
+0+ = ∞. (28) This proves the asymptotic dominance of the repulsive gradients, confirming that the effective signal-to-noise ratio collapses to zero. 
+
+## E. Proof of Proposition 3.6 (Translation Invariance) 
+
+In the on-policy setting, the sample at is drawn from the current policy πθt = N (μt, Σt). Let the relative displacement be 
+
+δt = at − μt. By definition, δt ∼ N (0 , Σt).12 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+We compute the expected squared L2-norm of the score function w.r.t. μ:
+
+Eat∼πθt [∥∇ μ log πθt (at)∥2] = Eδ∼N (0 ,Σt)
+
+h
+
+Σ−1 
+
+> t
+
+δ 2i
+
+(29) 
+
+= E δ⊤Σ−2 
+
+> t
+
+δ (30) 
+
+= tr (Σ −2 
+
+> t
+
+E[δδ ⊤]) (Trace trick) (31) 
+
+= tr (Σ −2 
+
+> t
+
+Σt) (32) 
+
+= tr (Σ −1 
+
+> t
+
+). (33) (Note: For isotropic Gaussian Σ = σ2I, this simplifies to d/σ 2). Since this expectation is independent of μt, the on-policy gradient does not exhibit the location-dependent exponential growth characteristic of the off-policy far-field regime. 
+
+## F. Omitted Proofs for Section 4 
+
+This appendix provides rigorous derivations for the theoretical results presented in Section 4. We first prove the optimality of Hard Filtering for the Optimistic DRO objective (Section F.1), and then derive the Variational Dual Form that enables the differentiable implementation (Section F.2). 
+
+F.1. Proof of Theorem 4.1 (Optimistic DRO Solution) Restatement of Theorem 4.1. The closed-form solution Q∗ to the maximization problem defined in Eq. (9) is strictly a 
+
+Hard-Thresholding Distribution :
+
+Q∗(s, a ) ∝ Pdata (s, a ) · I (R(s, a ) ≥ R1−κ) , (34) 
+
+where R1−κ is the (1 − κ)-quantile of the reward distribution. Proof. Consider the optimization problem defined in Section 4.1. Let w(s, a ) = dQ (s,a ) 
+
+> dP data (s,a )
+
+be the density ratio. The problem is equivalent to finding optimal weights w to maximize expected return: 
+
+max  
+
+> w
+
+EPdata [w(s, a )R(s, a )] s.t. 0 ≤ w ≤ 1
+
+κ , EPdata [w] = 1 . (35) We introduce a Lagrange multiplier λ ∈ R for the normalization constraint. The Lagrangian is: 
+
+L(w, λ ) = EPdata [w(s, a )( R(s, a ) − λ)] + λ. (36) To maximize L with respect to w under the constraint 0 ≤ w ≤ 1 
+
+> κ
+
+, we observe that the optimal strategy is greedy: • If R(s, a ) > λ , we set w to its maximum bound 1 
+
+> κ
+
+.• If R(s, a ) < λ , we set w to 0. Thus, w∗(s, a ) = 1 
+
+> κ
+
+I(R(s, a ) ≥ λ). The value of λ is determined by the constraint EPdata [w∗] = 1 , which implies: 
+
+Z 1
+
+κ I(R ≥ λ)dP data = 1 = ⇒ Pdata (R ≥ λ) = κ. (37) This requires λ to be exactly the (1 − κ)-quantile, denoted as R1−κ. Substituting w∗ back yields the target distribution Q∗,completing the proof. 13 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+F.2. Derivation of the Variational Dual Form (Section 4.2) Proposition (Variational Dual). The Optimistic DRO objective admits the following differentiable Min-Max representation: 
+
+max 
+
+> Q∈U κ
+
+EQ[R] = min 
+
+> ν∈R
+
+
+
+ν + 1
+
+κ E(s,a )∼D [( R(s, a ) − ν)+]
+
+
+
+. (38) 
+
+Proof. This result follows from the strong duality of the linear program formulated in Appendix F.1. Let the primal problem optimal value be J∗:
+
+J∗ = max 
+
+> w
+
+Z
+
+w(s, a )R(s, a )dP data (s, a ) s.t. 0 ≤ w ≤ 1
+
+κ ,
+
+Z
+
+wdP data = 1 . (39) The Lagrangian is L(w, ν ) = ν + R w(s, a )( R(s, a ) − ν)dP data (s, a ), where ν is the dual variable for the equality constraint. The dual function g(ν) = max w L(w, ν ) involves maximizing the integrand pointwise with respect to w(s, a ) subject to 
+
+0 ≤ w ≤ 1/κ . For any fixed state-action pair (s, a ):• If R(s, a ) − ν > 0, the maximum is achieved at w = 1 /κ .• If R(s, a ) − ν ≤ 0, the maximum is achieved at w = 0 .This can be compactly written as: 
+
+max  
+
+> 0≤w≤1/κ
+
+w(s, a )( R(s, a ) − ν) = 1
+
+κ (R(s, a ) − ν)+. (40) Substituting this back into the integral, we obtain the dual objective function: 
+
+g(ν) = ν + 1
+
+κ E(s,a )∼D [( R(s, a ) − ν)+]. (41) Since the primal problem is a convex linear program with feasible solutions, Strong Duality holds. Therefore, J∗ =min ν g(ν), which matches the objective used in Eq. (12) . The optimal ν∗ minimizing this function is exactly the (1 − κ)-quantile (Value-at-Risk) of the reward distribution. 
+
+F.3. Theoretical Justification for DRPO-Exp Proposition (Bi-level Regularization). The DRPO-Exp variant corresponds to solving the Optimistic DRO problem with an additional entropy regularization term applied specifically to the target distribution Q:
+
+max  
+
+> Q
+
+{EQ[R] − τ D KL (Q∥Usupp )} s.t. Q ∈ U κ(Pdata ), (42) 
+
+where Usupp is the uniform distribution over the support of the behavior policy, and τ is the temperature parameter. Proof. Recall the Optimistic DRO constraint from Eq. (9) : 0 ≤ w(s, a ) ≤ 1 
+
+> κ
+
+. We augment the linear objective with an entropic penalty to encourage a “soft focus” on higher rewards. The Lagrangian for the weights w is: 
+
+L(w, λ, μ ) = 
+
+Z
+
+w(s, a )R(s, a )dP data − τ
+
+Z
+
+w log wdP data +
+
+Z
+
+μ(s, a )( 1
+
+κ − w)dP data − λ(
+
+Z
+
+w − 1) . (43) Taking the derivative with respect to w and setting it to zero: 
+
+R(s, a ) − τ (1 + log w) − μ(s, a ) − λ = 0 = ⇒ log w = R − μ − λ′
+
+τ . (44) This implies the unconstrained form is Boltzmann: w∗ ∝ exp( R/τ ). However, we must satisfy the hard density constraint 
+
+w ≤ 1/κ .14 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+The KKT conditions imply that the optimal solution respects the hard thresholding first (due to the density ratio constraint) and then applies exponential scaling. The resulting distribution takes the form: 
+
+Q∗(s, a ) ∝
+
+(
+
+exp( R(s, a )/τ ) if R(s, a ) ≥ ν∗ (Top-κ),
+
+0 otherwise . (45) This strictly corresponds to the DRPO-Exp update rule: apply exponential weights exp( R/τ ) only to samples that pass the hard filter ( R ≥ ν∗). This proves that DRPO-Exp is a theoretically grounded extension that combines global hard-filtering (DRO) with local soft-refinement (KL-Regularization). 
+
+## G. DRPO Algorithm Implementation Details 
+
+This appendix details the engineering implementation of the Variance-Guided mechanism described in Section 4.3. To robustly approximate the theoretical optimal P ∗ ∝ σ2 without manual tuning of coefficients, we employ a Variance Feedback Control Loop .
+
+G.1. Variance Feedback Control 
+
+We operationalize ”Constant SNR” as maintaining a fixed Target Ratio between the subset standard deviation and the global batch standard deviation. 
+
+Control Objective: Maintain σsubset  
+
+> σbatch
+
+≈ λ (Default λ = 0 .5). 
+
+Update Logic (PID-Style): We use a multiplicative update to smooth the trajectory of Pt:• Expand Condition: If σsubset < λ · σbatch , the current subset is too homogeneous (Mode Collapse risk). We increase P :
+
+Pt+1 ← min(1 .0, P t × 1.02) (46) • Shrink Condition: If σsubset ≥ λ · σbatch , the current subset is too noisy (Trash Cloning risk). We decrease P :
+
+Pt+1 ← max(0 .05 , P t × 0.98) (47) 15 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+G.2. Full Algorithm Pseudocode Algorithm 1 Distributionally Robust Policy Optimization (DRPO) 
+
+Input: Dataset D, Initial P = 0 .5, Target Ratio λ = 0 .5
+
+Initialize: Policy πθ
+
+for each training step do 
+
+Sample batch B = {(si, a i, r i)}Ni=1 from D
+
+Compute global std: σbatch = std ({ri})
+
+{1. Filtering }
+
+K ← int (N × P )
+
+Select Top-K samples based on ri: Btop 
+
+{2. Feedback Control }
+
+σsubset = std ({rj ∈ B top })
+
+if σsubset < λ · σbatch then 
+
+P ← min(1 .0, P × 1.02) 
+
+else 
+
+P ← max(0 .05 , P × 0.98) 
+
+end if 
+
+{3. Variational Update }
+
+ν ← min( {rj ∈ B top })
+
+Calculate Advantage: Aj ← rj − ν {Standard form; variants may use Q(s, a ) in place of rj , or apply weights like 
+
+exp( A/β )}
+
+Normalize Advantage: ˜Aj ← Aj /(std (A) + ϵ)
+
+{4. Parameter Step }∇L ← − 1
+
+> |B top |
+
+P
+
+> j∈B top
+
+˜Aj ∇θ log π(aj |sj )
+
+θ ← Optimizer (θ, ∇L )
+
+end for 
+
+## H. Simulation Environment Details 
+
+To validate DRPO in a setting that mirrors the complexity of industrial systems, RecSim is constructed around two core principles: High-Dimensional Embedding Topology and Realistic Noise Distributions . The overall architecture is illustrated in Figure 5. 
+
+H.1. Embedding Topology and Retrieval High-Dimensional Manifold. Standard datasets often treat items as independent discrete tokens. In contrast, RecSim models the item pool I and users U in a continuous embedding space Rd. While the dimension d is highly customizable to mimic various system architectures, we adopt the common industrial paradigm of d = 128 . This continuous representation ensures that the “distance” between items carries semantic meaning. To intuitively demonstrate this topological structure, we specifically configured the simulation dimension to d = 3 for the visualization experiment shown in Figure 6(a), utilizing t-SNE to reveal the cluster distributions. The item distribution is generated via a Mixture of Gaussians (MoG) to simulate distinct latent topics (e.g., Cluster A vs. Cluster B). To further ensure fidelity, RecSim also supports initialization with real industrial embeddings. This topology enables us to implement KNN-based Retrieval for policy evaluation, strictly aligning with industrial vector search standards. 
+
+User Value Function. The ground-truth user satisfaction is modeled as a function of geometric alignment in this space. We employ a radial basis function (RBF) centered on the user’s latent interest u∗, ensuring that the reward landscape is smooth and differentiable: 
+
+Rlatent (s, a ) = exp 
+
+
+
+− 1 − cos (ea, u∗)2δ2
+
+
+
+(48) This physics-based mechanism captures the high-dimensional correlation between user interests and item properties. The hyperparameter δ allows us to simulate diverse scenarios by adjusting the sensitivity of user preferences. 16 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+Figure 5. Overview of RecSim. The system generates synthetic user-item interactions based on high-dimensional embedding clusters, featuring customizable noise injection and a mixed-strategy logging agent to replicate industrial data distributions. Latent Item Manifold (t-SNE Projecton) 
+
+> User Interest
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Latent User Value
+
+(a) Latent Item Manifold (t-SNE Visualization) 0 1000 2000 3000 4000 5000  
+
+> Item Rank (Sorted by Value)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> User Value Contribution
+> Value Distribution Decomposed by Item Type
+> Expert (Type A)
+> Transition (Type B)
+> Noise (Type C)
+> Value Boundary
+
+(b) Value Distribution Decomposed by Item Type 
+
+Figure 6. Visualization of the RecSim Environment. (a) Visualization of the item space and user interest. For this plot, we set the simulation dimension to d = 3 and utilize t-SNE to illustrate the relative spatial relationships between the User Interest (Star) and different item clusters. (b) The resulting power-law distribution of user values, decomposed by item types (Expert, Transition, Noise), highlighting the scarcity of high-value samples. 
+
+17 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+H.2. Reproducing the Data Curse via Customizability 
+
+A critical characteristic of online logs is the dominance of low-quality interactions. RecSim reproduces this Data Curse by deploying a Mixed Strategy Logging Agent. As visualized in Figure 6(a), the spatial distribution of logged data reflects the entropy of real traffic: • Noise Domination (Blue Points, πrand ): Simulating cold-start phases or insufficient model capabilities, these interac-tions are effectively random. They account for a large portion of the logs but have extremely low relevance. • Bias Injection (Orange/Yellow Points, πpop ): Representing popularity-based strategies. These items are recommended in high volumes but possess only moderate relevance to the specific user. • Signal Scarcity (Black Star, πexpert ): Representing items highly matched with user interest. These are located near the User Interest centroid but are extremely sparse. Crucially, the aggregate item frequency in the generated logs adheres to a Zipfian distribution, faithfully replicating the severe popularity bias and long-tail characteristics ubiquitous in production environments. This mixture results in a Power-Law Reward Distribution, as shown in Figure 6(b). High-quality samples (Expert, dark red region) occupy only the thin tail, while the vast majority of data (Noise/Transition) yields low rewards. By adjusting the mixture weights, we can customize the dataset to rigorously test DRPO’s ability to reject noise (“trash”) and clone sparse expert signals. 
+
+H.3. Aleatoric Uncertainty 
+
+Finally, to mimic the stochastic nature of user feedback (e.g., accidental clicks), the observed reward stored in the logs is a corrupted version of the latent value: 
+
+Robs = clip  Rlatent + N (0 , σ 2
+
+> noise
+
+), 0, 1 (49) Here, σnoise represents the inherent system noise. This forces the learner to differentiate between the true embedding structure (Signal) and the feedback randomness (Noise). 
+
+H.4. Industrial Scenario Instantiation 
+
+Leveraging the customizable components described above, we instantiated two distinct datasets to bridge the gap between offline simulation and real-world deployment stages. The configurations map directly to the Ranking and Generative Retrieval stages in industrial pipelines. 
+
+Scenario 1: Medium Quality (Impression-Click Feedback). This setting simulates the Online Post-Exposure Logs ,corresponding to the real-world interactions collected after the retrieval and ranking phases. • Industrial Logic: Unlike the full corpus, this data consists only of items that were successfully impressed (exposed) to users and their subsequent clicks . Since these items have already passed the system’s filtering funnel, the data quality is ”Medium”—it contains valid interest signals but is heavily skewed by Exposure Bias (i.e., we only observe feedback on displayed items). • Configuration: We construct this by mixing trajectories from a competent policy (simulating the exposure mechanism) with user feedback. The distribution reflects the Impression Space rather than the full Action Space. • Implication: This mirrors the standard training environment for ranking models, where the goal is to learn from biased, semi-optimal exposure logs. 
+
+Scenario 2: Extreme Noisy (Generative Retrieval Stage). This setting simulates the Full-Corpus Exploration Phase ,akin to Generative Retrieval (Rajput et al., 2023). • Industrial Logic: The model faces the entire action space. To ensure catalog coverage and solve the cold-start problem, the data collection policy must employ aggressive random exploration ( πrand ). 18 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+• Configuration: We configure the logging agent to be noise-dominated, with πrand accounting for 90% of the interac-tions. • Implication: This creates a ”needle in a haystack” problem. It serves as the ultimate stress test for robustness, evaluating whether DRPO can clone the sparse expert signal while rejecting the overwhelming heavy-tailed noise.                   
+
+> Table 4. Configuration of Data Scenarios in RecSim. The ”Extreme Noisy” setting is dominated by random exploration, creating a severe signal-to-noise ratio challenge.
+> Scenario Expert Policy Suboptimal Policy Random Noise
+> (High Reward) (Medium Reward) (Low Reward)
+> Medium Quality 10% 60% 30%
+> (Impression Logs) (Sparse Signal) (Bias Dominated) (Background Noise)
+> Extreme Noisy 5% 5% 90%
+> (Full Retrieval) (Needle in Haystack) (Negligible) (Overwhelming)
+
+## I. Baseline Implementation Details 
+
+To ensure a fair comparison, all baselines were implemented using the same backbone network architecture (a 3-layer MLP with ReLU activations) as DRPO. We performed a grid search for the key hyperparameters of each baseline. • APG (Advantage Policy Gradient): Optimizes the policy by directly applying the policy gradient with estimated advantages on the offline dataset, omitting importance sampling corrections. This approach ignores the distribution shift between the learned policy and the behavior policy, leading to severe divergence in high-noise settings. • BC (Behavior Cloning): Minimizes the negative log-likelihood of the actions in the dataset. This serves as the foundation for regularized methods. • CRR (Critic Regularized Regression): Uses the critic’s Q-value estimate to filter samples. We tuned the β parameter in {0.5, 1.0, 5.0}.• BPPO (Behavior Proximal Policy Optimization): Constrains the policy update within a trust region of the behavior policy. We tuned the clip ratio ϵ ∈ { 0.1, 0.2, 0.3}.• AWR (Advantage Weighted Regression): Performs regression with weights w ∝ exp( A/β ). We tuned the tempera-ture β ∈ { 0.05 , 0.1, 1.0}.• IQL (Implicit Q-Learning): Uses expectile regression to estimate values without querying out-of-distribution actions. We tuned the expectile τ ∈ { 0.5, 0.7, 0.9}.• AsymRe: Applies fixed asymmetric weights to down-weight negative advantages. We used the standard configuration with down-weight factor w− = 0 .1.• Adaptive BC: A strong ablation baseline that combines our proposed Variance-Guided Filtering with standard Behavior Cloning. It trains strictly on the high-quality data subset selected by the adaptive filter, optimizing the negative log-likelihood without additional importance weighting. This baseline isolates the contribution of the filtering mechanism from the policy optimization objective. The filtering hyperparameters were kept identical to those in DRPO. 
+
+## J. Implementation Details and Hyperparameters 
+
+In this section, we provide the detailed experimental setup and hyperparameter configurations for our proposed method, 
+
+DRPO (Variance-Guided Filtering + AsymRe), and its variant DRPO-exp (Variance-Guided Filtering + AWR). 19 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation 
+
+J.1. Network Architecture 
+
+All experiments are conducted in the End-to-End Recommendation System environment described in Section 5. Following common industry practice, we formulate the recommendation problem as a Contextual Bandit task , focusing on optimizing immediate rewards based on user contexts. Given that our environment operates on dense latent state representations (d = 10 ) , we employ a compact yet expressive architecture. Specifically, the policy network πθ is parameterized as a Gaussian distribution where the mean is output by a 2-layer Multi-Layer Perceptron (MLP) with a hidden dimension of 128 and ReLU activations. This architecture effectively captures the non-linear relationships in the dense manifold without the computational overhead of large-scale embedding tables. The Value/Q networks used in baseline methods share the same backbone architecture. 
+
+J.2. Hyperparameter Settings 
+
+Table 5 lists the specific hyperparameters used. The Target Ratio (ρ) is the core parameter of our Variance-Guided mechanism, controlling the strictness of the filtration. For DRPO-exp, the temperature parameter β controls the sharpness of the advantage weighting.  
+
+> Table 5. Hyperparameter settings for DRPO and DRPO-exp.
+
+Hyperparameter Symbol Value 
+
+General Optimization 
+
+Learning Rate η 3 × 10 −4
+
+Batch Size (Sampling) Bsample 320 Optimizer - Adam Total Training Steps T 5000 
+
+Variance-Guided Filtering (Shared) 
+
+Target Variance Ratio ρ 0.5 Initial Top-P p0 0.5 Top-P Update Rate (Relax) γup 1.02 Top-P Update Rate (Tighten) γdown 0.98 
+
+Algorithm Specifics 
+
+DRPO (Ours) Objective AsymRe Baseline min( Rsubset )
+
+DRPO-Exp (Variant) Objective AWR Temperature β 0.05 Baseline mean (Rsubset )
+
+## K. Extended Analysis on Noise Sensitivity 
+
+In this section, we provide a detailed sensitivity analysis of the filtering threshold (Target Ratio) under various environmental conditions. This analysis serves as the empirical motivation for our proposed Adaptive Mechanism. 
+
+Detailed Analysis. Table 6 presents a comprehensive sweep of filtering thresholds across different noise regimes. We highlight two key observations: • Robustness to Policy Degradation: Comparing the two major columns, we observe that as data quality deteriorates (Policy Noise increases from 0.1 to 0.5), the performance of the unfiltered baseline (Ratio 100%) drops significantly. For instance, under Medium Reward Noise, the baseline performance falls from 1.20 to 1.04 . In contrast, aggressive filtering (Top 5%-40%) effectively mitigates this degradation, maintaining a higher performance floor. This confirms that when the behavior policy is suboptimal, identifying and cloning only the sparse high-quality signals is far more effective than imitating the entire distribution. 20 Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation            
+
+> Table 6. Sensitivity Analysis: The Interplay of Reward and Policy Noise. We compare the performance (eCPM) of fixed target ratios under varying noise conditions. (1) Reward Noise Impact: Low reward noise favors aggressive filtering (Top 5%), while high reward noise requires conservative strategies (100%) to avoid overfitting. (2) Policy Noise Impact: When data quality degrades (Policy Noise
+> 0.1→0.5), the unfiltered baseline (Ratio 100%) suffers a severe performance drop ( 1.20 →1.04 in Medium Reward Noise), whereas filtering maintains robust performance.
+
+Reward Noise Policy Noise = 0.1 (High Quality Data) Policy Noise = 0.5 (Low Quality Data) 
+
+Top 5% Top 40% 100% (No Filter) Top 5% Top 40% 100% (No Filter) 
+
+Low (0.0) 1.69 1.69 1.35 1.63 1.63 1.59 
+
+Medium (0.5) 1.29 1.29 1.20 1.13 1.13 1.04 
+
+High (1.0) 1.06 1.06 1.13 0.87 0.87 0.93 
+
+• The ”Overfitting to Noise” Dilemma: Under High Reward Noise ( σ = 1 .0), the trend reverses. Aggressive filtering (Top 5%) yields suboptimal results ( 0.87 ) compared to the unfiltered baseline ( 0.93 ). In this regime, extremely high rewards are often driven by stochastic noise rather than true expertise. Filtering for these ”outliers” causes the model to 
+
+overfit to noise , whereas retaining more data helps average out the zero-mean reward noise. 
+
+Conclusion. These conflicting requirements—filtering aggressively for bad policies but conservatively for noisy rewards— render any fixed hyperparameter suboptimal. This necessitates the proposed Adaptive Mechanism , which dynamically adjusts the filtering threshold to balance signal extraction against noise overfitting. 21

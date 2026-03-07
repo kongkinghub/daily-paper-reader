@@ -1,0 +1,590 @@
+Title: Uncertainty-Aware Extrapolation in Bayesian Oblique Trees
+
+URL Source: https://arxiv.org/pdf/2601.22899v1
+
+Published Time: Mon, 02 Feb 2026 01:57:42 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# Uncertainty-Aware Extrapolation in Bayesian Oblique Trees 
+
+Viktor Andonovikj a,b, ∗, Sašo Džeroski a, Pavle Boškoski a,c 
+
+> aJožef Stefan Institute, Jamova cesta 39, 1000 Ljubljana, Slovenia
+> bJožef Stefan International Postgraduate School, Jamova cesta 39, 1000 Ljubljana, Slovenia
+> cFaculty of Information Studies in Novo mesto, Ljubljanska cesta 31b, 8000 Novo mesto, Slovenia
+
+Abstract 
+
+Decision trees are widely used due to their interpretability and efficiency, but they struggle in regression tasks that require reliable extrapolation and well-calibrated uncertainty. Piecewise-constant leaf predictions are bounded by the training targets and often become overconfident under distribution shift. We propose a single-tree Bayesian model that extends variational oblique predictive clustering trees (VSPYCTs) by equipping each leaf with a Gaussian Process (GP) predictor. Bayesian oblique splits provide uncertainty-aware partitioning of the input space, while GP leaves model local functional behaviour and enable principled extrapolation beyond the observed target range. We present an efficient inference and prediction scheme that combines posterior sampling of split parameters with GP posterior predictions, and a gating mechanism that activates GP-based extrapolation when inputs fall outside the training support of a leaf. Experiments on benchmark regression tasks show improvements in the predictive performance compared to standard variational oblique trees, and substantial performance gains in extrapolation scenarios. 
+
+1. Introduction 
+
+Decision trees and tree-based models play a central role in Machine Learning (ML) due to their inter-pretability, modular structure, and strong empirical performance on many tasks Mienye and Jere (2024). Within the structured output prediction (SOP) paradigm, predictive clustering trees (PCTs) have emerged as a unifying framework for predicting structured output in different settings, such as regression, classifica-tion, multi-target prediction. Additional benefit is that they can work in a semi-supervised setting, which enables them to leverage large samples of unlabeled data Levatić et al. (2018). To overcome the limitations of axis-aligned splits, oblique predictive clustering trees (SPYCTs) (Stepišnik and Kocev, 2021a) were introduced, allowing splits defined by linear combinations of input features. Oblique splits enable more expressive decision boundaries, particularly in high-dimensional and sparse settings, and      
+
+> ∗Corresponding author.
+> Email addresses: viktor.andonovikj@ijs.si (Viktor Andonovikj), saso.dzeroski@ijs.si (Sašo Džeroski),
+> pavle.boskoski@ijs.si (Pavle Boškoski)
+> arXiv:2601.22899v1 [cs.LG] 30 Jan 2026
+
+have been shown to improve predictive performance across a wide range of SOP tasks (Stepišnik and Kocev, 2021b). However, SPYCTs typically rely on ensembles to achieve state-of-the-art accuracy, which weakens interpretability. Recently, variational oblique predictive clustering trees (VSPYCTs) addressed this limitation by intro-ducing a Bayesian treatment of split parameters (Andonovikj et al., 2026). By modelling the oblique split parameters as random variables and learning their posterior distributions using variational inference (Blei et al., 2017), VSPYCTs integrate uncertainty directly into the decision process of a single tree. This allows competitive performance relative to ensembles while preserving interpretability and enabling uncertainty quantification. VSPYCTs thus represent an important step toward fully Bayesian, interpretable models for SOP. Despite these advances, an important limitation remains. Like most tree-based regression models, VSPYCTs produce constant predictions at the leaves, corresponding to prototype values derived from train-ing data. As a consequence, predictions are inherently bounded by the observed target range in the training data. This prevents meaningful extrapolation and often leads to overconfident predictions when inputs fall outside the training support. The issue is particularly relevant in SOP settings involving temporal data (Bon-tempi et al., 2013), survival analysis (Andonovikj et al., 2024; Ishwaran et al., 2008), economic indicators, or any application where future or extreme outcomes must be anticipated rather than interpolated. This limitation highlights a missing component in the current VSPYCT framework: while the uncertainty in the splits is modelled explicitly, the uncertainty in functional behaviour within leaves is not. In other words, VSPYCT captures where an instance should be routed, but not how the target should behave beyond observed data once a region of the input space has been selected. Addressing this gap is the main goal of this paper and it is essential for extending Bayesian PCTs to extrapolation-sensitive tasks. We propose an extension that equips VSPYCT leaves with Gaussian Process (GP) predictors. GPs provide a Bayesian, nonparametric model over functions, naturally combining interpolation, extrapolation, and calibrated uncertainty. By integrating GP leaves into a variational oblique tree, we decouple partitioning uncertainty from functional uncertainty: oblique Bayesian splits determine where an instance should be routed, while GP leaves determine how the target behaves within and beyond the observed region from the training data. To preserve strong in-distribution performance, we introduce a gating mechanism that activates GP-driven extrapolation when inputs fall outside the training support of a leaf (see Figure 1). The main contributions of this paper are as follows: (a) Model extension: We introduce a hybrid Bayesian tree model that combines VSPYCT with GP leaf models, enabling uncertainty-aware functional prediction within each leaf. (b) Principled extrapolation: We show how GP leaves allow calibrated extrapolation beyond the training target range, addressing a fundamental limitation of VSPYCT and tree-based predictors more broadly. 2x
+
+y         
+
+> Extrapolation Training region Extrapolation f(x)
+> Training data True f(x)VSPYCT VSPYCT-GP
+> Bounded (flat)
+> Growing uncertainty
+> Similar predictions in training region
+
+Figure 1: Extrapolation behaviour on synthetic 1D regression data. The true function f (x) (dashed gray) exhibits a smooth upward trend. Training data (blue dots) are observed only within a bounded region. In the training region , both VSPYCT (violet) and VSPYCT-GP (teal) produce similar smooth predictions due to Monte Carlo averaging over probabilistic split parameters. In extrapolation regions , VSPYCT predictions flatten—bounded by the range of leaf prototypes—while VSPYCT-GP continues the learned trend with confidence intervals that widen to reflect increasing uncertainty. This il-lustrates how GP leaf models enable calibrated extrapolation while preserving in-distribution performance. 
+
+(c) Inference and prediction: We develop an efficient inference and prediction procedure that integrates posterior sampling of oblique split parameters with closed-form GP posterior predictions, preserving the single-tree structure and interpretability. We demonstrate improved tail-region predictive power, and better uncertainty calibration under con-trolled extrapolation scenarios, while maintaining on-par, and in many cases improved in-distribution per-formance compared to VSPYCTs. The proposed extension preserves the interpretability advantages of VSPYCTs and enables additional performance gains in extrapolation scenarios. 
+
+2. Related work 
+
+Numerous extensions have been proposed to improve the predictive performance of PCTs, most notably through ensemble methods and more expressive split functions (Stepisnik et al., 2020; Kocev et al., 2013). SPYCTs (Stepišnik and Kocev, 2021a) replace axis-aligned splits with linear combinations of input features, enabling more flexible partitions of the input space and improved performance in high-dimensional settings. However, like most tree-based models, both PCTs and SPYCTs rely on constant predictions at the leaves, which limits their ability to extrapolate beyond the range of observed target values. 3Recent work on VSPYCTs (Andonovikj et al., 2026) introduced a Bayesian treatment of oblique split parameters, allowing uncertainty to be modelled directly at the decision level within a single tree. While this approach improves robustness and uncertainty estimation in the routing process, predictions at the leaf level remain bounded by training targets, and extrapolation behaviour is unchanged. Addressing this limitation is particularly important in SOP scenarios where future, extreme, or out-of-distribution outcomes must be predicted. Model trees extend regression trees by fitting parametric models, typically linear regressors, in the leaves instead of constant prototypes (Frank et al., 1998). Classical approaches such as M5 and its variants demonstrate that piecewise linear modelling can improve predictive accuracy by capturing local trends. These methods also enable limited extrapolation within each leaf, as predictions are no longer constant. However, model trees require a fixed functional form to be chosen a priori and generally provide no principled mechanism for uncertainty quantification. In practice, linear leaf models can extrapolate aggressively and with unjustified confidence (Loh et al., 2007; Raymaekers et al., 2024), especially when leaves contain few or biased observations. As a result, while model trees partially alleviate the extrapolation problem, they do not address uncertainty-aware extrapolation in a Bayesian sense. An alternative line of work combines tree-based partitioning with GP regression. Treed Gaussian Process models partition the input space using a tree structure and fit a separate GP in each region, enabling local non-stationary modelling and principled uncertainty estimation. More recent approaches integrate GPs with Bayesian additive regression trees (Chipman et al., 2010), showing improved extrapolation and calibration compared to standard tree ensembles. These models demonstrate the effectiveness of combining partitioning with nonparametric Bayesian regression, particularly for extrapolation-sensitive tasks. Despite their strengths, treed GP models typically rely on axis-aligned splits, complex MCMC-based inference, or ensemble formulations, which limits scalability and interpretability. Moreover, they are not designed for the SOP setting addressed by predictive clustering trees, nor do they integrate naturally with oblique split structures learned via variational inference. The present work builds directly on VSPYCT by addressing a complementary source of uncertainty: functional uncertainty within leaves. Instead of replacing the tree structure or resorting to ensembles, we augment VSPYCT with Gaussian process leaf models, enabling local, uncertainty-aware functional predic-tion while preserving the oblique Bayesian partitioning learned via variational inference (Hoffman et al., 2013). In contrast to model trees, this approach avoids committing to a fixed parametric form, and unlike treed GP or BART-based methods, it maintains a single-tree structure tailored to structured output pre-diction. As a result, the proposed model directly targets the extrapolation limitations of existing predictive clustering trees while remaining consistent with the probabilistic and algorithmic design of VSPYCT. 43. The VSPYCT-GP Model 
+
+This section introduces the proposed extension of VSPYCT with Gaussian process leaf models, referred to as VSPYCT-GP. Figure 2 provides an overview of the model architecture and prediction pipeline. 
+
+(a) VSPYCT 
+
+ρ1
+
+ρ2 ρ3
+
+μ1 μ2 μ3 μ4          
+
+> ≤0.5>0.5ρ=σ(w⊤x+b)
+> w, b ∼q(θ)
+> Constant prototypes (bounded by training targets)
+
+(b) VSPYCT-GP 
+
+ρ1
+
+ρ2 ρ3        
+
+> GP 1GP 2GP 3GP 4
+> ≤0.5>0.5
+> GP predictors: (μℓ(x), σ 2
+> ℓ(x))
+> (extrapolation + uncertainty)
+
+Prediction Pipeline (VSPYCT-GP)            
+
+> Input xSample splits
+> θ(m)∼q(θ)
+> Route to leaf ℓ
+> Support check
+> d(x)≤τ?
+> Output
+> (ˆ y, ˆσ2)
+> Soft interpolation: prototype ↔GP
+
+Figure 2: Model overview comparing VSPYCT and VSPYCT-GP. (a) Standard VSPYCT uses Bayesian oblique splits with constant leaf prototypes μℓ, bounding predictions to the training target range. (b) VSPYCT-GP replaces prototypes with Gaussian process predictors that provide both a predictive mean and uncertainty estimate. The prediction pipeline (bottom) shows how split parameters are sampled from their variational posteriors, instances are routed to leaves, and a gating mechanism selects between prototype and GP predictions based on support detection. 
+
+The model builds directly on the VSPYCT framework introduced in previous work and preserves its vari-ational Bayesian treatment of oblique split functions. The key extension concerns the predictive mechanism at the leaf level. 
+
+3.1. Background: Variational Oblique Trees 
+
+We briefly recall the elements of VSPYCT relevant for the proposed extension. VSPYCT consists of a single oblique decision tree, where each internal node implements a probabilistic split defined by a linear function 
+
+ρ(x; θs) = σ(w⊤ 
+
+> s
+
+x + bs),
+
+with split parameters θs = ( ws, b s). Rather than being fixed, split parameters are modelled as random variables with a variational posterior learned via variational Bayes. Prediction proceeds by sampling split parameters at each node and routing an instance stochastically through the tree. 5In standard VSPYCT, each leaf ℓ stores a prototype value, typically the empirical mean of the targets associated with training instances routed to that leaf. As a result, predictions are piecewise constant and bounded by the training targets. 
+
+3.2. Gaussian Process Leaf Models 
+
+In VSPYCT-GP, we replace constant leaf prototypes with Gaussian process predictors. For each leaf 
+
+ℓ ∈ L , let 
+
+Dℓ = {(xi, y i)}i∈ℓ
+
+denote the subset of training instances routed to that leaf during training. We associate each leaf with a Gaussian process prior 
+
+fℓ ∼ GP  mℓ(·), k ℓ(·, ·),
+
+where mℓ(·) is the prior mean function and kℓ(·, ·) is a positive definite kernel. We use a shared kernel family across leaves with leaf-specific hyperparameters. GP fitting is performed once for each leaf after the tree structure is determined. We perform exact GP inference and optimise the prior mean function mℓ(·), kernel hyperparameters, and observation noise variance jointly by maximising the log marginal likelihood on Dℓ
+
+using the Adam optimiser (Kingma and Ba, 2014). Conditioned on Dℓ, the GP induces a posterior predictive distribution 
+
+p(y | x, ℓ, D ℓ) = N  μℓ(x), σ 2 
+
+> ℓ
+
+(x),
+
+where μℓ(x) and σ2 
+
+> ℓ
+
+(x) are the standard GP posterior mean and variance. 
+
+3.3. Prediction with VSPYCT-GP 
+
+Prediction in VSPYCT-GP integrates uncertainty from (i) the split parameters, through stochastic routing, and (ii) the leaf-level predictive model. Given a test instance x, prediction proceeds by repeatedly sampling split parameters from their variational posteriors, routing x to a leaf, and then computing a leaf-level predictive distribution. In contrast to standard VSPYCTs, leaf-level predictions are support-aware. For a reached leaf ℓ, we distinguish between an interpolation regime (in-support) and an extrapolation regime (out-of-support). The overall predictive distribution is approximated via Monte Carlo sampling: 
+
+p(y | x, D) ≈ 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+p y | x, ℓ (m), D ℓ(m)
+
+,
+
+where ℓ(m) denotes the leaf reached in the m-th routing sample, and p(y | x, ℓ, D ℓ) is defined by the gating rule below. 63.4. Extrapolation-Aware Gating 
+
+Let Xℓ = {xi : ( xi, y i) ∈ Dℓ} denote the training inputs in leaf ℓ, let ¯xℓ = 1
+
+> |X ℓ|
+
+P 
+
+> xi∈X ℓ
+
+xi be their centroid, and let Σℓ be the empirical covariance matrix of Xℓ. We define the (leaf-specific) training support region as 
+
+supp( Dℓ) = 
+
+n
+
+x : ∥x − ¯xℓ∥Σ−1
+
+> ℓ
+
+≤ τ
+
+o
+
+,
+
+where ∥ · ∥ Σ−1
+
+> ℓ
+
+denotes the Mahalanobis norm and τ > 0 is a threshold hyperparameter. This centroid-based formulation identifies whether a test point lies within the region of the training distribution in the leaf. Given a test instance x routed to leaf ℓ, let d(x, ℓ ) = ∥x − ¯xℓ∥Σ−1
+
+> ℓ
+
+denote the Mahalanobis distance. We define a soft gating weight 
+
+w(x, ℓ ) = σ
+
+ d(x, ℓ ) − τT
+
+
+
+,
+
+where σ denotes the logistic sigmoid and T > 0 is a temperature parameter controlling the sharpness of the transition. The leaf-level predictive distribution is p(y | x, ℓ, D ℓ) = N ˆμ(x, ℓ ), ˆσ2(x, ℓ ) with 
+
+ˆμ(x, ℓ ) = (1 − w) ¯ yℓ + w μ ℓ(x), ˆσ2(x, ℓ ) = (1 − w) ϵ2 + w σ 2 
+
+> ℓ
+
+(x),
+
+where ¯yℓ = 1
+
+> |Dℓ|
+
+P 
+
+> (xi,y i)∈Dℓ
+
+yi is the empirical mean target, μℓ(x) and σ2 
+
+> ℓ
+
+(x) are the GP posterior mean and variance, and ϵ2 is a small noise floor. For in-support inputs ( d ≪ τ ), w ≈ 0 and the prediction reduces to the constant prototype with minimal variance, preserving the stable behaviour of standard VSPYCT. For out-of-support inputs ( d ≫ τ ), w ≈ 1 and the GP posterior governs both the mean and variance, enabling extrapolation with calibrated uncertainty. This soft gating mechanism smoothly interpolates between prototype and GP predictions based on distance from the training support (Figure 3). The sigmoid transition avoids discontinuities at the support boundary, and the temperature parameter T controls the sharpness of the transition (smaller T yields sharper gating). Algorithm 1 summarises the prediction procedure for VSPYCT-GP. The point prediction returned by VSPYCT-GP is the predictive mean ˆy. The predictive variance ˆσ2 is used to quantify uncertainty and to construct prediction intervals. 
+
+4. Theoretical Properties 
+
+4.1. Uncertainty Decomposition 
+
+A key property of the proposed model is the explicit decomposition of predictive uncertainty into con-tributions arising from the tree structure and from the leaf-level predictive functions. This decomposition clarifies how uncertainty is propagated through the model and explains its behaviour under extrapolation. 7Algorithm 1 Prediction with VSPYCT-GP (Extrapolation-Aware Gating) 
+
+Require: Trained VSPYCT-GP tree T with variational split posteriors and GP leaves {GP ℓ}ℓ∈L , test instance x, number of Monte Carlo samples M , threshold τ , temperature T , noise floor ϵ2
+
+Ensure: Predictive mean ˆy and predictive variance ˆσ2 
+
+> 1:
+
+Y ← [ ] ▷ Stores sampled predictive means  
+
+> 2:
+
+V ← [ ] ▷ Stores sampled predictive variances  
+
+> 3:
+
+for m ← 1 to M do  
+
+> 4:
+
+n ← root (T ) 
+
+> 5:
+
+while n is not a leaf do  
+
+> 6:
+
+Sample split parameters θ(m) 
+
+> n
+
+= ( w(m) 
+
+> n
+
+, b (m) 
+
+> n
+
+) ∼ qn(θ) 
+
+> 7:
+
+ρ ← σ
+
+
+
+(w(m) 
+
+> n
+
+)⊤x + b(m)
+
+> n
+
+ 
+
+> 8:
+
+if ρ ≤ 0.5 then  
+
+> 9:
+
+n ← left (n) 
+
+> 10:
+
+else  
+
+> 11:
+
+n ← right (n) 
+
+> 12:
+
+end if  
+
+> 13:
+
+end while  
+
+> 14:
+
+ℓ(m) ← n ▷ Reached leaf  
+
+> 15:
+
+Compute δ ← ∥ x − ¯xℓ(m) ∥Σ−1
+
+> ℓ(m)
+
+▷ Mahalanobis distance  
+
+> 16:
+
+α ← σ (δ − τ )/T  ▷ Soft gating weight  
+
+> 17:
+
+Compute GP posterior mean μℓ(m) (x) and variance σ2 
+
+> ℓ(m)
+
+(x) 
+
+> 18:
+
+μ ← (1 − α) ¯ yℓ(m) + α μ ℓ(m) (x) ▷ Gated mean  
+
+> 19:
+
+v ← (1 − α) ϵ2 + α σ 2 
+
+> ℓ(m)
+
+(x) ▷ Gated variance  
+
+> 20:
+
+Append μ to Y 
+
+> 21:
+
+Append v to V 
+
+> 22:
+
+end for  
+
+> 23:
+
+ˆy ← 1
+
+> M
+
+PMm=1 Y[m] 
+
+> 24:
+
+ˆσ2 ← 1
+
+> M
+
+PMm=1 V[m] + 1 
+
+> M−1
+
+PMm=1 (Y[m] − ˆy)2 ▷ Law of total variance: E[v] + Var( μ) 
+
+> 25:
+
+return ˆy, ˆσ2
+
+Let x ∈ Rd be a test instance. Due to the variational treatment of split parameters, routing through the tree is stochastic. Let ℓ denote a random variable representing the leaf reached by x after sampling the split parameters. The predictive distribution can be written as 
+
+p(y | x, D) = X
+
+> ℓ∈L
+
+p(ℓ | x, D) p(y | x, ℓ, D ℓ),
+
+8(a) Support Region in Leaf ℓ     
+
+> x1
+> x2
+> supp( Dℓ):∥x−¯xℓ∥Σ−1
+> ℓ
+> ≤τ
+> ¯xℓ
+> xin
+> xout
+> d < τ
+> d > τ
+> Training data Dℓ
+
+(b) Prediction Behavior         
+
+> x
+> y
+> In-support Out Out
+> ¯yℓ
+> xin
+> xout
+> ˆy= ¯ yℓ
+> ˆσ2 =ϵ2
+> ˆy→μℓ(x)ˆσ2→σ2
+> ℓ(x)
+
+In-Support ( d(x) ≤ τ )
+
+> Use prototype: low variance Preserves IID performance
+
+Out-of-Support ( d(x) > τ )
+
+> Use GP posterior: calibrated uncertainty Enables extrapolation
+> Gating
+
+Figure 3: Extrapolation-aware gating mechanism. (a) The support region of a leaf is defined by the Mahalanobis distance from the training data centroid ¯xℓ, using the empirical covariance Σℓ. Test points inside the support ( xin ) receive predictions dominated by the prototype, while points outside ( xout ) are governed by the GP predictor. (b) Prediction behavior: within support, predictions approach the constant prototype with minimal variance; outside support, the GP posterior dominates, providing both a predictive mean that can extrapolate and uncertainty that grows with distance. Soft sigmoid gating ensures a smooth transition at the support boundary. 
+
+where p(ℓ | x, D) denotes the probability of routing x to leaf ℓ, and p(y | x, ℓ, D ℓ) is the Gaussian process posterior predictive distribution at that leaf. Following the rule of total variance (Clarke and Dustin, 2024), the predictive variance is decomposed in the following way: 
+
+Var( y | x, D) = Eℓ[Var( y | x, ℓ, D ℓ)] + Var ℓ(E[y | x, ℓ, D ℓ]) .
+
+The first term corresponds to the expected posterior variance of the Gaussian process within leaves, while the second term captures variability induced by uncertainty in routing decisions. The two variance components have distinct interpretations: 
+
+• Functional uncertainty: 
+
+Eℓ[Var( y | x, ℓ, D ℓ)] 
+
+arises from uncertainty about the target function within a given leaf and isgoverned by the Gaus-sian process posterior. This component increases when x is distant from the training data in the corresponding leaf. 
+
+• Routing uncertainty: 
+
+Var ℓ(E[y | x, ℓ, D ℓ]) 
+
+9reflects uncertainty in the decision boundaries induced by the variational posterior over split parame-ters. This term is non-zero when multiple leaves are plausible destinations for x.In standard VSPYCT, leaf predictions are deterministic constants. Consequently, Var( y | x, ℓ, D ℓ) = 0 
+
+for all ℓ, and predictive uncertainty arises solely from routing variability. The proposed model augments this by introducing an additional, leaf-level uncertainty term, yielding richer uncertainty representation. For inputs x that lie far from the training data within a leaf, the Gaussian process posterior variance 
+
+Var( y | x, ℓ, D ℓ) increases monotonically and the posterior mean reverts toward the prior mean. As a result, the functional uncertainty term dominates the total variance. This contrasts with VSPYCTs, where predictive variance remains bounded and does not reflect extrapolation uncertainty. In contrast to ensemble-based tree models, which reduce variance by averaging over many independent trees, the proposed model achieves variance control within a single tree by explicitly modelling uncertainty at both the decision and functional levels. 
+
+4.2. Extrapolation Behavior 
+
+We now analyse the behaviour of the proposed model for inputs that lie outside the support of the training data. We show that, unlike standard PCTs and their extensions, the proposed model yields controlled extrapolation with increasing predictive uncertainty. For a leaf ℓ, let Xℓ = {xi : ( xi, y i) ∈ Dℓ} denote the set of training inputs routed to ℓ. A test point x lies 
+
+outside the support of leaf ℓ if its distance to Xℓ exceeds a fixed threshold, for example under a Mahalanobis or kernel-induced distance. Let fℓ ∼ GP (mℓ, k ℓ) be the Gaussian process associated with leaf ℓ. For a fixed leaf, the posterior predictive distribution at x satisfies 
+
+lim  
+
+> ∥x∥→∞
+
+μℓ(x) = mℓ(x), lim  
+
+> ∥x∥→∞
+
+σ2 
+
+> ℓ
+
+(x) = kℓ(x, x ),
+
+for common stationary kernels such as the squared exponential or Matérn kernels. In particular, the posterior mean reverts to the prior mean and the posterior variance approaches the prior variance as x moves away from Xℓ.The predictive mean of the proposed model is given by 
+
+E[y | x, D] = X
+
+> ℓ∈L
+
+p(ℓ | x, D) ˆ μ(x, ℓ ),
+
+where ˆμ(x, ℓ ) is the gated mean from Section 3.4. For inputs well within the support of their routed leaves, 
+
+w ≈ 0 and the prediction reduces to the prototype mean ¯yℓ. As inputs move outside the support, w → 1 and the prediction transitions smoothly toward the GP posterior mean μℓ(x), which approaches the prior mean 
+
+mℓ(x) far from the training data. Simultaneously, the predictive variance increases, as the GP posterior variance dominates the functional uncertainty term derived in Section 4.1. 10 This behaviour ensures that extrapolation is neither flat, as in constant-leaf trees, nor overly confident, as in deterministic linear models. The soft gating mechanism provides a smooth transition, avoiding dis-continuities at the support boundary while still preserving stable in-distribution predictions. The model expresses increasing uncertainty in regions where no training data is available, and allows the posterior mean to follow learned local trends when supported by data. 
+
+5. Experimental evaluation 
+
+5.1. Benchmark Evaluation on OpenML Regression Datasets 
+
+To evaluate the overall predictive performance of VSPYCT-GP, we conduct a systematic comparison against the baseline VSPYCT on 20 regression datasets from OpenML (OpenML). This collection comprises datasets spanning diverse domains, sample sizes (768 to 72,000), and dimensionalities (5 to 189 features), providing a representative benchmark for regression methods. Both models share identical tree-building hyperparameters: maximum depth 5, minimum 10 samples to split, 500 variational inference epochs per split, learning rate 0.01, and full feature subspace. VSPYCT-GP additionally uses automatic threshold calibration ( τ = auto at the 99th percentile) and 75 GP training iterations. During evaluation, kernel selection is performed per fold: both the RBF and Linear+RBF kernels are tried, and the one yielding lower MSE on the test fold is selected. We apply 10-fold cross-validation for every dataset. We report the Normalized Root Mean Squared Error, defined as NRMSE = RMSE /y max ,where ymax is the maximum value of the target variable, expressed as a percentage. NRMSE measures prediction error relative to the range of the target, enabling meaningful comparison across datasets with different scales. Table 1 presents the results. VSPYCT-GP achieves lower NRMSE than the baseline VSPYCT on 14 out of 20 datasets, with one tie and five losses. The largest improvements occur on auction_verification (NRMSE: 9.87% → 7.67% ), grid_stability 
+
+(18 .79% → 17 .09% ), energy_efficiency (7.95% → 6.71% ), and video_transcoding (3.51% → 3.19% ). On the five datasets where VSPYCT outperforms, the degradation is consistently minor. The largest NRMSE increase is 0.84 percentage points ( diamonds ), while the other four are below 0.15 percentage points. These results confirm that the GP extension provides a consistent improvement on standard IID re-gression benchmarks. The improvement is moderate because the auto-calibrated τ threshold conservatively restricts GP usage to points that lie near the boundary of or outside the training support. For the majority of IID test points, the gating mechanism assigns near-zero weight to the GP, and VSPYCT-GP behaves identically to VSPYCT. The observed gains therefore arise primarily from the subset of test points that the Mahalanobis distance criterion identifies as being at the periphery of the leaf training distributions. 11 Importantly, the five datasets where VSPYCT-GP performs slightly worse exhibit very small degra-dations, confirming that the soft gating mechanism effectively prevents the GP from disrupting in-support predictions. This asymmetric risk profile—moderate potential gain with limited downside—makes VSPYCT-GP a robust drop-in replacement for VSPYCT even when extrapolation is not the primary concern.    
+
+> Table 1: Benchmark comparison of VSPYCT and VSPYCT-GP on 20 OpenML regression datasets. NRMSE (%) is RMSE divided by the maximum target value (lower is better). Bold marks the better value for each dataset. Kernel denotes the GP kernel selected by the automatic tuning procedure.
+
+NRMSE (%) Dataset n d VSPYCT VSPYCT-GP Kernel abalone 4,177 9 7.90 7.94 RBF airfoil_self_noise 1,503 5 3.16 3.11 RBF auction_verification 2,043 14 9.87 7.67 Lin+RBF brazilian_houses 10,692 45 0.57 0.38 RBF california_housing 20,640 8 13.86 13.75 Lin+RBF cars 804 17 5.31 5.12 RBF cps88wages 28,155 8 1.89 1.90 Lin+RBF cpu_activity 8,192 21 5.45 5.56 Lin+RBF diamonds 53,940 23 4.98 5.82 RBF energy_efficiency 768 8 7.95 6.71 RBF fifa 19,178 189 3.93 3.62 RBF grid_stability 10,000 12 18.79 17.09 RBF health_insurance 22,272 18 16.68 16.56 RBF naval_propulsion_plant 11,934 14 1.03 0.88 RBF physiochemical_protein 45,730 9 23.95 23.88 Lin+RBF pumadyn32nh 8,192 32 23.69 23.60 RBF superconductivity 21,263 81 8.07 8.07 Lin+RBF video_transcoding 68,784 22 3.51 3.19 RBF wave_energy 72,000 48 0.66 0.59 Lin+RBF white_wine 4,898 11 8.12 8.24 RBF 
+
+5.2. Hyperparameter Sensitivity Analysis 
+
+A key hyperparameter introduced by VSPYCT-GP is the support threshold τ , which controls when the gating mechanism activates GP-based extrapolation. Smaller values of τ cause more test points to be classified as out-of-support, triggering GP predictions more frequently. Conversely, larger τ values make the model behave more like the baseline VSPYCT, using constant prototypes for most predictions. 12 Figure 4 presents the effect of τ on predictive performance across three benchmark datasets. We observe that moderate values of τ (between 4.5 and 6.0) generally yield the best performance. Very small values (τ < 2.0) lead to excessive GP usage, which can hurt performance on IID test data where no extrapolation is actually needed. Very large values ( τ > 10 .0) effectively disable the GP mechanism, recovering baseline VSPYCT behaviour. The right panel shows how mean predictive uncertainty varies with τ . As expected, larger thresholds yield lower average uncertainty since fewer points activate the GP variance estimation. This illustrates the trade-off between exploiting GP extrapolation capabilities and maintaining stable IID predictions. 10 0 10 1         
+
+> Support threshold
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> RMSE
+> (a) Effect of on prediction accuracy
+> solar_flare
+> abalone
+> concrete_compressive_strength
+> 10 010 1
+> Support threshold
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> Mean uncertainty
+> (b) Effect of on uncertainty
+> solar_flare
+> abalone
+> concrete_compressive_strength
+> Figure 4: Effect of support threshold τon VSPYCT-GP performance. (a) RMSE as a function of τfor three datasets; dashed lines indicate baseline VSPYCT performance. (b) Mean predictive uncertainty decreases as τincreases, reflecting fewer out-of-support classifications. Shaded regions show standard deviation across multiple random seeds.
+
+Based on this analysis, we recommend τ ∈ [4 .5, 6.0] as a default range, with the specific value depending on the expected degree of extrapolation in the target application. For applications where extrapolation is expected (e.g., forecasting, out-of-distribution detection), smaller τ values are preferable. For standard regression tasks with IID test data, larger values preserve baseline performance while still providing uncer-tainty estimates. In practice, we recommend using automatic calibration ( τ = auto), which sets τ based on the 99th percentile of training point Mahalanobis distances to their respective leaf centroids. 
+
+5.3. Interpolation vs. Extrapolation 
+
+The primary motivation for VSPYCT-GP is improved behaviour in extrapolation scenarios. To evaluate this directly, we conduct a controlled experiment using synthetic data where we can explicitly separate interpolation and extrapolation regimes. We generate training data with d = 3 input dimensions from the linear function y = 2 x1 + 3 x2 + x3 + ϵ,where ϵ ∼ N (0 , 0.12), within the input range [0 , 1] d and create three test sets: 13 1. Interpolation : test inputs drawn from the same range [0 , 1] d;2. Mild extrapolation : test inputs from [0 .8, 1.5] d, partially overlapping with training; 3. Strong extrapolation : test inputs from [1 .3, 2.0] d, fully outside the training range. Figure 5(a) compares VSPYCT and VSPYCT-GP across these regimes. In the interpolation regime, both models perform similarly, confirming that the GP extension does not degrade IID performance. As extrapolation becomes more severe, the gap between the models widens. For strong extrapolation, VSPYCT-GP maintains substantially lower RMSE than baseline VSPYCT, whose predictions are bounded by the range of observed training targets. Figure 5(b) shows the mean uncertainty reported by VSPYCT-GP across regimes. Uncertainty increases monotonically from interpolation to strong extrapolation, demonstrating that the model correctly identifies when predictions become less reliable. This behaviour is essential for downstream decision-making in risk-sensitive applications. Interp. Mild 
+
+> extrap.
+> Strong
+> extrap.
+> Test regime
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> 3.5
+> 4.0
+> RMSE
+
+(a) Prediction accuracy  
+
+> VSPYCT
+> VSPYCT-GP
+> Interp. Mild
+> extrap.
+> Strong
+> extrap.
+> Test regime
+> 0.0000
+> 0.0025
+> 0.0050
+> 0.0075
+> 0.0100
+> 0.0125
+> 0.0150
+> 0.0175
+> 0.0200
+> Mean uncertainty
+
+(b) VSPYCT-GP uncertainty 
+
+Figure 5: Controlled interpolation vs. extrapolation experiment on synthetic data. (a) RMSE comparison: both models perform similarly for interpolation, but VSPYCT-GP substantially outperforms VSPYCT in extrapolation regimes. (b) VSPYCT-GP uncertainty increases appropriately as test data moves further from the training distribution. Error bars show standard deviation across five random seeds. 
+
+6. Discussion and Limitations 
+
+The experimental results and theoretical analysis presented in this work reveal several important insights about the proposed VSPYCT-GP model and highlight both its strengths and current limitations. 14 6.1. Interpretation of Results 
+
+Our experiments demonstrate that VSPYCT-GP successfully addresses the extrapolation limitation inherent in tree-based regression models while preserving competitive, or in some cases improved, in-distribution performance. The key enabling mechanism is the gating strategy, which activates GP-based predictions when test inputs fall outside the training support of a leaf. This design choice reflects a funda-mental insight: within well-covered regions of the input space, simple prototype predictions are sufficient and stable, while in extrapolation regions, the additional flexibility and calibrated uncertainty of GP become essential. The hyperparameter sensitivity analysis reveals that the support threshold τ provides an intuitive control over the interpolation-extrapolation trade-off. Practitioners can adjust τ based on their expectations about the degree of distribution shift in their application domain, lower values for tasks where extrapolation is anticipated, and higher values when in-distribution assumptions are reasonable. 
+
+6.2. Practical Considerations 
+
+The GP extension is most beneficial when: (i) test-time inputs may fall outside the training distribu-tion, (ii) calibrated uncertainty estimates are required for downstream decision-making, (iii) risk-sensitive predictions demand awareness of model confidence. For standard regression tasks with IID test data and no requirement for uncertainty quantification, the simpler VSPYCT may be preferable due to lower computa-tional overhead. The primary computational cost of VSPYCT-GP relative to VSPYCT arises from GP training and inference at the leaves. GP posterior computation scales as O(n3 
+
+> ℓ
+
+) with the number of training instances nℓ
+
+in each leaf, which can become prohibitive for very large datasets or shallow trees with many instances per leaf. In practice, this is mitigated by the tree structure itself. Deep trees naturally partition the data into smaller subsets, and typical leaf sizes remain modest. The proposed model contributes to the broader goal of developing ML methods that provide reliable uncertainty estimates, particularly under distribution shift. As ML systems are increasingly deployed in high-stakes domains, including healthcare, finance, and autonomous systems, the ability to recognise when predictions become unreliable is essential for safe and responsible deployment. VSPYCT-GP offers a prin-cipled approach to uncertainty-aware prediction within the interpretable framework of PCTs. 
+
+6.3. Limitations 
+
+Despite its advantages, VSPYCT-GP has several limitations. While the tree structure helps control per-leaf GP complexity, the complexity of exact GP inference remains a bottleneck for datasets with very large leaf populations. Future work could address this through sparse approximations, or local GP methods that further exploit the locality induced by tree partitioning. 15 The current formulation assumes Gaussian observation noise, which may be inappropriate for count data, bounded targets, or heavy-tailed distributions. Extending the GP leaf models to non-Gaussian likelihoods would broaden the applicability of the approach, but increase inferential complexity. The gating mechanism relies on Mahalanobis distance with the empirical covariance of leaf training data. In high-dimensional settings or with limited leaf sample sizes, covariance estimation may be unreliable, potentially leading to miscalibrated support boundaries. While VSPYCT-GP enables extrapolation beyond the training target range, the direction and magnitude of extrapolation are governed by the GP prior and learned kernel hyperparameters. In the absence of strong inductive biases, extrapolation predictions should still be interpreted cautiously. 
+
+7. Conclusion 
+
+The paper introduces VSPYCT-GP, an extension of variational oblique predictive clustering trees that equips leaf nodes with Gaussian process predictors. By integrating GP leaf models with Bayesian oblique splits, the proposed approach addresses a fundamental limitation of tree-based regression, which is the inability to extrapolate beyond the range of observed training targets while providing calibrated uncertainty estimates. The key contributions of this work are threefold. First, we proposed a hybrid architecture that combines the interpretable, uncertainty-aware partitioning of VSPYCT with functional modelling of the leaves of the tree through GP. Second, we introduced an extrapolation-aware gating mechanism that preserves the strong in-distribution performance of prototype-based predictions while activating GP-based extrapolation when test inputs fall outside the training support of a leaf. Third, we provided theoretical analysis showing that predictive uncertainty decomposes naturally into routing and functional components, and that the model exhibits controlled extrapolation with appropriately increasing uncertainty. Experimental evaluation on benchmark regression tasks demonstrated that VSPYCT-GP matches or exceeds baseline VSPYCT performance in interpolation settings while substantially improving the perfor-mance in extrapolation regimes. The model’s uncertainty estimates increase appropriately as predictions move further from the training distribution, providing the calibrated confidence intervals essential for risk-sensitive applications. Hyperparameter sensitivity analysis revealed that the support threshold τ offers intuitive control over the interpolation-extrapolation trade-off, with robust performance across a reasonable parameter range. Several directions remain for future investigation. Incorporating sparse GP approximations would enable scaling to larger datasets while preserving the benefits of nonparametric leaf models. Adapting the approach to non-Gaussian likelihoods would broaden applicability to classification, count data, and other structured output types within the PCT framework. 16 Acknowledgement 
+
+The authors acknowledge the research core funding No. P2-0001, and V5-24020 financially supported by the Slovenian Research and Innovation Agency, and the Ministry of the Economy, Tourism and Sport of the Republic of Slovenia. 
+
+References 
+
+Andonovikj, V., Boškoski, P., Džeroski, S., Boshkoska, B.M., 2024. Survival analysis as semi-supervised multi-target regression for time-to-employment prediction using oblique predictive clustering trees. Ex-pert Systems with Applications 235, 121246. URL: http://dx.doi.org/10.1016/j.eswa.2023.121246 ,doi: 10.1016/j.eswa.2023.121246 .Andonovikj, V., Džeroski, S., Mileva Boshkoska, B., Boškoski, P., 2026. Variational oblique predictive clustering trees. Expert Systems with Applications , 131255URL: http://dx.doi.org/10.1016/j.eswa. 2026.131255 , doi: 10.1016/j.eswa.2026.131255 .Blei, D.M., Kucukelbir, A., McAuliffe, J.D., 2017. Variational inference: A review for statisticians. Journal of the American Statistical Association 112, 859–877. URL: http://dx.doi.org/10.1080/01621459. 2017.1285773 , doi: 10.1080/01621459.2017.1285773 .Bontempi, G., Ben Taieb, S., Le Borgne, Y.A., 2013. Machine Learning Strategies for Time Series Forecast-ing. Springer Berlin Heidelberg. p. 62–77. URL: http://dx.doi.org/10.1007/978-3-642-36318-4_3 ,doi: 10.1007/978-3-642-36318-4_3 .Chipman, H.A., George, E.I., McCulloch, R.E., 2010. Bart: Bayesian additive regression trees. The Annals of Applied Statistics 4. URL: http://dx.doi.org/10.1214/09-AOAS285 , doi: 10.1214/09-aoas285 .Clarke, B., Dustin, D., 2024. A conservation law for posterior predictive variance. arXiv preprint arXiv:2406.11806 . Frank, E., Wang, Y., Inglis, S., Holmes, G., Witten, I.H., 1998. Using model trees for classification. Machine Learning 32, 63–76. URL: http://dx.doi.org/10.1023/A:1007421302149 , doi: 10.1023/a: 1007421302149 .Hoffman, M.D., Blei, D.M., Wang, C., Paisley, J., 2013. Stochastic variational inference. Journal of Machine Learning Research . Ishwaran, H., Kogalur, U.B., Blackstone, E.H., Lauer, M.S., 2008. Random survival forests. The Annals of Applied Statistics 2. URL: http://dx.doi.org/10.1214/08-AOAS169 , doi: 10.1214/08-aoas169 .17 Kingma, D.P., Ba, J., 2014. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 . Kocev, D., Vens, C., Struyf, J., Džeroski, S., 2013. Tree ensembles for predicting structured outputs. Pattern Recognition 46, 817–833. URL: http://dx.doi.org/10.1016/j.patcog.2012.09.023 , doi: 10.1016/j. patcog.2012.09.023 .Levatić, J., Kocev, D., Ceci, M., Džeroski, S., 2018. Semi-supervised trees for multi-target regression. Information Sciences 450, 109–127. URL: http://dx.doi.org/10.1016/j.ins.2018.03.033 , doi: 10. 1016/j.ins.2018.03.033 .Loh, W.Y., Chen, C.W., Zheng, W., 2007. Extrapolation errors in linear model trees. ACM Transactions on Knowledge Discovery from Data 1, 6. URL: http://dx.doi.org/10.1145/1267066.1267067 , doi: 10. 1145/1267066.1267067 .Mienye, I.D., Jere, N., 2024. A survey of decision trees: Concepts, algorithms, and applications. IEEE Ac-cess 12, 86716–86727. URL: http://dx.doi.org/10.1109/ACCESS.2024.3416838 , doi: 10.1109/access. 2024.3416838 .OpenML, . Openml. https://www.openml.org . Accessed: 2020-04-15. Raymaekers, J., Rousseeuw, P.J., Verdonck, T., Yao, R., 2024. Fast linear model trees by pilot. Ma-chine Learning 113, 6561–6610. URL: http://dx.doi.org/10.1007/s10994-024-06590-3 , doi: 10.1007/ s10994-024-06590-3 .Stepisnik, T., Osojnik, A., Dzeroski, S., Kocev, D., 2020. Option predictive clustering trees for multi-target regression. Computer Science and Information Systems 17, 459–486. URL: http://dx.doi.org/10. 2298/CSIS190928006S , doi: 10.2298/csis190928006s .Stepišnik, T., Kocev, D., 2021a. Oblique predictive clustering trees. Knowledge-Based Systems 227, 107228. URL: http://dx.doi.org/10.1016/j.knosys.2021.107228 , doi: 10.1016/j.knosys.2021.107228 .Stepišnik, T., Kocev, D., 2021b. Semi-supervised oblique predictive clustering trees. PeerJ Computer Science 7, e506. URL: http://dx.doi.org/10.7717/peerj-cs.506 , doi: 10.7717/peerj-cs.506 .18

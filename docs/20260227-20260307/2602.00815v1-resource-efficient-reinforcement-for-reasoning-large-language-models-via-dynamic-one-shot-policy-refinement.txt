@@ -1,0 +1,584 @@
+Title: Resource-Efficient Reinforcement for Reasoning Large Language Models via Dynamic One-Shot Policy Refinement
+
+URL Source: https://arxiv.org/pdf/2602.00815v1
+
+Published Time: Tue, 03 Feb 2026 02:02:07 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# Resource-Efficient Reinforcement for Reasoning Large Language Models via Dynamic One-Shot Policy Refinement 
+
+Yunjian Zhang 
+
+UCAS 
+
+Sudong Wang 
+
+HKUST(GZ) 
+
+Yang Li 
+
+Tsinghua University 
+
+Peiran Xu 
+
+Sun Yat-Sen University 
+
+Conghao Zhou 
+
+Xidian University 
+
+Xiaoyue Ma 
+
+George Mason University 
+
+Jianing Li 
+
+Peking University 
+
+Yao Zhu *
+
+Zhejiang University 
+
+Abstract 
+
+Large language models (LLMs) have exhibited remarkable performance on complex reason-ing tasks, with reinforcement learning under verifiable rewards (RLVR) emerging as a prin-cipled framework for aligning model behav-ior with reasoning chains. Despite its promise, RLVR remains prohibitively resource-intensive, requiring extensive reward signals and incur-ring substantial rollout costs during training. In this work, we revisit the fundamental question of data and compute efficiency in RLVR. We first establish a theoretical lower bound on the sample complexity required to unlock reason-ing capabilities, and empirically validate that strong performance can be achieved with a sur-prisingly small number of training instances. To tackle the computational burden, we pro-pose Dynamic One-Shot Policy Refinement (DoPR), an uncertainty-aware RL strategy that dynamically selects a single informative train-ing sample per batch for policy updates, guided by reward volatility and exploration-driven ac-quisition. DoPR reduces rollout overhead by nearly an order of magnitude while preserving competitive reasoning accuracy, offering a scal-able and resource-efficient solution for LLM post-training. This approach offers a practi-cal path toward more efficient and accessible RL-based training for reasoning-intensive LLM applications. 
+
+1 Introduction 
+
+Recent advances in large language models (LLMs) (Shao et al., 2024; DeepSeek-AI et al., 2025; Liu et al., 2025; Achiam et al., 2023; Hu et al., 2025) have led to significant progress in solving com-plex reasoning tasks. A key driver behind these advances is the adoption of reinforcement learn-ing (RL) (Zhang et al., 2025a; Lin et al., 2025; Xiong et al., 2025), which has proven effective in activating coherent reasoning trajectories within 
+
+> *Corresponding author.
+
+LLMs. Leading LLMs, including GPT - o1 (Con-tributors et al., 2024), Gemini (Reid et al., 2024), and DeepSeek - r1 (DeepSeek-AI et al., 2025), all incorporate RL-based post-training stages to re-fine the models’ reasoning abilities beyond what standard supervised fine-tuning (SFT) (Chen et al., 2024; Tajwar et al., 2024; Dong et al., 2023) can achieve. These developments underscore the grow-ing importance of RL as a tool for enhancing the reasoning performance of LLMs. Reinforcement learning with verifiable rewards (RLVR) (Gao et al., 2024; Lambert et al., 2024; Team et al., 2025; Wang et al., 2025b,a) has emerged as a prominent paradigm for training rea-soning language models, which provides binary and verifiable feedback indicating the correctness of the model’s answer. Recent work has primarily focused on improving the performance of RL al-gorithms (Chen et al., 2025b; Yue et al., 2025; Xu et al., 2025; Cui et al., 2025), while comparatively little attention has been paid to their resource de-mands. From a data perspective, RLVR requires large quantities of samples with high-quality re-ward signals to drive effective learning. On the computational side, RLVR typically performs mul-tiple rollouts over the entire dataset during training to ensure stable and effective gradient-based policy optimization, leading to substantial computational overhead. Although some work aims at improv-ing training efficiency (Wang et al., 2025b; Zhao et al., 2025), they rely on extensive pre-training over large datasets to identify the most suitable training instances, thereby failing to fundamentally reduce resource consumption. This work aims to reduce the data and computa-tional overhead of RLVR during the post-training of reasoning LLMs. We begin by deriving a the-oretical lower bound on the sample complexity required to elicit optimal reasoning behavior dur-ing RLVR. Surprisingly, our empirical findings re-veal that even with a remarkably small number 1
+
+> arXiv:2602.00815v1 [cs.AI] 31 Jan 2026
+
+of training instances, the model can achieve near-optimal reasoning performance. This suggests that RL supervision serves more as a capability acti-vator rather than a performance booster, and that the reasoning ability of the model is largely con-strained by its pre-training rather than the volume of RL data. These results challenge the prevailing assumption that large-scale rewards are necessary, and instead highlight the potential of minimalist, data-efficient reinforcement strategies. These in-sights enable us to drastically reduce the training dataset to a compact subset without compromis-ing final performance. In parallel, we introduce Dynamic One - Shot Policy Refinement (DoPR), a novel reinforcement learning strategy that dynam-ically selects a single most informative instance within each mini-batch. By focusing policy up-dates on maximally impactful samples, DoPR sig-nificantly reduces the number of rollouts, yield-ing substantial savings in computational cost while maintaining comparable performance. Our contributions can be summarized as follows: • We present the first systematic investigation into the nexus between data scale and reason-ing performance within LLMs. By establish-ing a rigorous theoretical lower bound on sam-ple complexity, we demonstrate that reasoning capabilities under RLVR can be activated by a minimalist data regime. This finding fun-damentally decouples optimal reasoning per-formance from large-scale data requirements, challenging the long-standing paradigm that massive supervision is indispensable for effec-tive RL alignment. • We propose DoPR, a lightweight yet effective strategy that leverages historical rewards to select a single high-value training instance per batch for policy updates. This approach sub-stantially reduces rollout overhead by nearly an order of magnitude while preserving rea-soning performance, enabling efficient and cost-effective RL training for reasoning tasks. • Extensive experiments reveal that our ap-proach is capable of reducing the training dataset to as few as 16 instances and constrain-ing the rollout budget to a single sample per batch, while maintaining competitive reason-ing performance. 
+
+2 Related Work 
+
+2.1 Reasoning Large Language Models 
+
+Human-like reasoning has received growing at-tention for its potential to support generalization across abstract, multi-step tasks (Kojima et al., 2022; Zhou et al., 2023). Early efforts primarily focus on prompting methods to elicit latent rea-soning capabilities from pre-trained LLMs. For example, Chain-of-Thought (CoT) prompting (Wei et al., 2022) enables step-by-step reasoning with-out any additional training, while more structured paradigms such as Tree-of-Thought (ToT) (Yao et al., 2023) and Graph-of-Thought (GoT) (Besta et al., 2023) incorporate hierarchical or graph-based reasoning paths. In addition, self-consistency decoding (Wang et al., 2023) enhances reliabil-ity by aggregating multiple sampled reasoning traces.Some efforts have investigated more effec-tive training strategies to improve the model’s intrinsic reasoning competence. For instance, LIMO (Ye et al., 2025) applies SFT on curated mathematical reasoning datasets to explicitly guide the model toward correct solution steps. Moreover, some researchers utilize LLM-driven search algo-rithms to automatically generate accurate reasoning trajectories through trial-and-error search (Zheng et al., 2023), and then train Process Reward Mod-els (PRMs) on these reasoning trajectories (Uesato et al., 2022), which provide dense and intermedi-ate rewards to enable reinforcement learning over reasoning chains. 
+
+2.2 Reinforcement Learning with Verifiable Rewards 
+
+RLVR has emerged as a principled framework for enhancing reasoning capabilities, particularly in domains where correctness can be objectively as-sessed, such as mathematical problem solving. In-stead of relying on human feedback or learned reward models, RLVR employs rule-based veri-fication mechanisms to generate reward signals, enabling robust optimization of reasoning policies with minimal annotation cost. The effectiveness of RLVR is first demonstrated by OpenAI’s o1 se-ries (Contributors et al., 2024), and subsequent models such as DeepSeek-R1 (DeepSeek-AI et al., 2025) and the Qwen series (Bai et al., 2023) fur-ther advance the use of verifiable feedback in train-ing reasoning LLMs. On the algorithmic front, GRPO (Shao et al., 2024; DeepSeek-AI et al., 2025) and its extensions (Liu et al., 2025; Zhang 2et al., 2025b; Kong et al., 2025) have become foun-dational in enabling efficient reward-driven train-ing. Follow-up frameworks such as DAPO (Yu et al., 2025), VAPO (Yue et al., 2025), SimpleR-LZoo (Zeng et al., 2025), and Open-Reasoner-Zero (Hu et al., 2025) further explore various de-sign choices for policy optimization, reward shap-ing, and data reuse under verifiable reward settings. Despite the notable successes, existing RLVR strategies suffer from substantial resource demands. First, they typically require a large amount of re-ward signals to supervise policy learning. Although some efforts (Zhao et al., 2025; Wang et al., 2025b) reduce the number of training samples, they still rely on preselection throughout the dataset and thus do not fundamentally reduce the effective sample size. Second, GRPO-based algorithms incur sig-nificant computational overhead during training, as they rely on repeated rollouts over the entire dataset to estimate gradients and improve policies. This work takes resource efficiency as the central goal, aiming to reduce the data and compute de-mands of RLVR without sacrificing its reasoning performance. 
+
+(a) Math (b) Minierva-Math 
+
+> Figure 1: Accuracy on MATH and Minierva-MATH with varying training set sizes. Except for the 8-sample setting, all configurations converge to comparable per-formance, indicating that strong reasoning ability can be achieved with few training examples.
+
+3 Rethinking Data Requirements for RLVR 
+
+We begin by revisiting a fundamental question: 
+
+How much data is truly required to unlock the rea-soning capabilities of LLMs through RLVR? Prior studies have explored various strategies for reduc-ing the training data scale in RLVR (Wang et al., 2025b; Ye et al., 2025). These methods typically rely on carefully crafted generation or selection strategies to identify a subset of high-quality sam-ples for reinforcement learning. While such heuris-tics can be empirically effective, they provide only a pragmatic workaround rather than a principled understanding of the relationship between data vol-ume and policy quality. Crucially, they do not ad-dress the core question of whether strong reasoning performance can be achieved with limited reward signals. Beyond heuristic-based sample selection, we investigate whether a small number of training instances can provably yield non-trivial gains in reasoning performance under verifiable rewards. We ground our analysis in the policy gradient for-mulation used in RLVR, and derive a lower bound of required data scale on expected policy improve-ment. For a pre-training policy πθ0 , its performance gap with the optimal policy πθ⋆ on a reasoning task is: 
+
+Ex∼D [P πθ⋆ (x) − P πθ0 (x)] = ϵ, (1) where x is an instance sampled from the dataset 
+
+D, and P π(x) denotes the expected verification reward. 
+
+Theorem 3.1. Consider an optimization procedure where the policy is updated using a single sample at each step, let πθ⋆ denotes the optimal policy and 
+
+πθN denotes the policy after N updates. To guar-antee that the expected performance gap satisfies 
+
+Ex∼D [P πθ⋆ (x) − P πθN (x)] ≤ ϵ′, (2) 
+
+it suffices that the number of steps N satisfies 
+
+N ≥ O (ln ϵϵ′ ), (3) 
+
+where ϵ denotes the initial performance gap. Proof. Let J(θ) = Ex∼D [P πθ (x)] denote the ex-pected performance of the policy parameterized by 
+
+θ. Assume that J is locally L-smooth (Chen et al., 2025a), i.e., there exists a constant L > 0 and a neighborhood N containing the initial policy θ0,such that the following Lipschitz inequality holds for all θ, θ ′ ∈ N :
+
+J(θ′) ≥ J(θ)+ ⟨∇ J(θ), θ ′ −θ⟩− L
+
+2 ∥θ′ −θ∥2. (4) We remark that this assumption holds primarily in the vicinity of the optimization trajectory, and its validity is empirically ensured by conservative step sizes, KL regularization, and gradient clipping. By the policy gradient theorem, J’s gradient is given by: 
+
+∇J(θ) = Ex∼D [∇θP πθ (x)] . (5) Assume that the policy is updated at each step via gradient ascent with a fixed learning rate α > 0:
+
+θt+1 = θt + αg t, (6) 3where gt is an unbiased stochastic estimate of the true gradient, i.e., E[gt] = ∇J(θt), and the vari-ance of gt is bounded by V ar (gt) ≤ δ2. Taking expectations and applying the smoothness of J, we obtain:          
+
+> E[J(θt+1 |θt)] ≥J(θt) + α(1 −Lα
+> 2 )||∇ J(θt)|| 2−Lα 2δ2
+> 2,
+> (7)
+
+Pretraining and supervised fine-tuning (SFT) en-dow the model with an initial reasoning capabil-ity. Coupled with the explicit gradient signal pro-vided by RLVR, the objective J satisfies a local Polyak–Łojasiewicz (PL) condition in the neighbor-hood induced by pretraining and SFT (Aich et al., 2025; Peng et al., 2024). Intuitively, the combina-tion of pretraining/SFT (which shapes a favorable local manifold) and the supervised RLVR gradients renders the landscape locally well-conditioned for efficient optimization. That is, J satisfies 
+
+∥∇ J(θt)∥2 ≥ c (J(θ⋆) − J(θt)) = c∆t, (8) for some constant c > 0, where θ⋆ is the optimal parameter and ∆t = J(θ⋆) − J(θt) denotes the performance gap at step t. Then, we have:              
+
+> E[J(θt+1 )−J(θt)|θt]≥αc (1 −Lα
+> 2 )∆ t−Lα 2δ2
+> 2.(9)
+
+Let η = αc/ 2, and choose α such that 1 − Lα  
+
+> 2
+
+≥ 12 ,we further require 
+
+Lα 2δ2
+
+2 ≤ ηϵ ′
+
+2 ,
+
+which leads to the recursive inequality: 
+
+E [∆ t+1 | θt] ≤ (1 − η)∆ t + ϵ′
+
+2 . (10) Unfolding this recurrence, we obtain: 
+
+E [∆ t] ≤ (1 − η)t∆0 + ϵ′
+
+2 , (11) where ∆0 = J(θ⋆) − J(θ0) = ϵ is the initial gap. To ensure E [∆ t] ≤ ϵ′, it suffices that: 
+
+(1 − η)tϵ ≤ ϵ′
+
+2 . (12) Taking logarithms on both sides yields: 
+
+t ≥ ln( ϵ′/2) − ln( ϵ)ln(1 − η) = O(ln ϵϵ′ ), (13) For more detailed derivation, please refer to the appendix. In practical applications, the initial policy (such as the Qwen-math series) is typically a version that has already undergone supervised fine-tuning, which inherently possesses a certain degree of rea-soning capability. Consequently, the initial per-formance gap is typically small, implying that 
+
+ln( ϵϵ′ ) remains modest. Therefore, convergence can be achieved within a constant number of train-ing steps. To assess the impact of training data size on RLVR performance, we conduct a series of experi-ments using the Qwen2.5-Math-1.5B model (Yang et al., 2024) on the MATH (Hendrycks et al., 2021) and Minerva-MATH (Lewkowycz et al., 2022) benchmarks, varying the number of training sam-ples across five settings: 8, 16, 128, 256, and the full dataset (1209 examples). As shown in Figure 1, we observe that all configurations with 16 or more samples converge to nearly identical valida-tion accuracy. This result corroborates our theo-retical analyses, and provides empirical evidence that only a small subset of the data is sufficient to elicit strong reasoning capabilities in RLVR train-ing. Our analyses reveal that substantial reductions in training data are possible without sacrificing fi-nal performance, paving the way for more efficient RL-based reasoning. 
+
+4 Dynamic One-Shot Policy Refinement 
+
+Currently, reasoning model training often builds upon GRPO and its variants, which leverage group-wise relative rewards to estimate the advantages over the baseline. In particular, GRPO circum-vents value function approximation by computing the average reward over multiple responses to the same input query, using this group-level statistic as a baseline for advantage estimation. For each question q, GRPO samples a group of G responses 
+
+{oi}Gi=1 from the current policy πθold , and opti-mizes the policy by maximizing the expected ad-vantage over these responses:         
+
+> JGRPO (θ) = Eq∼P(Q),{oi}Gi=1 ∼πθold
+> 1
+> G
+> GX
+> i=1
+> 1
+> |oi|
+> |oi|
+> X
+> t=1
+> 
+> min
+> h
+> F(π) ˆAi,t ,clip 1+ ϵ
+> 1−ϵ(F(π)) ˆAi,t
+> i
+> −βDKL (πθ∥πref )
+> 
+> ,
+> (14)
+
+F(π) = πθ(oi,t |q, o i,<t )
+
+πθold (oi,t |q, o i,<t ) , (15) 
+
+DKL (πθ ∥ πref ) = F(π) − log F(π) − 1, (16) where ˆAi,t is computed based on the group reward scores of the t-th token. For each query in the batch, GRPO performs 
+
+G rollouts to estimate group-wise rewards, which 4Figure 2: Overview of DoPR, which dynamically selects a single high-value training instance from each mini-batch based on historical reward statistics. 
+
+are subsequently used to compute response-level advantages. Given a batch size of K, each policy update necessitates K × G rollouts, resulting in substantial computational overhead. To address this issue, we introduce Dynamic One-Shot Policy Refinement (DoPR), a lightweight and computa-tionally efficient strategy that selectively refines the policy using only a single high-influence training instance, as shown in Figure 2. For each sample oi in a mini-batch {oi}Ki=1 , we maintain a historical record of the reward statis-tics obtained from previous rollouts, including the mean μi and variance σ2 
+
+> i
+
+. In the t-th step, we exe-cute a single rollout for oi using the current policy 
+
+πθt , yielding a reward rti , then calculate the ex-ponentially weighted momentum estimates of the reward: 
+
+μti = ρ1 · rti + (1 − ρ1) · μt−1 
+
+> i
+
+,σt, 2 
+
+> i
+
+= ρ2 · (rti − μti)2 + (1 − ρ2) · σt−1,2 
+
+> i
+
+, (17) where ρ1 and ρ2 are momentum hyperparameters controlling the temporal sensitivity. These momen-tum statistics allow us to capture the reward volatil-ity of each sample over time, providing a principled measure of uncertainty under the current policy. To address the exploration–exploitation trade-off, we propose an Entropy-Modulated Upper Confidence Bound (EM-UCB) acquisition score. Standard UCB (Kaelbling, 1994; Garivier and Moulines, 2011) treats all samples uniformly, in-ducing unnecessary exploration even when the pol-icy has already converged on stable predictions. EM-UCB remedy this limitation by incorporating the policy entropy as a confidence-aware gate. As a result, exploratory updates are emphasized only for samples where the policy remains uncertain, align-ing exploration with potential information gain, leading to more efficient rollout utilization without introducing additional training complexity. 
+
+U ti = Sigmoid ( Hti − μH
+
+δH + ϵ ) ·
+
+s
+
+log( t + 1) 
+
+ni + 1 , (18) 
+
+Hti = − 1
+
+T
+
+> T
+
+X
+
+> l=1
+
+X
+
+> v∈V
+
+πθ(v|oi, < l ) log πθ(v|oi, < l ),
+
+(19) where ni denotes the cumulative number of times sample oi has been selected, μH , δH are the run-ning mean and standard deviation of entropy values across the batch, T denotes the output length, and 
+
+V is the vocabulary. The resulting EM-UCB term adaptively regulates exploration: when the policy exhibits high uncertainty (large Hti ), the explo-ration bonus is amplified; when the policy is confi-dent, the UCB contribution is suppressed, prevent-ing unnecessary exploration on already-determined samples. Therefore, the composite acquisition score for each sample is defined as: 
+
+Sti = σti + U ti . (20) 
+
+it = arg max  
+
+> i
+
+Sti . (21) This scoring function balances exploitation (select-ing samples with high reward variance) and explo-ration (favoring underused high-entropy samples). The core behind the exploitation is that the model is more uncertainty about the samples with high reward variance and high entropy, which are likely to be more informative for policy refinement. After selecting the most informative sample oit ,we allocate the full rollout budget G on it, collect-ing G responses {oit,j }Gj=1 from the current policy 
+
+πθt . The policy is then updated using the group-wise relative rewards of these responses, following the GRPO formulation in Eq.(14). In contrast to the conventional GRPO that re-quires K × G rollouts per step, DoPR reduces the rollout cost to G + ( K − 1) , where G rollouts are 5Algorithm 1 Dynamic One-Shot Policy Refine-ment (DoPR) 
+
+Require: Initial policy πθ0 , reference policy πref ,rollout budget G, batch size K, momentum factors ρ1, ρ2, exploration weight λ, total steps 
+
+T 
+
+> 1:
+
+Initialize reward statistics μ0 
+
+> i
+
+← 0, σ0,2 
+
+> i
+
+← 0,and selection counter ni ← 0 for each sample 
+
+xi in the dataset D 
+
+> 2:
+
+for t = 1 to T do  
+
+> 3:
+
+Sample a mini-batch B = {o1, . . . , o K }
+
+from the dataset  
+
+> 4:
+
+for all xi ∈ B do  
+
+> 5:
+
+Perform one rollout oti ∼ πθt (xi) 
+
+> 6:
+
+Compute scalar reward rti 
+
+> 7:
+
+Update exponential moving average of mean and variance:  
+
+> 8:
+
+μti ← ρ1 · rti + (1 − ρ1) · μt−1 
+
+> i
+> 9:
+
+σt, 2 
+
+> i
+
+← ρ2 ·(rti −μti)2 +(1 −ρ2)·σt−1,2 
+
+> i
+> 10:
+
+Compute EM-UCB exploration term: 
+
+U ti ← Sigmoid ( Hti −μH  
+
+> δH+ϵ
+
+) ·
+
+q log( t+1)  
+
+> ni+1
+> 11:
+
+Compute acquisition score: Sti ← σti +U ti 
+
+> 12:
+
+end for  
+
+> 13:
+
+Select top-scoring instance: o∗ ←
+
+arg max oi∈B Sti 
+
+> 14:
+
+Increment selection count: no∗ ← no∗ + 1  
+
+> 15:
+
+Perform G rollouts on o∗: {oj }Gj=1 ∼
+
+πθt (o∗) 
+
+> 16:
+
+Compute group rewards and token-wise ad-vantages ˆAj,t for GRPO  
+
+> 17:
+
+Compute policy gradient loss LGRPO (θ) 
+
+> 18:
+
+Update policy θt+1 ← θt − η∇θLGRPO (θ) 
+
+> 19:
+
+end for  
+
+> 20:
+
+return Trained policy πθT
+
+performed only on the selected sample and (K − 1) 
+
+rollouts are performed on the remaining. This re-sults in nearly an order-of-magnitude reduction in rollout cost, while still maintaining effective policy learning through targeted updates. DoPR’s design is simple, general, and easily integrable into exist-ing RLVR pipelines. The pseudo code of DoPR is presented in Algorithm 1. 
+
+5 Experiments 
+
+5.1 Experimental Settings 
+
+We conduct experiments using the Qwen2.5-Math and LLaMA3.1 (Yang et al., 2024) as the base language models, which are widely used for math-ematical reasoning tasks. For training, we adopt the same setting with (Wang et al., 2025b), which randomly selects a subset of 1209 high-quality rea-soning examples from the DeepScaleR-Preview-Dataset (Luo et al., 2025) to construct the train-ing set, and use GRPO as the policy optimiza-tion backbone under consistent rollout configura-tions. The evaluation is performed on seven widely used mathematical reasoning benchmarks, includ-ing AIME24, AMC, MATH (Hendrycks et al., 2021), Minerva Math (Lewkowycz et al., 2022), OlympiadBench (Huang et al., 2024), and GSM8K (Cobbe et al., 2021). The evaluation metric is Pass@1 accuracy, which measures the percentage of correct answers in a single attempt. We choose UFO RL (Zhao et al., 2025), One-Shot RL (Wang et al., 2025b) without entropy strategy, and stan-dard GRPO (Shao et al., 2024) as the baselines, and the number of total training steps for all meth-ods is set to 1000. From Figure 1, we observe that the sample size of 16 is sufficient to attain com-petitive performance, thus we adopt the 16-sample configuration for DoPR in experiments. 
+
+5.2 Benchmarking Across Diverse Tasks 
+
+Table 1 presents the pass@1 performance of vari-ous reinforcement learning methods. We observe that RLVR brings substantial improvements over the base model. For instance on the Qwen2.5 1.5B model, GRPO outperforms the base model by a large margin across all datasets, improving the av-erage accuracy from 37.8 to 49.6. This demon-strates the effectiveness of outcome-based policy optimization in enhancing reasoning capabilities. Our proposed method, DoPR, achieves comparable performance to GRPO with an average accuracy of 49.6, while requiring significantly fewer sam-ples and rollouts during training, confirming its efficiency without sacrificing effectiveness. We also observe that One-Shot RL underperforms both GRPO and DoPR across most benchmarks. This performance gap can be attributed to its reliance on single-response updates, which provide limited gra-dient information and may lead to unstable training dynamics. In our experiments, One-Shot RL often exhibits early saturation and struggles to make fur-ther progress in later training stages due to gradient degradation. In contrast to uniform or random sam-pling approaches, DoPR dynamically identifies and exploits informative training instances to refine the policy, resulting in consistently stable learning be-havior and improved sample efficiency throughout 6Table 1: Pass@1 performance comparison across multiple mathematical reasoning benchmarks. 
+
+Method (Total Rollouts Fixed) AIME24 AMC MATH MIN. OLY. GSM8K Avg. 
+
+Baseline methods 
+
+Qwen2.5-base 1.5B 0.0 0.0 3.2 2.2 2.4 3.9 1.9 Qwen2.5-base 7B 13.3 45 53.4 15.1 27.4 59.1 35.6 Qwen2.5-Math-base 1.5B 3.3 25.0 22.6 6.2 13.3 23.5 15.0 Qwen2.5-Math-base 7B 10 42.5 44.6 12.1 14.4 53.4 29.5 GRPO Qwen 1.5B 20.0 60.0 71.8 29.8 34.2 82.0 49.6 GRPO Qwen 7B 26.7 65 78.2 29.4 37.9 87.6 54.1 GRPO LLaMA 8B 3.3 10.0 25.8 11.4 6.5 70.9 21.3 One-Shot RL Qwen 1.5B 13.3 55.2 66.6 19.5 29.8 76.6 43.5 One-Shot RL Qwen 7B 16.7 52.5 74.0 23.9 32.1 81.8 46.8 One-Shot RL LLaMA 8B 0.0 15.0 28.0 16.9 7.7 72.8 17.6 UFO Qwen 1.5B 19.4 59.2 73.3 29.7 33.5 81.7 49.4 UFO Qwen 7B 27.9 52.8 73.5 38.7 38.2 85.3 52.7 UFO LLaMA 8B 3.1 14.4 26.8 16.4 8.1 72.6 23.6 
+
+Our method 
+
+DoPR Qwen 1.5B 19.7 59.3 73.5 29.4 33.9 82.2 49.6 DoPR Qwen 7B 30.0 52.5 73.8 39.0 37.9 85.6 53.1 DoPR LLaMA 8B 3.3 15.0 28.0 16.9 7.7 72.8 24.0 training. 
+
+5.3 Impact of Training Data Scale 
+
+We compare the performance of GRPO and DoPR with different scale of training data on Qwen 1.5B, and the results are shown in Table 2. It can be ob-served that both GRPO and DoPR demonstrate re-markable robustness to data reduction. Specifically, performance remains largely stable when using 16 or more samples, with minimal degradation com-pared to training on the full dataset. For example, GRPO trained with only 16 samples achieves 69.8 on MATH and 81.5 on GSM8K, closely match-ing the full-data performance of 71.8 and 82.0, re-spectively. A comparable pattern is observed with DoPR, which also delivers strong results under the same data constraints. This suggests that effective policy learning via RLVR does not necessarily re-quire extensive training corpora. However, when the training set is reduced to only 8 samples, a consistent drop in performance is observed across all benchmarks. This suggests a critical threshold below which the diversity and quantity of training data are insufficient to elicit the model’s full reason-ing potential. Importantly, the performance trend remains consistent across both optimization strate-gies, implying that the underlying data requirement characteristics are shared across GRPO and DoPR. These results validate our theoretical insights re-garding the minimal data requirement for RLVR, and further demonstrate that DoPR can retain high performance even in low-resource regimes, offer-ing a practical solution for data-efficient reasoning model training. 
+
+5.4 Comparison under Equal Rollout Budgets 
+
+To evaluate the rollout efficiency of different re-inforcement learning strategies, we conduct a se-ries of experiments under fixed rollout budgets ranging from 5k to 50k. Table 3 summarizes the Pass@1 accuracy across various reasoning bench-marks for GRPO, One-Shot RL, and our proposed DoPR. It can be seen that under constrained rollout budgets, DoPR demonstrates a substantial perfor-mance advantage over GRPO. For instance, with only 10k total rollouts, DoPR achieves compara-ble or even superior Pass@1 accuracy relative to GRPO trained with 50k rollouts. This underscores the inefficiency of GRPO’s rollout strategy, which fails to distinguish high-impact samples from less informative ones during training. Consequently, a larger number of rollouts is required to reach similar levels of reasoning capability. In contrast, DoPR leverages a dynamic selection mechanism to identify and focus on the most informative samples at each iteration, guided by a composite score that captures both reward uncertainty and exploration value. This utility-aware update strategy ensures 7Table 2: Pass@1 accuracy under varying sample budgets in RLVR training. 
+
+Method AIME24 AMC MATH MIN. OLY. GSM8K Avg. 
+
+Baseline methods 
+
+GRPO (Full data) 20.0 60.0 71.8 29.8 34.2 82.0 49.6 GRPO (256 samples) 19.7 57.7 70.8 28.7 34.1 82.6 48.9 GRPO (128 samples) 20.0 57.5 71.7 29.8 32.1 82.7 48.9 GRPO (16 samples) 19.3 58.5 69.8 28.2 32.9 81.5 48.4 GRPO (8 samples) 10.0 50.0 69.8 25.9 31.3 77.0 44.0 
+
+Our methods 
+
+DoPR (128 samples) 19.9 60.1 73.0 27.8 32.7 82.1 49.3 DoPR (16 samples) 19.7 59.3 73.5 29.4 33.9 82.2 49.6 DoPR (8 samples) 9.3 44.7 68.9 26.4 30.8 77.4 42.9 
+
+> Table 3: Pass@1 accuracy under equal total rollout budget across different reinforcement learning strategies.
+
+Method (Total Rollouts Fixed) AIME24 AMC MATH MIN. OLY. GSM8K Avg. 
+
+Rollout budget: 5k 
+
+GRPO 6.7 37.5 40.6 10.3 23.7 47.8 27.8 One-Shot RL 8.5 41.2 62.9 15.3 26.6 70.5 37.5 DoPR 14.6 46.0 66.4 20.9 30.1 75.2 42.2 
+
+Rollout budget: 10k 
+
+GRPO 10.0 50.0 52.0 12.1 25.6 61.5 35.2 One-Shot RL 9.8 44.7 67.2 18.3 28.6 75.5 40.7 DoPR 18.2 57.1 67.5 26.3 30.7 77.1 46.1 
+
+Rollout budget: 30k 
+
+GRPO 12.3 50.0 66.1 18.0 28.3 76.1 41.8 One-Shot RL 10.6 44.3 68.7 18.9 29.5 76.7 41.5 DoPR 18.6 57.9 74.3 30.2 33.7 80.1 49.1 
+
+Rollout budget: 250k 
+
+GRPO 19.7 59.9 72.3 29.5 33.7 82.4 49.6 One-Shot RL 13.8 54.2 66.1 19.1 30.8 77.6 43.6 DoPR 19.7 58.3 73.5 29.2 33.1 83.1 49.4 that each rollout contributes more effectively to pol-icy improvement, enabling faster convergence and stronger performance with significantly reduced computational cost. One-Shot RL also achieves competitive performance in extremely low-budget settings (e.g., 5k–10k rollouts). However, it fails to improve further as the rollout budget increases, due to its reliance on single-instance updates and lack of adaptive sample prioritization. In contrast, DoPR continues to scale effectively with larger budgets, eventually reaching performance parity with GRPO while maintaining superior efficiency throughout the training process. This reveals the core strength of DoPR: its ability to maximize the utility of limited rollout resources through prin-cipled and information-aware update scheduling. This makes it a practical and scalable solution for reinforcement learning in settings where rollout and computational efficiency are critical. 
+
+5.5 Ablation Studies 
+
+We conduct an ablation study to investigate the ef-fectiveness of the EM-UCB term. As shown in Table 4, all methods exhibit similar performance after converging, suggesting that the ultimate rea-soning capability is primarily determined by the underlying reinforcement learning framework it-self, and that the choice of individual training sam-ples per update has limited influence on the final performance ceiling. In contrast, when the rollout budget is constrained, full DoPR substantially out-performs both ablated variants. This demonstrates 8Table 4: Ablation study of DoPR. We report Pass@1 after convergence and under a fixed rollout budget. 
+
+Method (Total Rollouts Fixed) AIME24 AMC MATH MIN. OLY. GSM8K Avg. 
+
+Final Performance 
+
+DoPR 19.7 59.3 73.5 29.4 33.9 82.2 49.6 DoPR-UCB 19.3 59.0 73.6 29.1 33.9 81.9 49.5 DoPR-None 18.9 58.7 73.4 29.3 33.6 80.5 49.0 
+
+10k Rollout Budget 
+
+DoPR 17.4 56.2 67.0 25.9 30.2 77.3 45.7 DoPR-UCB 16.7 55.0 66.9 25.4 29.5 76.9 45.1 DoPR-None 10.7 40.0 66.8 24.4 30.1 77.5 41.6 the advantage of the proposed EM-UCB strategy in improving learning efficiency by directing rollouts toward more informative instances. 
+
+(a) Response length (b) Update time 
+
+> Figure 3: DoPR consistently yields shorter reasoning tra-jectories and faster update cycles, indicating improved runtime efficiency and a reduced computational burden for training.
+
+5.6 Efficiency in Rollout and Update Time 
+
+We further evaluate the computational efficiency of DoPR by analyzing two key metrics: the aver-age response length and the per-step update time in training. As shown in Figure 3, GRPO main-tains a relatively constant response length across training steps, reflecting its fixed group sampling strategy that does not adapt to the model’s evolving confidence. In contrast, DoPR exhibits a rapid de-cline in response length over the course of training, eventually stabilizing at a significantly lower level. This indicates that our method progressively learns to generate more concise reasoning trajectories, which may due to the targeted sample selection and more confident policy updates. In terms of the update time, DoPR consistently achieves lower latency per training step compared to GRPO. This improvement stems from DoPR’s single-instance update mechanism, which requires only G+( K−1) 
+
+rollouts per step rather than the full K × G roll-outs used by GRPO. The update time of DoPR remains stable throughout training, demonstrating its scalability and robustness under fixed compute budgets. Overall, these observations indicate that DoPR not only accelerates convergence but also improves runtime efficiency at both inference and training stages, making it a promising candidate for large-scale deployment in cost-sensitive envi-ronments. 
+
+6 Conclusion 
+
+In this work, we present a resource-efficient reinforcement learning framework for training reasoning-capable language models under RLVR. We begin by establishing a theoretical lower bound on the sample complexity of RLVR, providing the first formal understanding of data require-ments during post-training. Empirically, we show that near-optimal reasoning performance can be achieved with surprisingly few training examples, challenging the prevailing assumption that large-scale datasets are indispensable for RL-based align-ment. In parallel, we propose Dynamic One-Shot Policy Refinement (DoPR), a computation-efficient learning algorithm that significantly reduces rollout cost by dynamically selecting a single high-impact training sample per batch for policy updates. By combining reward volatility with exploration-aware scoring, DoPR achieves competitive superior rea-soning performance across a suite of mathematical benchmarks, while dramatically reducing compu-tational overhead. Together, our theoretical and algorithmic contributions offer a more sustainable path forward for scaling LLM reasoning training, both in terms of data requirement and compute efficiency. 
+
+References   
+
+> Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman,
+
+9Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, and 1 others. 2023. Gpt-4 techni-cal report. Arxiv , abs/2303.08774. Agnideep Aich, Ashit Baran Aich, and Bruce Wade. 2025. From sublinear to linear: Fast convergence in deep networks via locally polyak-lojasiewicz regions. 
+
+ArXiv , abs/2507.21429. Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai Dang, Xiaodong Deng, Yang Fan, Wenhang Ge, Yu Han, and Fei Huang et al. 2023. Qwen technical report. 
+
+ArXiv , abs/2309.16609. Maciej Besta, Nils Blach, Ale Kubek, Robert Gersten-berger, Lukas Gianinazzi, Joanna Gajda, Tomasz Lehmann, Michal Podstawski, Hubert Niewiadom-ski, Piotr Nyczyk, and Torsten Hoefler. 2023. Graph of thoughts: Solving elaborate problems with large language models. In AAAI Conference on Artificial Intelligence (AAAI) .Huanran Chen, Yinpeng Dong, Zeming Wei, Yao Huang, Yichi Zhang, Hang Su, and Jun Zhu. 2025a. Understanding pre-training and fine-tuning from loss landscape perspectives. ArXiv , abs/2505.17646. Minghan Chen, Guikun Chen, Wenguan Wang, and Yi Yang. 2025b. Seed-grpo: Semantic entropy en-hanced grpo for uncertainty-aware policy optimiza-tion. ArXiv , abs/2505.12346. Zixiang Chen, Yihe Deng, Huizhuo Yuan, Kaixuan Ji, and Quanquan Gu. 2024. Self-play fine-tuning con-verts weak language models to strong language mod-els. In International Conference on Machine Learn-ing (ICML) .Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John Schulman. 2021. Training verifiers to solve math word prob-lems. ArXiv , abs/2110.14168. Foundational Contributors, Ahmed El-Kishky, Daniel Selsam, Francis Song, Giambattista Parascandolo, Hongyu Ren, Hunter Lightman, Hyung Won, Ilge Akkaya, and Ilya Sutskever et al. 2024. Openai o1 system card. ArXiv , abs/2412.16720. Ganqu Cui, Yuchen Zhang, Jiacheng Chen, Lifan Yuan, Zhi Wang, Yuxin Zuo, Hao-Si Li, Yuchen Fan, Huayu Chen, Weize Chen, Zhiyuan Liu, Hao Peng, Lei Bai, Wanli Ouyang, Yu Cheng, Bowen Zhou, and Ning Ding. 2025. The entropy mechanism of reinforce-ment learning for reasoning language models. ArXiv ,abs/2505.22617. DeepSeek-AI, Daya Guo, Dejian Yang, Haowei Zhang, Jun-Mei Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, and Peiyi Wang et al. 2025. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. ArXiv , abs/2501.12948. Guanting Dong, Hongyi Yuan, Keming Lu, Chengpeng Li, Mingfeng Xue, Dayiheng Liu, Wei Wang, Zheng Yuan, Chang Zhou, and Jingren Zhou. 2023. How abilities in large language models are affected by su-pervised fine-tuning data composition. In Annual Meeting of the Association for Computational Lin-guistics (ACL) .Jiaxuan Gao, Shusheng Xu, Wenjie Ye, Weiling Liu, Chuyi He, Wei Fu, Zhiyu Mei, Guangju Wang, and Yi Wu. 2024. On designing effective rl re-ward at training time for llm reasoning. ArXiv ,abs/2410.15115. Aurélien Garivier and Eric Moulines. 2011. On upper-confidence bound policies for switching bandit prob-lems. In International conference on algorithmic learning theory , pages 174–188. Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Xiaodong Song, and Jacob Steinhardt. 2021. Measuring math-ematical problem solving with the math dataset. In 
+
+Advanced in Neural Information Processing Systems (NeurIPS) .Jingcheng Hu, Yinmin Zhang, Qi Han, Daxin Jiang, Xi-angyu Zhang, and Heung yeung Shum. 2025. Open-reasoner-zero: An open source approach to scaling up reinforcement learning on the base model. ArXiv ,abs/2503.24290. Zhen Huang, Zengzhi Wang, Shijie Xia, Xuefeng Li, Haoyang Zou, Ruijie Xu, Run-Ze Fan, Lyumanshan Ye, Ethan Chern, and Yixin Ye et al. 2024. Olympi-carena: Benchmarking multi-discipline cognitive rea-soning for superintelligent ai. In Advanced in Neural Information Processing Systems (NeurIPS) .Leslie Pack Kaelbling. 1994. Associative reinforcement learning: A generate and test algorithm. Machine Learning , 15(3):299–319. Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yu-taka Matsuo, and Yusuke Iwasawa. 2022. Large lan-guage models are zero-shot reasoners. In Advances in Neural Information Processing Systems (NeurIPS) .Deyang Kong, Qi Guo, Xiangyu Xi, Wei Wang, Jin-gang Wang, Xunliang Cai, Shikun Zhang, and Wei Ye. 2025. Rethinking the sampling criteria in reinforcement learning for llm reasoning: Acompetence-difficulty alignment perspective. Arxiv ,abs/2505.17652. Nathan Lambert, Jacob Daniel Morrison, Valentina Py-atkin, Shengyi Huang, Hamish Ivison, Faeze Brah-man, Lester James Validad Miranda, Alisa Liu, Nouha Dziri, and Xinxi Lyu et al. 2024. Tülu 3: Push-ing frontiers in open language model post-training. 
+
+ArXiv , abs/2411.15124. Aitor Lewkowycz, Anders Andreassen, David Dohan, Ethan Dyer, Henryk Michalewski, Vinay Ramasesh, Ambrose Slone, and Cem et al. Anil. 2022. Solving 
+
+10 quantitative reasoning problems with language mod-els. In Advanced in Neural Information Processing Systems (NeurIPS) .Zhihang Lin, Mingbao Lin, Yuan Xie, and Rongrong Ji. 2025. Cppo: Accelerating the training of group relative policy optimization-based reasoning models. 
+
+ArXiv , abs/2503.22342. Zi-Yan Liu, Changyu Chen, Wenjun Li, Penghui Qi, Tianyu Pang, Chao Du, Wee Sun Lee, and Min Lin. 2025. Understanding r1-zero-like training: A critical perspective. ArXiv , abs/2503.20783. Michael Luo, Sijun Tan, Justin Wong, Xiaoxiang Shi, William Y. Tang, Manan Roongta, Colin Cai, Jeffrey Luo, Li Erran Li, Raluca Ada Popa, and Ion Stoica. 2025. Deepscaler: Surpassing o1-preview with a 1.5b model by scaling rl. Notion Blog. Sheng Y Peng, Pin-Yu Chen, Matthew Hull, and Duen H Chau. 2024. Navigating the safety landscape: Mea-suring risks in finetuning large language models. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) .Machel Reid, Nikolay Savinov, Denis Teplyashin, Dmitry Lepikhin, Timothy P. Lillicrap, Jean-Baptiste Alayrac, Radu Soricut, Angeliki Lazaridou, Orhan Fi-rat, and Julian Schrittwieser et al. 2024. Gemini 1.5: Unlocking multimodal understanding across millions of tokens of context. ArXiv , abs/2403.05530. Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Jun-Mei Song, Mingchuan Zhang, Y. K. Li, Yu Wu, and Daya Guo. 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. 
+
+ArXiv , abs/2402.03300. Fahim Tajwar, Anikait Singh, Archit Sharma, Rafael Rafailov, Jeff Schneider, Tengyang Xie, Stefano Er-mon, Chelsea Finn, and Aviral Kumar. 2024. Prefer-ence fine-tuning of llms should leverage suboptimal, on-policy data. In International Conference on Ma-chine Learning (ICML) .Kimi Team, Angang Du, Bofei Gao, Bowei Xing, Changjiu Jiang, Cheng Chen, Cheng Li, Chenjun Xiao, Chenzhuang Du, and Chonghua Liao et al. 2025. Kimi k1.5: Scaling reinforcement learning with llms. ArXiv , abs/2501.12599. Jonathan Uesato, Nate Kushman, Ramana Kumar, Fran-cis Song, Noah Siegel, L. Wang, Antonia Creswell, Geoffrey Irving, and Irina Higgins. 2022. Solving math word problems with process- and outcome-based feedback. ArXiv , abs/2211.14275. Shenzhi Wang, Le Yu, Chang Gao, Chujie Zheng, Shix-uan Liu, Rui Lu, Kai Dang, Xionghui Chen, Jianxin Yang, Zhenru Zhang, Yuqiong Liu, An Yang, An-drew Zhao, Yang Yue, Shiji Song, Bowen Yu, Gao Huang, and Junyang Lin. 2025a. Beyond the 80/20 rule: High-entropy minority tokens drive effective reinforcement learning for llm reasoning. ArXiv ,abs/2506.01939. Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc V. Le, Ed H. Chi, Sharan Narang, Aakanksha Chowd-hery, and Denny Zhou. 2023. Self-consistency im-proves chain of thought reasoning in language mod-els. In International Conference on Learning Repre-sentations (ICLR) .Yiping Wang, Qing Yang, Zhiyuan Zeng, Liliang Ren, Lucas Liu, Baolin Peng, Hao Cheng, Xuehai He, Kuan Wang, and Jianfeng Gao et al. 2025b. Re-inforcement learning for reasoning in large lan-guage models with one training example. ArXiv ,abs/2504.20571. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed H. Chi, Quoc V. Le, and Denny Zhou. 2022. Chain-of-thought prompt-ing elicits reasoning in large language models. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) .Wei Xiong, Jiarui Yao, Yuhui Xu, Bo Pang, Lei Wang, Doyen Sahoo, Junnan Li, Nan Jiang, Tong Zhang, Caiming Xiong, and Hanze Dong. 2025. A min-imalist approach to llm reasoning: from rejection sampling to reinforce. ArXiv , abs/2504.11343. Yixuan Even Xu, Yash Savani, Fei Fang, and Zico Kolter. 2025. Not all rollouts are useful: Down-sampling rollouts in llm reinforcement learning. 
+
+ArXiv , abs/2504.13818. An Yang, Beichen Zhang, Binyuan Hui, Bofei Gao, Bowen Yu, Chengpeng Li, Dayiheng Liu, Jian-hong Tu, Jingren Zhou, Junyang Lin, Keming Lu, Mingfeng Xue, Runji Lin, Tianyu Liu, Xingzhang Ren, and Zhenru Zhang. 2024. Qwen2.5-math tech-nical report: Toward mathematical expert model via self-improvement. Arxiv , abs/2409.12122. Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Tom Griffiths, Yuan Cao, and Karthik Narasimhan. 2023. Tree of thoughts: Deliberate problem solving with large language models. In Advances in Neural Information Processing Systems (NeurIPS) .Yixin Ye, Zhen Huang, Yang Xiao, Ethan Chern, Shijie Xia, and Pengfei Liu. 2025. Limo: Less is more for reasoning. ArXiv , abs/2502.03387. Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Tiantian Fan, Gaohong Liu, Lingjun Liu, and Xin Liu et al. 2025. Dapo: An open-source llm reinforcement learning system at scale. ArXiv , abs/2503.14476. Yu Yue, Yufeng Yuan, Qiying Yu, Xiaochen Zuo, Ruofei Zhu, Wenyuan Xu, Jiaze Chen, Chengyi Wang, Tiantian Fan, Zhengyin Du, Xiang Wei, Xiangyu Yu, Gaohong Liu, Juncai Liu, Lingjun Liu, Haibin Lin, Zhiqi Lin, Bole Ma, Chi Zhang, and 8 oth-ers. 2025. Vapo: Efficient and reliable reinforce-ment learning for advanced reasoning tasks. ArXiv ,abs/2504.05118. 
+
+11 Weihao Zeng, Yuzhen Huang, Qian Liu, Wei Liu, Ke-qing He, Zejun Ma, and Junxian He. 2025. Simplerl-zoo: Investigating and taming zero reinforcement learning for open base models in the wild. ArXiv ,abs/2503.18892. Qingyang Zhang, Haitao Wu, Changqing Zhang, Peilin Zhao, and Yatao Bian. 2025a. Right question is al-ready half the answer: Fully unsupervised llm rea-soning incentivization. ArXiv , abs/2504.05812. Xiaojiang Zhang, Jinghui Wang, Zifei Cheng, Wen-hao Zhuang, Zheng Lin, Minglei Zhang, Shaojie Wang, Yinghan Cui, Chao Wang, and Junyi Peng. 2025b. Srpo: A cross-domain implementation of large-scale reinforcement learning on llm. ArXiv ,abs/2504.14286. Yang Zhao, Kai Xiong, Xiao Ding, Li Du, Zhouhao Sun, Jiannan Guan, Wenbin Zhang, Bin Liu, Dong Hu, Bing Qin, and 1 others. 2025. Ufo-rl: Uncertainty-focused optimization for efficient reinforcement learning data selection. Arxiv , abs/2505.12457. Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, and Eric P. Xing et al. 2023. Judging llm-as-a-judge with mt-bench and chatbot arena. In Advances in Neural Information Processing Systems (NeurIPS) .Denny Zhou, Nathanael Schärli, Le Hou, Jason Wei, Nathan Scales, Xuezhi Wang, Dale Schuurmans, Claire Cui, Olivier Bousquet, Quoc V. Le, and Ed H. Chi. 2023. Least-to-most prompting enables complex reasoning in large language models. In International Conference on Learning Representations (ICLR) .
+
+A Detailed Proof of Theorem 1 
+
+For a pre-training policy πθ0 , its performance gap with the optimal policy πθ⋆ on a reasoning task is: 
+
+Ex∼D [P πθ⋆ (x) − P πθ0 (x)] = ϵ, (22) where x is an instance sampled from the dataset 
+
+D, and P π(x) denotes the expected verification reward. 
+
+Theorem A.1. Consider an optimization proce-dure where the policy is updated using a single sample at each step, let πθ⋆ denotes the optimal policy and πθN denotes the policy after N updates. To guarantee that the expected performance gap satisfies 
+
+Ex∼D [P πθ⋆ (x) − P πθN (x)] ≤ ϵ′, (23) 
+
+it suffices that the number of steps N satisfies 
+
+N ≥ O (ln ϵϵ′ ), (24) 
+
+where ϵ denotes the initial performance gap. Proof. Let J(θ) = Ex∼D [P πθ (x)] denote the ex-pected performance of the policy parameterized by 
+
+θ. Assume that J is locally L-smooth, i.e., there exists a constant L > 0 and a neighborhood N con-taining the initial policy θ0, such that the following Lipschitz inequality holds for all θ, θ ′ ∈ N :
+
+J(θ′) ≥ J(θ) + ⟨∇ J(θ), θ ′ − θ⟩ − L
+
+2 ∥θ′ − θ∥2.
+
+(25) By the policy gradient theorem, J’s gradient is given by: 
+
+∇J(θ) = Ex∼D [∇θP πθ (x)] . (26) Assume that the policy is updated at each step via gradient ascent with a fixed learning rate α > 0:
+
+θt+1 = θt + αg t, (27) where gt is an unbiased stochastic estimate of the true gradient, i.e., E[gt] = ∇J(θt), and the vari-ance of gt is bounded by V ar (gt) ≤ δ2. Due to the L-smoothing, 
+
+J(θ(t+1) ≥ J(θt) + ⟨∇ J(θt), αg t⟩ − L
+
+2 ∥αg t∥2
+
+= J(θt) + α⟨∇ J(θt), g t⟩ − Lα 2
+
+2 ∥gt∥2.
+
+(28) Taking expectations E [·| θt], we obtain:                       
+
+> E[J(θt+1 |θt)] ≥J(θt) + α∥∇ J(θt)∥2−Lα 2
+> 2E∥gt∥2|θt
+> 
+> ≥J(θt) + α∥∇ J(θt)∥2−Lα 2
+> 2(∥∇ J(θt)∥2+δ2)=J(θt) + α(1 −Lα
+> 2 )||∇ J(θt)|| 2−Lα 2δ2
+> 2,
+> (29)
+
+Pretraining and SFT endow the model with an ini-tial reasoning capability. Coupled with the explicit gradient signal provided by RLVR, the objective 
+
+J satisfies a local Polyak–Łojasiewicz (PL) con-dition in the neighborhood induced by pretraining and SFT. Intuitively, the combination of pretrain-ing/SFT (which shapes a favorable local manifold) and the supervised RLVR gradients renders the landscape locally well-conditioned for efficient op-timization. That is, J satisfies 
+
+∥∇ J(θt)∥2 ≥ c (J(θ⋆) − J(θt)) = c∆t, (30) for some constant c > 0, where θ⋆ is the optimal parameter and ∆t = J(θ⋆) − J(θt) denotes the performance gap at step t. Then, we have:             
+
+> E[J(θt+1 )−J(θt)|θt]≥αc (1 −Lα
+> 2 )∆ t−Lα 2δ2
+> 2.(31)
+
+12 Let η = αc/ 2, and choose α such that 1 − Lα  
+
+> 2
+
+≥ 12 ,we further require 
+
+Lα 2δ2
+
+2 ≤ ηϵ ′
+
+2 ,
+
+which leads to the recursive inequality: 
+
+E [∆ t+1 | θt]= ∆ t − E [J(θt+1 ) − J(θt) | θt]
+
+≤ (1 − η)∆ t + ϵ′
+
+2 .
+
+(32) Let η = αc  
+
+> 2
+
+and Lα 2δ2 
+
+> 2
+
+≤ ηϵ ′ 
+
+> 2
+
+, we can get 
+
+E [∆ t+1 ] ≤ (1 − η)E [∆ t] + ηϵ ′
+
+2 , (33) If ∆t ≥ ϵ′, we obtain: 
+
+E [∆ t] ≤ (1 − η)t∆0 + ϵ′
+
+2 , (34) where ∆0 = J(θ⋆) − J(θ0) = ϵ is the initial gap. To ensure E [∆ t] ≤ ϵ′, it suffices that: 
+
+(1 − η)tϵ ≤ ϵ′
+
+2 . (35) Taking logarithms on both sides yields: 
+
+t ≥ ln( ϵ′/2) − ln( ϵ)ln(1 − η) = O(ln ϵϵ′ ), (36) 13

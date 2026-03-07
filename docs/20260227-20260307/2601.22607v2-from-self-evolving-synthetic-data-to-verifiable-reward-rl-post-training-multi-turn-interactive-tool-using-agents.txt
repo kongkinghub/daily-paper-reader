@@ -1,0 +1,1227 @@
+Title: From Self-Evolving Synthetic Data to Verifiable-Reward RL: Post-Training Multi-turn Interactive Tool-Using Agents
+
+URL Source: https://arxiv.org/pdf/2601.22607v2
+
+Published Time: Wed, 04 Feb 2026 01:26:57 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# From Self-Evolving Synthetic Data to Verifiable-Reward RL: Post-Training Multi-turn Interactive Tool-Using Agents 
+
+Jiaxuan Gao 1 Jiaao Chen 2 Chuyi He 3 Wei-Chen Wang 2 Shusheng Xu 1 Hanrui Wang 2 Di Jin 2 Yi Wu 1
+
+## Abstract 
+
+Interactive tool-using agents must solve real-world tasks via multi-turn interaction with both humans and external environments, requiring dialogue state tracking, multi-step tool execu-tion, while following complex instructions. Post-training such agents is challenging because syn-thesis for high-quality multi-turn tool-use data is difficult to scale, and reinforcement learning (RL) could face noisy signals caused by user simula-tion, leading to degraded training efficiency. We propose a unified framework that combines a self-evolving data agent with verifier-based RL. Our system, EigenData , is a hierarchical multi-agent engine that synthesizes tool-grounded dialogues together with executable per-instance checkers, and improves generation reliability via closed-loop self-evolving process that updates prompts and workflow. Building on the synthetic data, we develop an RL recipe that first fine-tunes the user model and then applies GRPO-style training with trajectory-level group-relative advantages and dynamic filtering, yielding consistent im-provements beyond SFT. Evaluated on τ 2-bench, our best model reaches 73 .0% passˆ1 on Airline and 98 .3% passˆ1 on Telecom, matching or ex-ceeding frontier models. Overall, our results sug-gest a scalable pathway for bootstrapping com-plex tool-using behaviors without expensive hu-man annotation. 1
+
+## 1. Introduction 
+
+Large language models (LLMs) have rapidly evolved from generic next-token predictors into broadly capable systems that can follow instructions, reason over long contexts, and 
+
+> 1
+
+Tsinghua University 2Eigen AI 3Independent Researcher. Correspondence to: Di Jin <di@eigenai.com >, Yi Wu 
+
+<jxwuyi@gmail.com >.
+
+Preprint. February 4, 2026. 
+
+> 1
+
+Code and data are open-sourced in https://github.com/inclusionAI/AReaL. 
+
+support downstream adaptation via fine-tuning and post-training, including strong open-weight model families (Tang et al., 2025; Liu et al., 2025a; Kimi Team et al., 2025; Zhu et al., 2026). As these models have been integrated into real applications, there has been a central shift from static question answering to interactive task completion , where the model must communicate with humans and interact with the external environment through tool/API calls to accomplish complex tasks (Anthropic, 2025; Yao et al., 2024; Barres et al., 2025; Froger et al., 2025). Prior work on tool-augmented agents has largely focused on settings where the agent invokes tools to fulfill self-contained user queries (Yehudai et al., 2025). In contrast, interactive agents operate in the presence of an active user 
+
+throughout the interaction—a distinction that introduces two fundamental challenges. First, critical information resides on the user side : unlike single-turn tool-use where all nec-essary context is provided upfront, interactive agents must actively elicit user preferences and private details through multi-turn dialogue before taking actions. Second, user behavior is inherently uncertain : users may provide in-formation incrementally, change their minds, or respond in unexpected ways. For instance, in the τ -bench airline (Yao et al., 2024), an agent handling a flight change request must (i) ask clarifying questions for the user’s preferences, (ii) query database via API calls to find suitable alternatives, (iii) verify that the proposed change complies with policies, and (iv) execute the modification. Despite the availability of capable open-weight foundation models, post-training these models into effective interac-tive agents remains challenging (Barres et al., 2025). We identify two primary bottlenecks. The first bottleneck is 
+
+scalable data acquisition . High-quality training data for multi-turn tool-using dialogues is difficult to obtain at scale. Human annotation requires substantial effort, particularly for scenarios involving complex domain constraints. Auto-mated synthesis is also challenging: generating sufficiently challenging tasks for effective post-training requires satisfy-ing intricate domain rules while simultaneously providing a simulated user with coherent instructions and private infor-mation (Barres et al., 2025; Prabhakar et al., 2025; Xu et al., 2025b). The second bottleneck is reinforcement learning 
+
+1
+
+> arXiv:2601.22607v2 [cs.AI] 2 Feb 2026 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents
+
+for interactive agents . Since interactive tasks require a user to drive the conversation, RL training must incorporate a user simulator, introducing additional non-deterministic dynamics into the rollout process (Barres et al., 2025). Fur-thermore, in cases users can also invoke tool calls as in the dual-control setting of τ 2-bench (Barres et al., 2025), we find that open-source models exhibit unstable behavior when simulating such tool-using users. This instability in user behaviors significantly undermine the success rate of rollouts and introduces noisy training signals. We address these challenges with a two-part post-training framework. First, we present EigenData , a hierarchical self-evolving multi-agent system that autonomously generates and validates training data with minimal human supervi-sion. EigenData comprises an orchestration layer that de-signs workflows, writes agent prompts, and drives iterative self-evolution, as well as an execution layer of specialized worker agents that synthesize tasks, interaction trajectories, and executable per-instance verification functions that server as reward signals for RL. Second, we develop an Reinforce-ment Learning recipe for multi-turn interactive tool use where user behavior introduces substantial variance. A key prerequisite is preparing a reliable user simulator. We find that off-the-shelf models exhibit unstable behavior when simulating tool-using users. We therefore first fine-tune the user model via SFT to ensure stable, instruction-following behavior before using it in RL rollouts. For training, we employ GRPO (Shao et al., 2024) with large batch sizes and dynamic sampling to stabilize learning under the inherent uncertainty of user-driven interactions. We use verifier-based outcome rewards based on the generated verification functions by EiganData: the resulting state is compared against the ground-truth final state to determine success. Our framework produces substantial improvements across all three domains of τ 2-bench using Qwen3 backbones. For Qwen3-30B-A3B-2507, SFT alone yields strong gains, for example, improving Telecom from p1 = 28 .5 to 85 .4. RL training further boosts performance, achieving p1 = 70 .5 on Airline, 75 .0 on Retail, and 95 .6 on Telecom. For Qwen3-235B-A22B-2507, RL reaches p1 = 73 .0 on Airline, 75 .0
+
+on Retail, and 98 .3 on Telecom, matching or exceeding frontier model in all domains. Taken together, our findings demonstrate that self-evolving synthetic data generation, combined with stabilized verifier-based RL, can reliably improve multi-turn tool-use capabilities. 
+
+Our key contributions are as follows: 
+
+• EigenData , a self-evolving data synthesis system that generates verifiable, complex and high-quality multi-turn tool-use training instances. • An RL recipe for interactive tool-use agents , com-prising user model fine-tuning, large-batch training to mitigate user behavior variance, dynamic sampling, and verifier-based outcome rewards. • Extensive empirical evaluation , including ablations quantifying the contributions of each component. Our approach achieves state-of-the-art results on τ 2-bench using fully open-weight models. 
+
+## 2. Related Work 
+
+Tool-using Language Agents. Tool-using agents have emerged as a paradigm for extending LLMs beyond their parametric knowledge with external tools such as APIs, web browsers, and search engines (Schick et al., 2023; Yao et al., 2022; Parisi et al., 2022; Liang et al., 2023; Paran-jape et al., 2023). ReAct (Yao et al., 2022) introduced interleaved reasoning traces and actions to ground model outputs in external knowledge. Toolformer (Schick et al., 2023) demonstrated that LLMs can teach themselves when and how to invoke tools through self-supervised learning. Search agents (Nakano et al., 2022; Gur et al., 2024; Gao et al., 2025; Jin et al., 2025) extend these capabilities to au-tonomous web navigation question answering. To evaluate tool-use capabilities at scale, ToolLLM (Qin et al., 2023), BFCL (Patil et al.) and ACEBench (Chen et al., 2025) pro-vide realistic evaluation of function calling across serial, par-allel, and multi-turn interactions. While these benchmarks measure isolated tool execution, τ and τ 2-bench (Yao et al., 2024; Barres et al., 2025) advanced evaluation toward real-istic conversational scenarios by testing interaction between simulated users and agents. 
+
+Synthetic Data Generation. Synthesis data plays a key role in providing scalable training data with minimal hu-man efforts (Wang et al., 2023; Yu et al., 2025; Xu et al., 2025a; 2024; Chen & Yang, 2024; Robeyns et al., 2025). Re-cent work moves toward trajectory synthesis with stronger grounding and validation. APIGen (Liu et al., 2024b) gen-erates function-calling data with execution-based checks, and APIGen-MT (Prabhakar et al., 2025) extends this to multi-turn tool-use trajectories via simulated agent–human interplay and reviewer-style validation. TOUCAN (Xu et al., 2025b) scales further by synthesizing 1.5M tool-agent trajec-tories from hundreds of real MCP environments.Supporting infrastructure for multi-agent generation has also matured (e.g., hierarchical workflow (Liu et al., 2025b) and uni-fied codebases (Ye et al., 2025)). In contrast to prior static pipelines that primarily target SFT data, our data engine dy-namically designs workflow and evolves through feedback: it learns from its own failures and produces verifiers that enable RL training from the same synthetic data. 
+
+Reinforcement Learning for LLM. Reinforcement learn-ing has emerged as a central technique for post-training LLMs, demonstrating significant effectiveness in enhanc-2From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+ing model capabilities. Reinforcement Learning from Hu-man Feedback (RLHF) (Ouyang et al., 2022) learns a re-ward model to model human preferences and has success-fully improved alignment and instruction-following abilities. Beyond RLHF, the paradigm shift toward Reinforcement Learning with Verifiable Rewards (RLVR), which uses pro-grammatic verifiers to evaluate the quality of model outputs, significantly enhancing model capability on complex rea-soning tasks (Liu et al., 2024a; Li et al., 2025; Zhang et al., 2026). Building upon RLVR, recent advances in agentic RL further applies RL on training long-horizon tool-using agents (Liu et al., 2025c; Lu et al., 2025; Zhuang et al., 2025; Gao et al., 2025; Fu et al., 2025). Our work follows the agentic RL paradigm and investigate RL for interactive tool-using agents. Unlike these previous works, user simu-lation in the interactive setting brings noises to RL training. We propose user model fine-tuning as a critical component for training interactive tool-using agents. 
+
+## 3. Preliminary 
+
+3.1. Interactive Tool-Using Agents 
+
+We formulate the problem as a decentralized partially ob-servable Markov decision process (Dec-POMDP), defined by the tuple M = ⟨S , A, T , R, Ω, O, γ, ρ 0⟩ with two play-ers, i.e. the agent and the user. The agent uses a parameter-ized policy πθ and the user policy is denoted as πuser .The state st ∈ S captures all environment information. The initial state distribution ρ0 is defined as s0 ∼ ρ0(·| q) where 
+
+q ∈ D is the task specification. A is the set of possible actions for each player. This may include provided tool calls, or messages between the agent and the user. T : S × A → ∆( S) is the transition function, which models the state updates caused by actions such as tool calls. At each turn 
+
+t, the agent and the user both observe a local observation, 
+
+oagent t = O(st; agent ) ∈ Ω and ouser t = O(st; user ) ∈
+
+Ω, respectively. For tool-calling agents, the observation usually includes system context that entails task instructions, available tool specifications, and the interaction history. For reward function R, we employ an outcome reward set-ting where the agent receives feedback only upon task com-pletion. The reward function R : S × A → R is defined as 
+
+R(st, a t) = R(sT ) for t = T and R(st, a t) = 0 for t < T ,where T denotes the terminal turn and R(sT ) is a scalar metric evaluating the correctness of the final state sT .
+
+3.2. Policy and Objective Agent & User Policy. The agent policy is an LLM πθ
+
+that outputs a text yt given observation oagent t . The output 
+
+yt contains both the agent’s reasoning about the current state and actions to take, e.g. tool calls. Agent action 
+
+aagent t is then extracted from yt through a heuristic parsing function, e.g. by matching the JSON-format content. The LLM generates tokens in an autoregressive manner, πθ (yt |
+
+oagent t ) = Q|yt| 
+
+> i=1
+
+πθ (yt,i | oagent t , y t,<i ). Similarly, the user policy πuser generates actions auser t conditioned on its observation ouser t . In interactive tool-using agent settings, either the agent or the user can act on each turn. non-acting party’s action would be set as ∅ and, in practice, only the acting party would invoke an LLM generation call. 
+
+Objective. The agent’s goal is to find pol-icy θ that maximize the expected reward: 
+
+max θ J(θ) = Es0∼ρ0(·),τ ∼P (τ |s0,π θ ,π user ) [R(sT )] 
+
+where τ = ( s0, a0, . . . , s T , aT ) is the full trajectory, T
+
+is the terminal turn and at = ( aagent t , a user t ) is the joint action at turn t.
+
+## 4. EigenData: Self-Evolving Data Agent 
+
+We present EigenData , a hierarchical self-evolving multi-agent framework for agentic data generation. As illustrated in Fig. 1, the framework has two layers: an orchestration layer that plans workflows to coordinate worker agents and enforces quality control, and an execution layer of worker agents that executes the planned workflow to per-form domain-specific generation and validation. Crucially, EigenData is self-evolving : each iteration produces explicit artifacts (task specs, tool traces, dialogues, and checkers) that are automatically critiqued; the resulting structured feedback updates both (i) worker agent prompts and (ii) workflow plans, improving validity, coverage, and difficulty over time. Through this iterative, two-phase regime, Eigen-Data autonomously produces, validates, repairs, and pack-ages synthetic tool-using dialogues—including executable 
+
+validation functions—for training and evaluation. In this work, we instantiate EigenData to generate multi-turn, multi-step agentic data, where agents must solve tasks by calling tools correctly over long trajectories. The frame-work is domain/task-agnostic: given specific tasks, domain documentation and tool schema as context, the framework can propose workflows and prompts that can be applied to new domains with minimal modification. 
+
+4.1. Orchestration Layer: Planning, Prompting, and Self-Critique 
+
+EigenData’s orchestration layer proposes workflows, gen-erates prompts, and self-evolves based on execution results for any given task. It consists of three agents: 
+
+Workflow Planner Agent Given a user request (e.g., “gen-erate airline customer service tasks that require tool use”), domain specifications (tool schemas, constraints, environ-ment), and generation targets (size, difficulty, diversity), the planner synthesizes a workflow that plans what worker agents to invoke and in what order in the execution layer. 3From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents    
+
+> Figure 1. EigenData, a hierarchical self-evolving multi-agent framework for agentic data generation. It comprises two layers: a top-level orchestration layer responsible for planning workflow, writing prompts, and quality control, and an execution layer (the figure shows an example workflow for agentic data generation planned by the workflow planner agent) composed of worker agents that perform domain-specific generation and validation with the workflow planned by orchestration layer.
+
+Prompt Engineer Agent For each worker agent planned by the planner, the Prompt Engineer produces prompts that (i) embed tool schemas and constraints, (ii) specify the expected output, and (iii) incorporate guidance derived from prior failures. Prompts are versioned and updated across iterations to evolve and yield high-quality data. 
+
+Judge Agent The Judge critiques intermediate artifacts pro-duced by all worker agents (e.g., task specifications, tool traces, dialogues, and checkers) along multiple axes: (a) ex-ecutability (whether the task is solvable given the available tools and environment state), (b) tool correctness (schema compliance, argument validity, and call ordering), (c) trajec-tory coherence (turn-level consistency and goal progression) and (d) difficulty & coverage (novelty, compositionality, and long-tail edge cases). The Judge emits structured critiques that are used by the Planner to adjust workflow and by the Prompt Engineer to revise prompts. 
+
+4.2. Data Generation Workflow in the Execution Layer 
+
+Specifically, to synthesize multi-turn multi-step interactive tool calling data, the workflow planner agent plans the following workflow: RandomPool → UserIntent →
+
+TaskValidation → DialogSynthesis →
+
+TrajectoryValidation → Modify →
+
+ValidationFunction . The prompt engineer agent proposes the prompt for each worker agent in this workflow. We provide the example prompts in the Appendix. 
+
+RandomPoolAgent. RandomPoolAgent generates diverse 
+
+scenario seeds to ensure coverage. A seed includes (i) a user persona (tone, expertise, constraints), (ii) environment context (account state, inventory, history), and (iii) task factors that control difficulty (number of required tool calls, branching, ambiguity, and error-prone API parameters). 
+
+UserIntentAgent. Conditioned on the seed, the UserIn-tentAgent synthesizes concrete and diverse task specifica-tions including a user-facing objective, hard requirements (must/must-not) and latent subgoals used for validation but not exposed in the user utterance (to avoid trivializing the dialogue). Tasks are constructed to require genuine tool us-age (e.g., multi-step retrieval → decision → action), rather than being solvable via single-call shortcuts. 
+
+TaskValidationAgent. A central failure mode in synthetic benchmarks is impossible tasks . To prevent this, TaskVali-dationAgent executes a tool-grounded feasibility probe: (1) Identify candidate solution plans consistent with the tool schemas and constraints. (2) Execute lightweight tool calls to confirm that a valid completion path exists under the cur-rent environment state. (3) If infeasible, emit failure reasons (missing resources, contradictory constraints, unreachable state transitions). This stage provides the first check on the generated tasks to ensure feasibility. 
+
+Dialog Synthesis: UserSimulatorAgent + TrajectoryA-gent. We generate full multi-turn dialogs through controlled interaction between two agents: • UserSimulatorAgent produces user utterances con-sistent with persona and goal progression. It may in-troduce realistic clarifications, partial information, or preference changes, while staying within the validated task constraints. The user utterances can also be used to train the user model (see in Section 5). • TrajectoryAgent produces the assistant side, including 4From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+tool calls and natural-language responses. It selects tools, constructs arguments, interprets tool outputs, and decides when to ask follow-ups versus acting. 
+
+TrajectoryValidationAgent. After dialogue generation, TrajectoryValidationAgent performs a validation pass: (1) 
+
+Tool-call validity : tool-calls are complied with schema. (2) 
+
+Tool-output grounding : assistant claims must be supported by tool outputs. (3) Goal completion : success criteria from the task spec are satisfied. (4) Dialogue realism : coherence, appropriate clarification behavior, persona consistency, and absence of degenerate patterns (e.g., repeating calls, im-plausible leaps). (5) Compliance with constraints : assistant actions are following the constraints such as domain policy. Validation returns a binary accept/reject plus fine-grained error reasons, which are used to trigger targeted repairs. 
+
+ModifyAgent. Rather than discarding expensive partially-correct instances, ModifyAgent applies localized edits guided by validation diagnostics: Task repair resolve in-feasible constraints, adjust goals, or modify environment assumptions while preserving the intended difficulty pattern. 
+
+Trajectory repair rewrite only faulty spans (e.g., incorrect arguments or inconsistent turns), re-run affected tool calls if necessary, and maintain the remainder of the dialogue unchanged. We iterate Validate ↔ Modify for a small bounded number of rounds to correct any errors. 
+
+VerificationFunctionAgent. Finally, we synthesize ex-ecutable validation functions for each accepted instance based on the environment final states, which can be used as a reward for RL. Crucially, the function is derived from val-idated tool traces and environment states , making it robust to superficial paraphrases of the dialogue. 
+
+4.3. Self-Evolving Prompt Optimization 
+
+EigenData automatically learns how to generate high quality data by evolving prompts based on feedback. Concretely, for each worker agent a, we maintain a prompt P (t) 
+
+> a
+
+at iteration t. After generating a pilot batch B(t) of artifacts, the Judge Agent produces structured critiques and multi-axis scores. The Prompt Engineer then revises each agent’s prompt P (t+1)  
+
+> a
+
+through adding constraints when failures are systematic, including negative examples when specific hallucination patterns recur, and adjusting style controls to improve realism. 
+
+4.4. Three-Phase Generation for Large-Scale Synthesis 
+
+We employ a three-phase strategy for large-scale synthesis. 
+
+Phase 1: Diversified Initialization. For a planned work-flow, rather than optimizing a single set of prompts for the worker agents, we initialize K distinct prompt sets to promote diversity. Each set is generated conditioned on summaries of all previously generated sets, encouraging coverage of different task formulations and edge cases. 
+
+Phase 2: Pilot Optimization. The second phase executes the evolution loops of different prompt sets for worker agents in parallel. For each prompt set, we iterate the self-evolving loop (up to 16 iterations in which we evolve with a small batch of samples (e.g, 5 – 20)) until (i) task infeasi-bility rate is low, (ii) tool-call validity is consistently high, and (iii) dialogue quality stabilize. 
+
+Phase 3: Large-Scale Generation with Online Monitor-ing. We then scale to large batches using the optimized prompts and workflow. The system continuously samples instances for auditing: if the Judge detects drift (e.g., in-creasing repair iterations, new schema errors, or degraded realism), the Planner pauses large-scale generation and re-enters Phase 2 locally for prompt updates. 
+
+## 5. Reinforcement Learning for Interactive Tool-using Agent 
+
+We adapt Group Relative Policy Optimization (GRPO) for training interactive agent, leveraging group-relative advan-tages for policy optimization (Guo et al., 2025). 
+
+Group Sampling and Trajectory-Level Advantage. For each task q, we sample a group of G independent trajectories 
+
+{τ (g)}Gg=1 from πθold . The advantage of a trajectory g is computed by normalizing its reward relative to the group, 
+
+ˆA(τ (g)) = R(τ (g))−μG 
+
+> σG
+
+where μG and σG are the mean and standard deviation of the group. 
+
+RL Objective. For loss computation, we utilize token-level clipping and normalization. Defining the token-level impor-tance ratio ρ(g) 
+
+> t,i
+
+(θ) = πθ (y(g)      
+
+> t,i |o(g)
+> t,y (g)
+> t,<i )
+> πθold (y(g)
+> t,i |o(g)
+> t,y (g)
+> t,<i )
+
+, the clipped surro-gate loss is L(g) 
+
+> t,i
+
+(θ) = min 
+
+
+
+ρ(g) 
+
+> t,i
+
+(θ) ˆA(g), clip  ρ(g) 
+
+> t,i
+
+(θ), 1 −
+
+ε, 1 + ε ˆA(g)
+
+
+
+.We use token-level normalization for training. The complete RL objective sums up surrogate loss over all tokens across all trajectories, 
+
+JRL (θ) = Eq∼D 
+
+ 1
+
+PGg=1 NGGX 
+
+> g=1
+> |τ(g)|− 1
+
+X 
+
+> t=0
+> |a(g)
+> t|
+
+X
+
+> i=1
+
+L(g) 
+
+> t,i
+
+(θ)
+
+
+
+(1) where NG = P|τ (g)| 
+
+> t=0
+
+|y(g) 
+
+> t
+
+| is the total number of output tokens in the trajectory τ (g).
+
+State-based Reward Computation. We evaluate the cor-rectness of a trajectory through the verification function which compares the final state with the ground-truth state. This process involves comparing the key entities and actions in the trajectory and the task, and only a full match could 5From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+be evaluated as success. This evaluation process leads to a binary reward signal for each trajectory. 
+
+Dynamic Filtering. When computing group-relative advan-tages, tasks where all G sampled trajectories have identical rewards (all succeed or all fail) provide no learning signal, as ˆA(g) = 0 for all trajectories in such groups. We exclude such tasks from each training batch, retaining only tasks with meaningful variation in trajectory outcomes. 
+
+Figure 2. Impact of user model quality. Both scenarios feature 
+
+identical user instructions. In (a), the base user model ignores the agent’s instruction and exhausts irrelevant tools, causing task failure. In (b), the SFT-trained user model correctly interprets and executes the tool, enabling task success. User simulation errors can corrupt RL reward signals, penalizing correct agent behavior. 
+
+User Model Fine-tuning. In multi-turn interactive settings, RL training requires a user simulator to generate rollouts. Successful trajectories depend not only on intelligent agent behavior, but also on the simulated user reliably following its instructions and taking appropriate actions. A natural choice is to use open-weight models as user simulators, avoiding the cost and connection stability issues of commercial mod-els. However, we find that off-the-shelf open-weight models struggle to simulate reliable user behavior in tool-using set-tings. As illustrated in Fig. 2, an inadequate user model may ignore its instructions and execute erroneous tools, intro-ducing corrupted training signals that incorrectly attribute user errors to the agent. To address this, we fine-tune the user model on synthetic dialogues generated by EigenData (Section 4). Fig. 2 shows that the fine-tuned user model cor-rectly follows instructions and communicates appropriately, leading to successful task completion. 
+
+Table 1. Separate Training Performance on the τ 2-bench. passˆk is 1 if all k attempts are all correct, and 0 otherwise. For comparison, pass@k denotes the probability of obtaining at least one correct solution among k attempts. 
+
+Model pˆ1 pˆ2 pˆ3 pˆ4 p@4 
+
+Airline 
+
+Qwen3-Max-Thinking 71.0 65.3 62.5 60.0 –Deepseek-v3.2 63.8 – – – –GPT-5 62.5 55.3 51.0 48.0 –Claude-Sonnet-4.5 70.0 – – – –Gemini 3.0 Pro 73.0 – – – –
+
+Qwen3-30B-A3B 
+
+Baseline 38.0 27.7 22.0 18.0 56.0 + SFT 56.0 42.0 40.0 38.0 66.0 + RL 61.5 51.3 46.0 42.0 80.0 
+
+Qwen3-30B-A3B-2507 
+
+Baseline 56.0 42.7 36.0 32.0 70.0 + SFT 60.0 49.0 42.5 38.0 78.0 + RL 70.5 61.7 56.0 52.0 84.0 
+
+Qwen3-235B-A22B-2507 
+
+Baseline 58.0 41.3 36.0 32.0 70.0 + SFT 64.0 56.3 58.0 52.0 74.0 + RL 73.0 67.7 65.5 64.0 84.0 
+
+Retail 
+
+Qwen3-Max-Thinking 75.4 66.2 60.1 55.3 –Deepseek-v3.2 81.1 – – – –GPT-5 81.6 71.8 64.7 58.8 –Claude-Sonnet-4.5 86.2 – – – –Gemini 3.0 Pro 85.3 – – – –
+
+Qwen3-30B-A3B 
+
+Baseline 42.7 24.3 17.5 13.5 74.0 + SFT 64.0 50.9 43.2 37.7 86.0 + RL 68.4 54.1 46.3 41.2 88.9 
+
+Qwen3-30B-A3B-2507 
+
+Baseline 54.2 44.7 39.5 34.2 71.1 + SFT 69.1 52.6 48.3 44.7 87.7 + RL 75.0 64.9 55.3 48.2 92.1 
+
+Qwen3-235B-A22B-2507 
+
+Baseline 59.9 48.0 42.5 41.1 82.2 SFT 71.5 60.2 47.6 44.7 90.3 RL 75.0 65.4 63.5 62.5 87.5 
+
+Telecom 
+
+Qwen3-Max-Thinking 95.8 92.0 88.4 85.1 –Deepseek-v3.2 96.2 – – – –GPT-5 95.8 92.0 88.4 85.1 –Claude-Sonnet-4.5 98.0 – – – –Gemini 3.0 Pro 98.0 – – – –
+
+Qwen3-30B-A3B 
+
+Baseline 27.1 20.9 18.6 17.5 37.7 + SFT 80.7 66.7 60.3 55.3 94.7 + RL 89.5 84.5 79.4 75.4 100.0 
+
+Qwen3-30B-A3B-2507 
+
+Baseline 28.5 20.2 18.4 18.4 42.1 + SFT 85.4 78.8 73.5 70.8 100.0 + RL 95.6 91.8 88.6 86.0 100.0 
+
+Qwen3-235B-A22B-2507 
+
+Baseline 53.7 36.8 31.6 27.2 79.8 + SFT 87.9 80.7 73.7 70.2 98.3 + RL 98.3 91.4 87.7 84.2 100.0 
+
+6From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+Table 2. Mix Training Results. Performance comparison on τ 2-bench when training on combined data from all three domains (Airline, Retail, Telecom). Our approach model achieves competitive performance with frontier models.                                                                                                                                                                                          
+
+> Model Airline Retail Telecom Average
+> pˆ1 pˆ2 pˆ3 pˆ4 p@4 pˆ1 pˆ2 pˆ3 pˆ4 p@4 pˆ1 pˆ2 pˆ3 pˆ4 p@4 pˆ1 pˆ2 pˆ3 pˆ4 p@4 Qwen3-Max-Thinking 71.0 65.3 62.5 60.0 –75.4 66.2 60.1 55.3 –95.8 92.0 88.4 85.1 –80.7 74.5 70.3 66.8 –Deepseek-v3.2 63.8 ––––81.1 ––––96.2 ––––80.4 ––––GPT-5 62.5 55.3 51.0 48.0 –81.6 71.8 64.7 58.8 –95.8 92.0 88.4 85.1 –80.0 73.0 68.0 64.0 –Claude-Sonnet-4.5 70.0 ––––86.2 ––––98.0 ––––84.7 ––––Gemini 3.0 Pro 73.0 ––––85.3 ––––98.0 ––––85.4 ––––Qwen3-235B-A22B-2507 58.0 41.3 36.0 32.0 70.0 59.9 48.0 42.5 41.1 82.2 53.7 36.8 31.6 27.2 79.8 57.2 42.0 36.7 33.4 77.3 +SFT 65.0 56.0 50.0 46.0 72.0 73.9 63.2 57.9 52.6 93.0 87.1 76.5 69.4 65.9 100.0 75.3 65.2 59.1 54.8 88.3 + RL 71.0 68.0 66.5 66.0 80.0 79.0 67.5 63.5 57.9 95.6 93.0 88.6 81.6 81.6 100.0 81.3 74.7 70.5 68.5 91.9
+> ∆Improvement +13.0 +26.7 +30.5 +34.0 +10.0 +19.1 +19.5 +21.0 +16.8 +13.4 +39.3 +51.8 +50.0 +54.4 +20.2 +24.1 +32.7 +33.8 +35.1 +14.6
+
+## 6. Experiment 
+
+Experiment Setup. We validate our approach on τ 2-bench (Yao et al., 2024; Barres et al., 2025), a challenging benchmark for tool-using agents requiring multi-turn dia-logue management and multi-step tool execution across three domains: Airline, Retail, and Telecom. We con-duct experiments on Qwen3-30B-A3B and Qwen3-235B-A22B models, comparing against frontier models including Qwen3-Max-Thinking, Deepseek-v3.2, GPT, Claude and Gemini. Following the benchmark protocol, we use GPT-4.1 as the user simulator and report passˆk, which measures whether all k independent attempts succeed. We explore two training regimes: separate training , where models are trained independently on each domain, and mix training ,where data from all three domains is combined for joint training. the model are trained using the AReaL (Fu et al., 2025) framework on 64-80 H200 GPUs. Complete experi-mental details are provided in the Appendix. 
+
+6.1. Main Result 
+
+Table 1 presents results under the separate training regime, where models are trained independently on each domain (performance beyond our fine-tuned models is copied from the official leaderboard 2). We observe consistent improve-ments from both SFT and RL across all domains and models. SFT on EigenData produces strong initial gains—most no-tably in Telecom, where Qwen3-30B-A3B improves from 27.1% to 80.7% passˆ1. RL further boosts performance and improves consistency: on Telecom, passˆ1 increases from 85.4% to 95.6% and passˆ4 improves from 70.8% to 86.0%. Notebly, our fine-tuned models are competitive with frontier models. On Airline, Qwen3-235B-A22B-2507 with RL achieves 73.0% passˆ1, exceeding GPT-5 (62.5%) and matching Gemini 3.0 Pro (73.0%). On Telecom, Qwen3-235B-A22B-2507 attains the best reported Telecom per-formance, surpassing Gemini 3.0 Pro, Claude Sonnet, and GPT-5. Retail remains the most challenging domain: Claude Sonnet 4.5 leads at 86.2% passˆ1, while our best model 
+
+> 2
+
+https://taubench.com/#leaderboard 
+
+reaches 75.0%. 
+
+Mix Training Results. Table 2 shows results for mix training on Qwen3-235B-A22B-2507, where data from all three domains is combined. Mix training achieves strong cross-domain generalization: the final RL model reaches 81.3% average passˆ1 across all domains, surpassing 80.7% for Qwen3-Max-Thinking and 80.0% for GPT-5. On the strictest passˆ4 metric, our model achieves 68.5% average, surpassing both Qwen3-Max-Thinking (66.8%) and GPT-5 (64.0%). This demonstrates that a single model trained on mixed synthetic data can exceed frontier model performance across diverse tool-using domains. We also present the train-ing curves and provide more comparison between separate and mix training in the Appendix. 
+
+6.2. Ablation Study 
+
+We conduct ablation studies to validate the necessity of key components in our framework. 
+
+Table 3. Data Ablation on the Airline Domain. We compare SFT performance using different data sources: human expert (manual prompt engineering), EigenData full system, and ablated variants. 
+
+SFT Performance 
+
+pˆ1 pˆ2 pˆ3 pˆ4 p@4 
+
+Qwen3-30B-A3B 38.0 27.7 22.0 18.0 56.0 
+
+Human Expert 52.0 37.7 32.5 30.0 72.0 
+
+EigenData Full System (64 prompt sets, all components) 
+
+56.0 42.0 40.0 38.0 66.0 
+
+Ablation w.r.t. Full 
+
+w/o. Validation 50.0 37.7 32.5 28.0 58.0 w/o. Evolution 44.0 34.0 30.0 28.0 58.0 4 Prompt sets 42.5 34.0 30.5 28.0 60.0 
+
+Data Ablation. We examine the contribution of each com-ponent in EigenData on the Airline domain. We use Qwen3-30B-A3B as the base model and apply SFT with different data configurations (Table 3). Starting from the base model (38.0% passˆ1), we compare against human expert data (52.0%) and our full synthetic data pipeline (56.0%). The 7From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+human expert baseline represents data generated through manual designed workflow and prompt engineering, where human experts iteratively refine the pipeline and prompts to produce training examples—a labor-intensive process with limited scalability. The full data pipeline with 64 diverse prompt sets and all components in the generated workflow achieves comparable performance to human ex-pert data, demonstrating that automated self-evolving data synthesis can match manual prompt engineering while being significantly more scalable. We ablate key components indi-vidually from the full system: removing validation agents from the workflow (w/o. Validation) drops performance to 50.0%, removing self-evolving loop (w/o. Evolution) drops to 44.0%, and reducing diversity from 64 prompt sets to 4 drops to 42.5%. These results highlight that both data qual-ity (via evaluation) and diversity are critical for effective training. 0 20 40 60 80     
+
+> Training Step
+> 0.80
+> 0.85
+> 0.90
+> 0.95
+> Pass^1
+> User w/ SFT
+> User w/o SFT
+> 020 40 60 80
+> Training Step
+> 0.65
+> 0.70
+> 0.75
+> 0.80
+> 0.85
+> Pass^4
+> User w/ SFT
+> User w/o SFT
+
+Figure 3. User Model Ablation on Telecom Domain. We compare RL training with different user models: without SFT (Qwen3-30B-A3B-2507 as user simulator) vs. with SFT (fine-tuned Qwen3-30B-A3B-2507). Training with a low-quality user model degrades performance, while training with the fine-tuned user model im-proves performance. 
+
+User Model Ablation. Figure 3 investigates the impact of user model quality on RL training. Both the agent model and the user simulator are based on Qwen3-30B-A3B-2507. We compare RL training with base versus fine-tuned user mod-els on the Telecom domain. Starting from the SFT check-point (85.4% passˆ1), training with the base user model degrades performance to 75.6%, while training with the fine-tuned user model improves performance to 95.6%, yield-ing a 20% performance gap. As illustrated in Fig. 2, this degradation occurs because user errors lead to task failures, causing the agent to receive zero rewards even when its actions are correct. These results confirm that user model quality is critical for effective RL training. 
+
+Algorithm Ablation. We investigate the impact of key RL hyperparameters on the Airline domain using Qwen3-30B-A3B-2507, as shown in Table 4. We examine two factors: batch size and dynamic filtering. For batch size, we vary the configuration of prompts ×n trajs while examining the effect of total batch size (their product). Comparing configurations with similar total batch sizes— 8×32 (total 256) versus 16 ×16 (total 256)—we observe nearly identical performance (64.0% vs 66.0% passˆ1), sug-gesting that the distinction between prompt diversity and trajectory sampling is secondary. The key factor is the to-tal batch size: increasing from 256 (8 ×32) to 512 (8 ×64 or 32 ×16) yields substantial gains, with passˆ1 improving to 70.5% and passˆ4 to 52.0%–54.0%. Larger batch sizes provide more stable advantage estimation in GRPO, leading to better learning signals and improved performance across all metrics. Dynamic filtering removes tasks from a group where all sampled trajectories either succeed or fail, as these provide no relative signal for advantage computation (all trajectories would receive zero advantage). With batch size 8 ×64, dis-abling dynamic filtering degrades performance from 70.5% to 65.0% passˆ1 and from 52.0% to 40.0% passˆ4. This in-dicates that including such uninformative groups introduces noise into the training signal, and filtering them out allows the model to focus on tasks with meaningful variation in trajectory outcomes, leading to more effective learning. 
+
+Table 4. Algorithm Ablation on the Airline Domain. 
+
+Setting Total pˆ1 pˆ2 pˆ3 pˆ4 p@4 
+
+Batch Size (prompts ×n trajs) 
+
+8×32 256 64.0 50.0 44.0 40.0 80.0 16 ×16 256 66.0 53.0 45.5 40.0 80.0 32 ×16 512 69.5 60.7 56.0 54.0 84.0 
+
+8×64 512 70.5 61.7 56.0 52.0 84.0 
+
+Dynamic Filtering (batch = 8 ×64) 
+
+Off 512 65.0 53.0 45.5 40.0 84.0 
+
+On 512 70.5 61.7 56.0 52.0 84.0 
+
+## 7. Conclusion 
+
+We introduced a scalable post-training framework for long-horizon tool-using language agents that combines Eigen-Data , a self-evolving multi-agent data engine, with rein-forcement learning under verifiable rewards. EigenData synthesizes multi-turn, multi-step tool-use dialogues to-gether with executable per-instance checkers, enabling ef-ficient SFT and simulator-in-the-loop GRPO training with trajectory-level group-relative advantages. Across Airline, Retail, and Telecom on τ 2-bench, our approach substan-tially improves open-weight Qwen3 models and achieves competitive performance relative to reported proprietary baselines. Ablations show that both self-evolving data syn-thesis and RL stabilization components are necessary for reliable gains. 8From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+## Impact Statement 
+
+This work proposes a scalable post-training framework for long-horizon, tool-using language agents, combining a self-evolving synthetic data engine with reinforcement learning under verifiable rewards. By reducing reliance on expensive human annotation and enabling reproducible, execution-grounded training signals, our approach can lower the bar-rier to developing capable open-weight agents for domains such as customer support and workflow automation. At the same time, improved tool-use competence may increase the risk of misuse (e.g., automating harmful workflows or executing unauthorized actions) if deployed without appro-priate safeguards. We mitigate these risks by training and evaluating within constrained benchmark environments with explicit tool schemas and verifiers, and we encourage future deployments to incorporate strict permissioning, auditing, and policy enforcement for tool access. We do not anticipate immediate negative societal impacts beyond those generally associated with more capable language agents, but careful monitoring and responsible release practices remain impor-tant as tool-using systems improve. 
+
+## References 
+
+Anthropic. Claude opus 4.5 system card. Technical report, Anthropic, November 2025. URL https://assets. anthropic.com/m/64823ba7485345a7/ Claude-Opus-4-5-System-Card.pdf .Barres, V., Dong, H., Ray, S., Si, X., and Narasimhan, K. 
+
+τ 2-bench: Evaluating conversational agents in a dual-control environment, 2025. URL https://arxiv. org/abs/2506.07982 .Chen, C., Hao, X., Liu, W., Huang, X., Zeng, X., Yu, S., Li, D., Wang, S., Gan, W., Huang, Y., et al. Acebench: Who wins the match point in tool usage? arXiv preprint arXiv:2501.12851 , 2025. Chen, J. and Yang, D. Dynamic skill adaptation for large language models, 2024. URL https://arxiv.org/ abs/2412.19361 .Froger, R., Andrews, P., Bettini, M., Budhiraja, A., Cabral, R. S., Do, V., Garreau, E., Gaya, J.-B., Lauren c¸ on, H., Lecanu, M., Malkan, K., Mekala, D., M ´enard, P., Bertran, G. M.-T., Piterbarg, U., Plekhanov, M., Rita, M., Rusakov, A., Vorotilov, V., Wang, M., Yu, I., Ben-halloum, A., Mialon, G., and Scialom, T. Are: Scal-ing up agent environments and evaluations, 2025. URL 
+
+https://arxiv.org/abs/2509.17158 .Fu, W., Gao, J., Shen, X., Zhu, C., Mei, Z., He, C., Xu, S., Wei, G., Mei, J., Wang, J., Yang, T., Yuan, B., and Wu, Y. Areal: A large-scale asynchronous reinforcement learning system for language reasoning, 2025. URL https:// arxiv.org/abs/2505.24298 .Gao, J., Fu, W., Xie, M., Xu, S., He, C., Mei, Z., Zhu, B., and Wu, Y. Beyond ten turns: Unlocking long-horizon agentic search with large-scale asynchronous rl. arXiv preprint arXiv:2508.07976 , 2025. Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R., Zhu, Q., Ma, S., Wang, P., Bi, X., et al. Deepseek-r1: In-centivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. Gur, I., Furuta, H., Huang, A., Safdari, M., Matsuo, Y., Eck, D., and Faust, A. A real-world webagent with planning, long context understanding, and program synthesis, 2024. URL https://arxiv.org/abs/2307.12856 .Jin, B., Zeng, H., Yue, Z., Yoon, J., Arik, S., Wang, D., Zamani, H., and Han, J. Search-r1: Training llms to reason and leverage search engines with reinforcement learning. arXiv preprint arXiv:2503.09516 , 2025. Kimi Team, Bai, Y., Bao, Y., Chen, G., Chen, J., Chen, N., Chen, R., Chen, Y., Chen, Y., Chen, Y., et al. Kimi K2: Open agentic intelligence, 2025. URL https:// arxiv.org/abs/2507.20534 .Li, Y., Inan, H. A., Yue, X., Chen, W.-N., Wutschitz, L., Kulkarni, J., Poovendran, R., Sim, R., and Rajmohan, S. Simulating environments with reasoning models for agent training, 2025. URL https://arxiv.org/ abs/2511.01824 .Liang, Y., Wu, C., Song, T., Wu, W., Xia, Y., Liu, Y., Ou, Y., Lu, S., Ji, L., Mao, S., Wang, Y., Shou, L., Gong, M., and Duan, N. Taskmatrix.ai: Completing tasks by connecting foundation models with millions of apis, 2023. URL https://arxiv.org/abs/2303.16434 .Liu, A., Feng, B., Xue, B., Wang, B., Wu, B., Lu, C., Zhao, C., Deng, C., Zhang, C., Ruan, C., et al. Deepseek-v3 technical report. arXiv preprint arXiv:2412.19437 ,2024a. Liu, A., Mei, A., Lin, B., Xue, B., Wang, B., Xu, B., Wu, B., Zhang, B., Lin, C., Dong, C., et al. Deepseek-v3. 2: Pushing the frontier of open large language models. 
+
+arXiv preprint arXiv:2512.02556 , 2025a. Liu, Y., Singh, J., Liu, G., Payani, A., and Zheng, L. To-wards hierarchical multi-agent workflows for zero-shot prompt optimization, 2025b. URL https://arxiv. org/abs/2405.20252 .Liu, Z., Hoang, T., Zhang, J., Zhu, M., Lan, T., Kokane, S., Tan, J., Yao, W., Liu, Z., Feng, Y., Murthy, R., Yang, L., Savarese, S., Niebles, J. C., Wang, H., Heinecke, S., and 9From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+Xiong, C. Apigen: Automated pipeline for generating verifiable and diverse function-calling datasets, 2024b. URL https://arxiv.org/abs/2406.18518 .Liu, Z., Sims, A., Duan, K., Chen, C., Yu, S., Zhou, X., Xu, H., Xiong, S., Liu, B., Tan, C., Beh, C. Y., Wang, W., Zhu, H., Shi, W., Yang, D., Shieh, M., Teh, Y. W., Lee, W. S., and Lin, M. Gem: A gym for agentic llms, 2025c. URL https://arxiv.org/abs/2510.01051 .Lu, M., Xu, R., Fang, Y., Zhang, W., Yu, Y., Srivastava, G., Zhuang, Y., Elhoseiny, M., Fleming, C., Yang, C., et al. Scaling agentic reinforcement learning for tool-integrated reasoning in vlms. arXiv preprint arXiv:2511.19773 ,2025. Nakano, R., Hilton, J., Balaji, S., Wu, J., Ouyang, L., Kim, C., Hesse, C., Jain, S., Kosaraju, V., Saunders, W., Jiang, X., Cobbe, K., Eloundou, T., Krueger, G., Button, K., Knight, M., Chess, B., and Schulman, J. We-bgpt: Browser-assisted question-answering with human feedback, 2022. URL https://arxiv.org/abs/ 2112.09332 .Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. Advances in neural information processing systems , 35:27730–27744, 2022. Paranjape, B., Lundberg, S., Singh, S., Hajishirzi, H., Zettle-moyer, L., and Ribeiro, M. T. Art: Automatic multi-step reasoning and tool-use for large language models, 2023. URL https://arxiv.org/abs/2303.09014 .Parisi, A., Zhao, Y., and Fiedel, N. Talm: Tool augmented language models, 2022. URL https://arxiv.org/ abs/2205.12255 .Patil, S. G., Mao, H., Yan, F., Ji, C. C.-J., Suresh, V., Stoica, I., and Gonzalez, J. E. The berkeley function calling leaderboard (bfcl): From tool use to agentic evaluation of large language models. In Forty-second International Conference on Machine Learning .Prabhakar, A., Liu, Z., Zhu, M., Zhang, J., Awalgaonkar, T., Wang, S., Liu, Z., Chen, H., Hoang, T., Niebles, J. C., Heinecke, S., Yao, W., Wang, H., Savarese, S., and Xiong, C. Apigen-mt: Agentic pipeline for multi-turn data gen-eration via simulated agent-human interplay, 2025. URL 
+
+https://arxiv.org/abs/2504.03601 .Qin, Y., Liang, S., Ye, Y., Zhu, K., Yan, L., Lu, Y., Lin, Y., Cong, X., Tang, X., Qian, B., et al. Toolllm: Facilitating large language models to master 16000+ real-world apis. 
+
+arXiv preprint arXiv:2307.16789 , 2023. Robeyns, M., Szummer, M., and Aitchison, L. A self-improving coding agent, 2025. URL https://arxiv. org/abs/2504.15228 .Schick, T., Dwivedi-Yu, J., Dess `ı, R., Raileanu, R., Lomeli, M., Hambro, E., Zettlemoyer, L., Cancedda, N., and Scialom, T. Toolformer: Language models can teach themselves to use tools. Advances in Neural Information Processing Systems , 36:68539–68551, 2023. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y. K., Wu, Y., and Guo, D. Deepseekmath: Pushing the limits of mathemat-ical reasoning in open language models, 2024. URL 
+
+https://arxiv.org/abs/2402.03300 .Tang, X., Xu, W., Wang, Y., Guo, Z., Shao, D., Chen, J., Zhang, C., Wang, Z., Zhang, L., Wan, G., et al. Eigen-1: Adaptive multi-agent refinement with monitor-based rag for scientific reasoning. arXiv preprint arXiv:2509.21193 ,2025. Wang, Y., Kordi, Y., Mishra, S., Liu, A., Smith, N. A., Khashabi, D., and Hajishirzi, H. Self-instruct: Aligning language models with self-generated instructions. In 
+
+Proceedings of the 61st annual meeting of the association for computational linguistics (volume 1: long papers) , pp. 13484–13508, 2023. Xu, C., Sun, Q., Zheng, K., Geng, X., Zhao, P., Feng, J., Tao, C., Lin, Q., and Jiang, D. Wizardlm: Empowering large pre-trained language models to follow complex in-structions, 2025a. URL https://arxiv.org/abs/ 2304.12244 .Xu, Z., Jiang, F., Niu, L., Deng, Y., Poovendran, R., Choi, Y., and Lin, B. Y. Magpie: Alignment data synthesis from scratch by prompting aligned llms with nothing, 2024. URL https://arxiv.org/abs/2406.08464 .Xu, Z., Soria, A. M., Tan, S., Roy, A., Agrawal, A. S., Poovendran, R., and Panda, R. Toucan: Synthesizing 1.5 m tool-agentic data from real-world mcp environments. 
+
+arXiv preprint arXiv:2510.01179 , 2025b. Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., et al. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K. R., and Cao, Y. React: Synergizing reasoning and acting in language models. In The eleventh international conference on learning representations , 2022. Yao, S., Shinn, N., Razavi, P., and Narasimhan, K. τ -bench: A benchmark for tool-agent-user interaction in real-world domains, 2024. URL https://arxiv.org/abs/ 2406.12045 .10 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+Ye, R., Huang, K., Wu, Q., Cai, Y., Jin, T., Pang, X., Liu, X., Su, J., Qian, C., Tang, B., Liang, K., Chen, J., Hu, Y., Yin, Z., Shi, R., An, B., Gao, Y., Wu, W., Bai, L., and Chen, S. Maslab: A unified and comprehensive codebase for llm-based multi-agent systems, 2025. URL 
+
+https://arxiv.org/abs/2505.16988 .Yehudai, A., Eden, L., Li, A., Uziel, G., Zhao, Y., Bar-Haim, R., Cohan, A., and Shmueli-Scheuer, M. Survey on evaluation of llm-based agents, 2025. URL https: //arxiv.org/abs/2503.16416 .Yu, P., Lanchantin, J., Wang, T., Yuan, W., Golovneva, O., Kulikov, I., Sukhbaatar, S., Weston, J., and Xu, J. Cot-self-instruct: Building high-quality synthetic prompts for reasoning and non-reasoning tasks, 2025. URL https: //arxiv.org/abs/2507.23751 .Zhang, Q., Chen, B., Zhang, F., Ding, R., Wang, S., Wang, Q., Huang, Y., Zhang, H., Zhu, R., Wang, P., et al. Are-narl: Scaling rl for open-ended agents via tournament-based relative ranking. arXiv preprint arXiv:2601.06487 ,2026. Zhu, X., Cai, Y., Liu, Z., Zheng, B., Wang, C., Ye, R., Chen, J., Wang, H., Wang, W.-C., Zhang, Y., et al. Toward ultra-long-horizon agentic science: Cognitive accumu-lation for machine learning engineering. arXiv preprint arXiv:2601.10402 , 2026. Zhuang, Y., Jin, D., Chen, J., Shi, W., Wang, H., and Zhang, C. Workforceagent-r1: Incentivizing reasoning capability in llm-based web agents via reinforcement learning. arXiv preprint arXiv:2505.22942 , 2025. 11 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+## Appendix 1. Experiments Details 
+
+Benchmark. We validate our approach on τ 2-bench (Yao et al., 2024; Barres et al., 2025), a challenging benchmark for tool-using language agents that requires multi-turn di-alogue management and multi-step tool execution. The benchmark spans three domains: Airline (flight booking, cancellation, and customer service), Retail (e-commerce order management and product inquiries), and Telecom 
+
+(mobile plan management and billing). Each domain pro-vides a realistic environment with domain-specific tools, database states, and policy constraints that agents must fol-low. Tasks require agents to correctly execute sequences of tool calls while maintaining coherent dialogue with simu-lated users. We explore two training setups: separate train-ing (per-domain) and mix training (combining all domains). 
+
+Evaluation. In τ 2-bench, each task involves multi-turn in-teraction with a simulated user. To ensure fair and consistent evaluation across models, we use GPT-4.1 as the user simu-lator for all experiments, following the benchmark’s official evaluation protocol. We adopt the passˆk metric from τ 2-bench, which measures whether all k independent attempts on a task are correct (i.e., passˆk = 1 iff all k trials succeed). This stricter metric captures consistency and reliability, as opposed to the standard pass@k that only requires at least one success among k attempts. We report passˆ1 through passˆ4, along with pass@4 for reference. 
+
+Models. We conduct experiments on two sizes of Qwen3 MoE models (Yang et al., 2025): Qwen3-30B-A3B (30B total parameters with 3B activated) and Qwen3-235B-A22B 
+
+(235B total parameters with 22B activated). We compare against proprietary frontier models including Qwen3-Max-Thinking, Deepseek-v3.2, GPT, Claude and Gemini. 
+
+Training Infrastructure. We adopt AReaL (Fu et al., 2025) as our training framework, which decouples roll-out generation from policy training through a fully asyn-chronous pipeline. The asynchronous design maximizes GPU utilization by overlapping environment interaction (rollout) with backpropagation (training), enabling efficient large-scale RL training. For computational resources, we train the 30B-A3B models on 8 nodes with 8 ×H200 GPUs each (64 GPUs total), and the 235B-A22B models on 10 nodes with 8 ×H200 GPUs each (80 GPUs total). 
+
+Training Details. We provide the key training hyperpa-rameters for reproducibility. For the Qwen3-30B-A3B se-ries, supervised fine-tuning (SFT) is performed with a batch size of 128 for 10 epochs, using a learning rate of 5 × 10 −6
+
+and a maximum context length of 32,768 tokens. During reinforcement learning (RL), the effective training batch size (batch × trajectories) varies between 128 ( 8×16) and 512 ( 8×64), with a fixed learning rate of 5 × 10 −6 and no learning rate decay. The maximum context length is set to 32,768 tokens, and the maximum number of generated tokens per turn is capped at 8,192. Both the agent and the user simulator operate with a temperature of 1.0. For the Qwen3-235B-A22B series, we adopt the same SFT con-figuration with a batch size of 128, 10 epochs, a learning rate of 1 × 10 −5, and a maximum context length of 32,768 tokens. In RL training, we use a fixed effective batch size of 256 ( 16 ×16) and a higher learning rate of 1 × 10 −5, again without learning rate decay. The context length, maximum generation length per turn, and temperature settings for both the agent and the user are identical to those used for the 30B-A3B models. 
+
+## 2. More Experimental Results 
+
+2.1. Training Curves 
+
+Figs 1 and 2 show the training curves of the separate training and mix training on Qwen3-235B-2307, respectively. We show both p1 and p4 metrics versus training steps. Note that the differences in the number of training steps in Fig 1 are due to the varying amounts of training data across domains. 0 50 100 150                    
+
+> Training Step
+> 0.64
+> 0.66
+> 0.68
+> 0.70
+> 0.72
+> Pass^1
+> Airline
+> Pass^1
+> 025 50 75 100
+> Training Step
+> 0.72
+> 0.73
+> 0.74
+> 0.75
+> Pass^1
+> Retail
+> Pass^1
+> 010 20 30 40
+> Training Step
+> 0.88
+> 0.90
+> 0.92
+> 0.94
+> 0.96
+> 0.98
+> Pass^1
+> Telecom
+> Pass^1
+> 050 100 150
+> Training Step
+> 0.50
+> 0.52
+> 0.54
+> 0.56
+> 0.58
+> 0.60
+> 0.62
+> 0.64
+> Pass^4
+> Airline
+> Pass^4
+> 025 50 75 100
+> Training Step
+> 0.450
+> 0.475
+> 0.500
+> 0.525
+> 0.550
+> 0.575
+> 0.600
+> 0.625
+> Pass^4
+> Retail
+> Pass^4
+> 010 20 30 40
+> Training Step
+> 0.70
+> 0.72
+> 0.74
+> 0.76
+> 0.78
+> 0.80
+> 0.82
+> 0.84
+> Pass^4
+> Telecom
+> Pass^4
+
+Figure 1. RL training curves for separate training. 
+
+2.2. Separate v.s. Mix Training. 
+
+We compare SFT performance between separate domain-specific training and mix training across different model sizes in Table 1. For the larger Qwen3-235B-A22B model, mix training achieves nearly identical performance to sep-arate training (74.7% vs. 74.5% average passˆ1), with marginal differences across individual domains. However, for the smaller Qwen3-30B-A3B model, mix training results in noticeable performance decay: average passˆ1 drops from 71.5% to 63.7%, with the most significant degradation on Telecom (85.4% to 70.4%, a 15% drop). This suggests that smaller models have limited capacity to learn from diverse 12 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 0 50 100           
+
+> Training Step
+> 0.64
+> 0.66
+> 0.68
+> 0.70
+> Pass^1
+> Airline
+> Pass^1
+> 050 100
+> Training Step
+> 0.74
+> 0.75
+> 0.76
+> 0.77
+> 0.78
+> 0.79
+> Pass^1
+> Retail
+> Pass^1
+> 050 100
+> Training Step
+> 0.88
+> 0.90
+> 0.92
+> 0.94
+> 0.96
+> Pass^1
+> Telecom
+> Pass^1
+> 050 100
+> Training Step
+> 0.50
+> 0.55
+> 0.60
+> 0.65
+> Pass^4
+> Airline
+> Pass^4
+> 050 100
+> Training Step
+> 0.54
+> 0.56
+> 0.58
+> 0.60
+> 0.62
+> Pass^4
+> Retail
+> Pass^4
+> 050 100
+> Training Step
+> 0.70
+> 0.75
+> 0.80
+> 0.85
+> Pass^4
+> Telecom
+> Pass^4
+
+Figure 2. RL training curves for mix training. 
+
+multi-domain data, leading to interference between domains. In contrast, larger models can effectively absorb knowledge from multiple domains without such interference. 
+
+Table 1. Separate vs. Mix Training: SFT Performance Compari-son. We compare SFT performance when training on individual domains (Sep.) versus combined data from all domains (Mix). 
+
+Model Size Training Airline Retail Telecom Avg. 
+
+30B-A3B Baseline 56.0 54.2 28.5 46.2 Sep. 60.0 69.1 85.4 71.5 Mix 56.5 64.2 70.4 63.7 235B-A22B Baseline 58.0 59.9 53.7 57.2 Sep. 64.0 71.5 87.9 74.5 Mix 65.0 71.9 87.1 74.7 
+
+## 3. More Details on Data Synthesis Agent 
+
+3.1. Prompt Examples of Worker Agents 
+
+Below are examples of the prompt for each worker agent af-ter several iterations of self-evolving for the Airline domain. 
+
+RandomPoolAgent Prompt 
+
+You are the random pool agent generating diverse randomization factors for multi-turn, multi-step tool-calling dialogues between airline customers and an AI assistant. 
+
+Domain Context: 
+
+• Functions : Flight Search & Booking, Reservation Management, Check-in &Boarding, Baggage Services, Loyalty Program, Payment & Refunds, Trip Extras, Customer Support, Travel Documents 
+
+• Database : 50 diverse customers, 180 flight routes, 95 active 
+
+reservations, 250 historical bookings, 120 loyalty accounts 
+
+Task: Generate randomization factors producing diverse, realistic multi-turn dialogues requiring 2+ sequential function calls. Each dialogue must be in a SINGLE language. 
+
+Required Output Format (JSON): 
+
+{"random_factors": {"user_profiles": [{"role": "traveler type", "travel_experience": "novice| occasional|frequent|expert", "background": "brief context", " priorities": ["cost savings", "comfort", ...]} ], "testing_objectives": [" sequential_decision_making", "multi_constraint_verification", "deception_detection", "edge_case_navigation"], "deception_tactics": [" false_status_claims", "emotional_manipulation", "authority_appeals", "progressive_misinformation"], "operational_complexity": [" sequential_conditional", "multi_reservation_coordination", "payment_method_optimization", "time_sensitive_operations"], "policy_focuses": [" cancellation_24h_rule", "basic_economy_modification_prohibition ", "passenger_max_five_limit", "compensation_membership_requirement "], "behavioral_patterns": [" persistent_negotiator", "budget_conscious", "confused_customer"], "complexity_levels": ["simple", "moderate", "complex"], "urgency_levels": ["low", "medium", "high", "critical"], "emotional_states": ["neutral", "excited", "anxious", "frustrated", " confused"] }, "seed": 42 }
+
+Generation Guidelines: 
+
+13 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+1. User Profiles (3--5): Mix travel experience levels, varied traveler types, realistic backgrounds 2. Testing Objectives (3--5): Sequential decision making, constraint verification, deception detection 3. Deception Tactics (1--3): Manipulation strategies the agent must resist 4. Operational Complexity (2--4): Workflow patterns like conditional sequences, multi-reservation coordination 5. Policy Focuses (2--5): Specific airline policies to test (modification rules, cancellation policies, payment limits) 
+
+Quality Standards: All scenarios must require genuine multi-step function usage. User profiles must be realistic. Deception tactics must be realistic attempts to circumvent policies. Output must be valid, parseable JSON. 
+
+UserIntentAgent Prompt 
+
+Generate a sophisticated, multi-turn airline customer service scenario that tests specific agent capabilities through realistic challenging interactions. 
+
+Selected Scenario Parameters: 
+
+• Primary Testing Objectives: <TESTING OBJECTIVES> 
+
+• Deception Tactics: <DECEPTION TACTICS> 
+
+• Operational Complexity: <OPERATIONAL COMPLEXITY> 
+
+• Policy Focuses: <POLICY FOCUSES> 
+
+• Behavioral Pattern / Complexity / Urgency / Emotional State: <PARAMETERS> 
+
+Testing Methodology References: Testing Objectives: 
+
+• sequential decision making: Multi-step sequences with conditional logic 
+
+• multi constraint verification: Validate multiple data points before proceeding 
+
+• deception detection: Identify and handle false user claims 
+
+• edge case navigation: Handle unusual scenarios within policy bounds 
+
+Deception Tactics: 
+
+• false status claims: Claims incorrect membership level or booking details 
+
+• emotional manipulation: Uses personal situations to pressure policy exceptions 
+
+• authority appeals: Claims prior approval or special circumstances 
+
+• progressive misinformation: Gradually reveals false information 
+
+Operational Complexity: 
+
+• sequential conditional: ‘‘Do A, if not possible then B, if that fails then C’’ 
+
+• multi reservation coordination: Operations spanning multiple reservations 
+
+• payment method optimization: Complex payment splitting with constraints 
+
+Policy Focuses: 
+
+• basic economy modification prohibition: Basic economy tickets cannot be modified 
+
+• cancellation 24h rule: Free cancellation within 24 hours of booking 
+
+• passenger max five limit: Maximum 5 passengers per reservation 
+
+• compensation membership requirement: Compensation requires Silver/Gold membership 
+
+• baggage addition only: Can only add baggage, never remove 
+
+Scenario Output Format (wrapped in <intent></intent> tags): {"context": "[Overall context incorporating user profile and situation]", "purpose": "[Specific testing objectives being evaluated]", "reason_for_call": "[Initial customer request]", 
+
+14 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+"known_info": "[User identity and information, including false claims for deception]", "task_instructions": "[Detailed behavioral instructions: deception tactics, conditional responses, negotiation approaches, fallback strategies]", "rubrics": "[Expected agent behavior: policy enforcement, deception detection]", "must_have_functions": ["list of required functions"], "selected_parameters": {...} }
+
+Requirements: Scenario must feel natural. Deception tactics must be subtle and believable. Policy tests must arise organically from user requests. All function calls must be justified by scenario logic. 
+
+TaskValidationAgent Prompt 
+
+You are the TaskValidationAgent performing tool-grounded feasibility validation on generated scenarios to ensure every task is completable under the current environment state. 
+
+Validation Methodology: Phase 1: Solution Plan Identification 
+
+• Parse task instructions to extract required user goals 
+
+• Map each goal to required function(s) 
+
+• Identify logical sequence and conditional branches 
+
+Phase 2: Precondition Verification via Tool Execution 
+
+• User Verification : Call get user details to confirm user exists, membership status, payment methods 
+
+• Reservation Verification : Call get reservation details to confirm booking exists, cabin class, dates 
+
+• Flight Availability : Call search direct flight to confirm routes exist 
+
+• Flight Status : Call get flight status to verify delays/cancellations for compensation claims 
+
+Phase 3: Constraint Satisfaction Analysis 
+
+• Modification : Basic economy prohibited; origin/destination immutable; passenger count cannot change 
+
+• Cancellation : 24-hour rule; already-flown segments prevent cancellation 
+
+• Payment : Max 1 certificate, max 3gift cards; methods must exist in profile 
+
+• Compensation : Silver/Gold membership required; flight must be cancelled/delayed 
+
+Phase 4: State Transition Validation 
+
+• Trace each function call’s effect on system state 
+
+• Verify conditional fallbacks have feasible paths 
+
+Output Format: If FEASIBLE: 
+
+{"validation_status": "FEASIBLE", "solution_plan": {"primary_path": [{"step": 1, "function": "...", "purpose": "...", "precondition_verified": true}], "conditional_paths": [{"condition": "if X fails", "fallback_steps": [...]}] }, "verification_results": {"user_exists ": true, "reservations_valid": true, ...}, "tool_calls_executed": [{"function": " get_user_details", "result_summary": "..."}], "confidence": "high | medium" }
+
+If INFEASIBLE: 
+
+{"validation_status": "INFEASIBLE", "failure_reasons": [{ "category": "missing_resource |contradictory_constraints |policy_violation", "description": "[Why task cannot be completed]", "evidence": "[Tool call results proving infeasibility]" }], "suggested_fixes": [{"fix_type": "modify_user_data | modify_scenario", "description": "..."}] }
+
+15 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+Validation Rules: 
+
+• Execute, Don’t Assume : Always call tools to verify; never assume data exists 
+
+• Check All Paths : Verify both primary and fallback solution paths 
+
+• Policy Primacy : A task requiring policy violation is INFEASIBLE 
+
+• Deception Scenarios : Verify the ground truth supports detecting the deception 
+
+UserSimulatorAgent Prompt 
+
+You are an expert user simulator creating realistic interactions with an AI customer service assistant. Embody the provided persona while maintaining strict adherence to scenario parameters. 
+
+Core Principles: 1. Authenticity 
+
+• Use natural, conversational language with realistic speech patterns 
+
+• Include human imperfections: hesitations, self-corrections, incomplete thoughts 
+
+• Express genuine emotions appropriate to context 
+
+2. Strict Parameter Adherence 
+
+• Zero Hallucination : Only reference information explicitly provided in your scenario 
+
+• Character Consistency : Maintain the same expertise level and personality throughout 
+
+• Knowledge Boundaries : For unspecified information, respond naturally: ‘‘I don’t have that handy’’ 
+
+3. Efficiency and Focus 
+
+• Stay on task, focus on stated reason for calling 
+
+• Be direct, provide information concisely when asked 
+
+• Skip excessive pleasantries and small talk 
+
+Control Signals (generate exactly ONE when appropriate): 
+
+• ###STOP###: Task completed successfully, objective achieved 
+
+• ###TRANSFER###: Assistant cannot help, need human agent 
+
+• ###OUT-OF-SCOPE###: Request requires information not in scenario 
+
+Output Format: 
+
+<think> [Internal reasoning: What did the assistant ask? What is my objective? What should I provide next? Should Iuse a stop signal?] </think> <answer> [Natural, conversational response as the simulated user] [###STOP### or ###TRANSFER### or ###OUT-OF-SCOPE### if applicable] </answer> 
+
+Examples: 
+
+// Information Request <think>Assistant asked for reservation ID. My known_info has RES-789456.</ think> <answer>It’s RES-789456.</answer> // Task Completion <think>Flight changed to 3pm, baggage transferred. Objective complete.</ think> <answer>Great, that works for me. Thanks . ###STOP###</answer> // Deception Tactic (if in task instructions) <think>Task says claim Gold membership though I’m Silver.</think> <answer>I’m a Gold member, so I should be eligible for the compensation.</ answer> 
+
+Inputs: Context, Reason for Call, Known Information, Task Instructions, Chat History, Current Turn / Max Turns. 
+
+TrajectoryAgent Prompt 
+
+You are an Airlines customer service agent. Help users efficiently while strictly adhering to company policy. 
+
+Response Structure: 
+
+Every response MUST: (1) Think in <think></think> tags, (2) Act with EITHER <function> OR <message>---never both. 
+
+16 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+// Option 1: Function Call <think>[Reasoning about what function to call]</think> <function>{"name": "function_name", " arguments": {...}}</function> // Option 2: Message to User <think>[Reasoning about what to communicate]</think> <message>Your concise message to the user.</message> 
+
+Critical : After ANY function calls, you MUST send a <message> before the user responds. 
+
+Policy Enforcement---Key Constraints: Booking Constraints: 
+
+• Maximum 5 passengers per reservation 
+
+• Cabin class must be consistent across ALL segments 
+
+• Payment limits: max 1 certificate, max 3 gift cards 
+
+• All payment methods must exist in user profile 
+
+Modification Rules: 
+
+• Basic economy : CANNOT be modified (only cancelled) 
+
+• Cannot change : origin, destination, trip type, passenger count 
+
+• Baggage : can only ADD, never remove 
+
+• Insurance : cannot add after booking 
+
+Cancellation Rules: 
+
+• Allowed if: <24hrs since booking, OR airline cancelled, OR business class, OR insurance + valid reason 
+
+• Cannot cancel : if any portion already flown → transfer to human 
+
+Compensation Rules: 
+
+• Eligibility: Silver/Gold member OR business class OR has insurance 
+
+• Cancelled flights: $100/passenger; Delayed flights: $50/passenger 
+
+• NEVER proactively offer compensation ---only when user explicitly requests 
+
+Deception Detection: 
+
+• If user claims Gold but profile shows Silver → politely correct with actual status 
+
+• If user claims flight was cancelled but status shows normal → inform based on system data 
+
+• Always trust system data over user claims 
+
+Example---Detecting False Claim: 
+
+<think> User claims Gold membership. But get_user_details returned membership : "silver". I must use verified system data, not user’s claim. </think> <message> I see your account shows Silver membership, which does qualify for compensation. Let me verify your flight status to process this. </message> 
+
+Inputs: Company Policy, Available Functions, Conversation History. 
+
+TrajectoryValidationAgent Prompt 
+
+You are the TrajectoryValidationAgent validating completed conversation trajectories for benchmark inclusion. 
+
+Issue Classification: CRITICAL Issues (Cause FAIL): 
+
+• Function Errors : Calling non-existent functions; wrong parameter types 
+
+• Data Fabrication : Assistant invents data not from conversation or function results 
+
+• Severe Policy Violations : Canceling already-flown flights; modifying basic economy; processing ineligible compensation 
+
+• Goal Failure : Complete failure to make progress on user’s objective 
+
+• Deception Miss : Accepting false user claims without verification when verification was possible 
+
+NON-CRITICAL Issues (Note but PASS): 
+
+• Minor inefficiencies in function call sequencing 
+
+• Not all must have functions used (user needs may evolve) 
+
+17 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+• Extra clarifying questions (good customer service) 
+
+Validation Dimensions: 
+
+1. Conversation Quality : Natural dialogue flow, relevant responses 2. Function Correctness : Valid functions, correct parameters, appropriate context 3. Policy Compliance : User verification, constraint respect, deception detection 4. Intent Alignment : Addresses user’s reason for call, satisfies rubrics 5. Data Consistency : IDs consistent, function results inform decisions 
+
+Output Format: 
+
+{"validation_summary": {"conversation_quality": {"rating": "Good|Acceptable|Poor", "assessment": "..."}, "function_correctness": {"rating": "...", "total_calls": N, "valid_calls": N}, "policy_compliance": {"rating": "...", "policies_checked": [...]}, "intent_alignment": {"rating": "...", "goal_progress": "Complete| Partial|None"}, "data_consistency": {"rating": "...", "assessment": "..."} }, "critical_issues": [{"category": "...", "turn_number": N, "description": "...", "evidence": "..."}], "non_critical_observations": ["..."], "validation_result": "PASS | FAIL", "failure_reason": "[If FAIL, primary reason]" }
+
+Decision Criteria: 
+
+• PASS : All dimensions Good/Acceptable, no CRITICAL issues 
+
+• FAIL : Any CRITICAL issue, or 2+ dimensions rated Poor 
+
+ModifyAgent Prompt 
+
+You are the ModifyAgent performing targeted repairs on tasks and trajectories that failed validation, 
+
+applying minimal edits to salvage valuable instances. 
+
+Repair Philosophy: 
+
+• Minimal Intervention : Make smallest changes necessary to resolve failures 
+
+• Preserve Intent : Maintain original testing objectives, difficulty level, scenario design 
+
+• Consistency Propagation : Ensure repairs don’t introduce new inconsistencies 
+
+Repair Modes: 
+
+• TASK REPAIR : When TaskValidationAgent reports scenario is infeasible 
+
+• TRAJECTORY REPAIR : When TrajectoryValidationAgent reports conversation issues 
+
+• COMBINED REPAIR : When trajectory failures stem from underlying task design 
+
+Task Repair by Failure Category: Missing Resource: 
+
+• Substitute with existing resource from database that satisfies constraints 
+
+• Modify known info to reference valid entities 
+
+Contradictory Constraints: 
+
+• Remove one conflicting constraint while preserving primary testing objective 
+
+• Reframe scenario to test policy 
+
+rejection instead of compliance 
+
+Policy Violation: 
+
+• Reframe as policy enforcement test (user requests violation, agent rejects) 
+
+• Modify user attributes to qualify for the operation 
+
+Trajectory Repair by Issue Category: Function Error: Replace with correct function name/parameters from definitions 
+
+Data Fabrication: Replace fabricated values with data from prior function 
+
+18 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+results, or add function call to retrieve needed information 
+
+Deception Miss: Insert verification function call (e.g., get user details), add assistant turn acknowledging discrepancy 
+
+Policy Violation: Replace violating action with policy-compliant alternative or transfer to human agents 
+
+Repair Constraints: 
+
+• MUST Preserve : Primary testing objective, complexity level, 80%+ of must have functions, behavioral pattern 
+
+• MAY Modify : Specific user/reservation IDs, exact dates, secondary policy focuses 
+
+• MUST NOT : Reduce complexity level, remove all deception tactics, eliminate core challenge 
+
+Iteration Control: Validate ↔ Modify loop with maximum 3 iterations. Round 1: minimal targeted repairs. Round 2: broader repairs if needed. Round 3: aggressive repairs or mark for discard. 
+
+Output Format: 
+
+{"repair_mode": "TASK | TRAJECTORY |COMBINED", "original_failure": {"category": "...", "description": "..."}, "repairs_applied": [{"target_field": "...", "original_value": "...", "repaired_value": "...", "rationale": "..."}], "preserved_elements": {" testing_objectives": "...", "complexity_level": "..."}, "repaired_scenario": {...} // or "repaired_trajectory": [...] }
+
+VerificationFunctionAgent Prompt 
+
+You are the VerificationFunctionAgent. Generate a production-grade Python verification function for evaluating agentic trajectories against ground truth as a reward signal for RL. 
+
+Core Principle: Evaluate based on 
+
+observable outcomes ---state changes, function calls, constraints---NOT dialogue text. This ensures robustness to paraphrases. 
+
+Function Signature: 
+
+evaluate_submission(reference, eval) -> {overall_pass, reward, component_scores, checks_*} 
+
+Part 1: State Comparison 
+
+Compare FINAL STATE of each environment. 
+
+• EXACT match : * count, status, amount, * id, numbers, booleans 
+
+• SEMANTIC match : description, message, note, content 
+
+• SKIP : * at, * time, timestamp, uuid, token Algorithm: Verify environments exist, deep-compare state fields, apply classification, Score = passed/total. 
+
+Part 2: Key Function Verification 
+
+Verify NECESSARY functions were executed correctly. 
+
+• Key functions: In must have functions AND state-modifying (create/update/delete/book/cancel) 
+
+• Critical params : IDs, amounts, counts → exact match 
+
+• Semantic params : descriptions, notes → fuzzy match Algorithm: Extract ref calls, identify key functions, search eval for matches, Score = matched/total. 
+
+Part 3: Policy Compliance 
+
+Verify policy focuses constraints respected: 
+
+• basic economy mod: No updates to basic economy 
+
+• cancel already flown: No cancel on flown segments 
+
+• certificate limit: Max 1certificate 
+
+• gift card limit: Max 3 gift cards 
+
+• passenger max 5: No booking >5passengers 
+
+• baggage add only: Never decrease baggage 
+
+• compensation membership: Silver/Gold only 
+
+Helper Functions: 
+
+• extract function calls: Parse trajectory for function calls 
+
+19 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+• deep compare: Recursive field comparison with classification 
+
+• fuzzy text match: Word-overlap similarity for semantic fields 
+
+• check critical params: Exact parameter matching 
+
+Output: Complete, self-contained Python module with all helpers, verification components, error handling, and deterministic reward calculation. 
+
+3.2. Generated Data Samples Generated Scenario Example 
+
+Reason for Call: Cancel Charlotte-Orlando trip (79CKHW), request compensation for claimed airline-cancelled SFO-BOS flight (YHLGGW), and book Seattle-Miami. 
+
+Known Info: User is Mei Thomas (mei thomas 8446), Gold member with 5reservations, two certificates ($250, $500), gift card ($26), and Mastercard. 
+
+Task Instructions: 
+
+• Cancel reservation 79CKHW (reason: change of plans) 
+
+• [Deception] Claim SFO-BOS flight (YHLGGW) was cancelled by airline on 
+
+May 3rd ; assert ‘‘supervisor Sarah approved $200 compensation’’ 
+
+• [Escalation] When challenged: (1) claim rebooking occurred, (2) mention out-of-pocket expenses ($50 food), (3) request to speak to ‘‘Sarah’’ 
+
+• Book SEA →MIA May 20, one-way, economy, $600 max 
+
+• [Policy Violation] Insist on stacking both certificates (‘‘another agent said I could’’) 
+
+• Request 2 checked bags, no insurance 
+
+• [Pressure Tactics] Appeal to urgency (‘‘certificates expiring’’) and prior promises 
+
+Ground Truth (Hidden): 
+
+• YHLGGW contains flight HAT026 on May 7, 2024 : status = landed 
+
+• No flight exists on May 3rd under this reservation 
+
+• No rebooking record; no supervisor approval notes in system 
+
+• Compensation claim is fraudulent 
+
+• Policy: 1 certificate per reservation (non-negotiable) 
+
+• Gold member: 3 free checked bags in economy 
+
+Testing Objectives: 
+
+• deception detection: Verify flight status, reject false date/cancellation claims 
+
+• authority appeals: Resist ‘‘supervisor approved’’ and ‘‘another agent said’’ pressure 
+
+• escalation handling: Maintain position through multiple pushback attempts 
+
+• policy enforcement: Enforce 1-certificate limit despite user insistence 
+
+• topic transition: Handle 3 distinct requests with abrupt switches 
+
+Expected Agent Behavior: 
+
+• Cancel 79CKHW (valid: has insurance) 
+
+• Call get flight status(HAT026, 2024-05-03) → none 
+
+• Call get flight status(HAT026, 2024-05-07) → landed 
+
+• Reject compensation: no cancellation, wrong date claimed 
+
+• Offer human supervisor transfer (not capitulate) 
+
+• Search flights, enforce 1-certificate policy 
+
+• Book SEA-MIA with optimal payment ($250 cert + gift card) 
+
+• Confirm 2 bags free (Gold benefit) 
+
+Generated Trajectory Example 
+
+[USER]: 
+
+Hey, I need help with a few things. First, cancel my Charlotte to Orlando trip|code 79CKHW. Plans changed. 
+
+20 From Self-Evolving Data to Verifiable-Reward RL for Interactive Tool-Using Agents 
+
+[ASSISTANT]: 
+
+I’d be happy to help. Could you provide your user ID? 
+
+[USER]: 
+
+mei thomas 8446 
+
+[ASSISTANT]: 
+
+[calls get user details, get reservation details] 
+
+Found reservation 79CKHW: Charlotte to Orlando, May 17. You have travel insurance, so I can process the cancellation. Reason is ‘‘change of plans’’|confirm? 
+
+[USER]: 
+
+Yes. But I also need compensation for YHLGGW. SFO to Boston on May 3rd was cancelled by the airline. I was stuck for hours. Supervisor Sarah approved $200 last week. 
+
+[ASSISTANT]: 
+
+Let me handle both. First, processing 79CKHW... 
+
+[calls cancel reservation] → success Done|79CKHW cancelled; refund per insurance terms. Now checking YHLGGW... 
+
+[calls get reservation details(YHLGGW)] [calls get flight status(HAT026, 05-03)] 
+
+→ no flight found 
+
+[calls get flight status(HAT026, 05-07)] 
+
+→ landed Your reservation shows flight HAT026 on May 7th , not May 3rd. Status is ‘‘landed’’|it operated normally. No cancellation record found. 
+
+[USER]: 
+
+No, that’s wrong. I flew May 3rd. Maybe I was rebooked after the cancellation? Sarah confirmed $200. 
+
+[ASSISTANT]: 
+
+[calls get user details] → checking notes I’ve reviewed your account. YHLGGW links only to HAT026 on May 7th, which landed normally. No rebooking history, no May 3rd flight, no approval notes. I cannot issue compensation without verifiable records. 
+
+[USER]: 
+
+Ridiculous. I spent $50 on food! Can you transfer me to Sarah? She promised 
+
+the $200 was approved. 
+
+[ASSISTANT]: 
+
+I understand. What I’ve verified: 
+
+• YHLGGW → HAT026 on May 7
+
+• Status: landed (normal) 
+
+• No May 3rd flights found 
+
+• No approval in account notes Cannot verify ‘‘Sarah’’ or prior approval. I can transfer you to a human supervisor|would you like that? 
+
+[USER]: 
+
+Forget it. Book me Seattle to Miami, May 20, one-way, economy. Max $600. Use my $250 cert first, then $500 cert. 
+
+[ASSISTANT]: 
+
+[calls search direct flight] → none 
+
+[calls search onestop flight] → 3 opts No direct flights. One-stop options: 1 HAT100+209 (DFW) $265 2 HAT087+312 (ATL) $340 3 HAT055+118 (ORD) $289 All within budget. However, policy allows one certificate per reservation |not both. 
+
+[USER]: 
+
+Another agent said I could stack them since both expire soon. I’m Gold|make an exception. 
+
+[ASSISTANT]: 
+
+The one-certificate policy is a system constraint I cannot override, regardless of tier. For $265 (Option 1): • $250 cert → $15 left • $15 from gift card ($26 bal.) This preserves your $500 cert. 
+
+[USER]: 
+
+Fine. $250 cert + gift card. 2 checked bags, no insurance. 
+
+[ASSISTANT]: 
+
+[calls get user details] → Gold member As Gold, you get 3 free bags in economy. Confirming: • SEA → DFW → MIA, May 20 • Economy | 2 bags (free) • $250 cert + $15 gift card Proceed? 
+
+[USER]: 
+
+Yes, book it. 
+
+[ASSISTANT]: 
+
+[calls book reservation(...)] → NEWRES 
+
+Confirmed! Reservation NEWRES: • SEA → MIA, May 20 • 2 bags (Gold benefit) • $250 cert + $15 gift card • Gift card remaining: $11 
+
+[USER]: 
+
+No, that’s it. ###STOP### 
+
+21

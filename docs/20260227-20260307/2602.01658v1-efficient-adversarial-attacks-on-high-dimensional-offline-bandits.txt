@@ -1,0 +1,1256 @@
+Title: Efficient Adversarial Attacks on High-dimensional Offline Bandits
+
+URL Source: https://arxiv.org/pdf/2602.01658v1
+
+Published Time: Tue, 03 Feb 2026 03:24:14 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+Accepted as a conference paper at ICLR 2026 
+
+# EFFICIENT ADVERSARIAL ATTACKS ON 
+
+# HIGH -DIMENSIONAL OFFLINE BANDITS 
+
+Seyed Mohammad Hadi Hosseini, Amir Najafi & Mahdieh Soleymani Baghshah 
+
+Department of Computer Engineering Sharif University of Technology 
+
+{hadi.hosseini17,amir.najafi,soleymani }@sharif.edu 
+
+# ABSTRACT 
+
+Bandit algorithms have recently emerged as a powerful tool for evaluating ma-chine learning models, including generative image models and large language models, by efficiently identifying top-performing candidates without exhaustive comparisons. These methods typically rely on a reward model—often distributed with public weights on platforms such as Hugging Face—to provide feedback to the bandit. While online evaluation is expensive and requires repeated trials, of-fline evaluation with logged data has become an attractive alternative. However, the adversarial robustness of offline bandit evaluation remains largely unexplored, particularly when an attacker perturbs the reward model (rather than the training data) prior to bandit training. In this work, we fill this gap by investigating, both theoretically and empirically, the vulnerability of offline bandit training to adver-sarial manipulations of the reward model. We introduce a novel threat model in which an attacker exploits offline data in high-dimensional settings to hijack the bandit’s behavior. Starting with linear reward functions and extending to non-linear models such as ReLU neural networks, we study attacks on two Hugging Face evaluators used for generative model assessment: one measuring aesthetic quality and the other assessing compositional alignment. Our results show that even small, imperceptible perturbations to the reward model’s weights can dras-tically alter the bandit’s behavior. From a theoretical perspective, we prove a striking high-dimensional effect: as input dimensionality increases, the perturba-tion norm required for a successful attack decreases, making modern applications such as image evaluation especially vulnerable. Extensive experiments confirm that naive random perturbations are ineffective, whereas carefully targeted pertur-bations achieve near-perfect attack success rates. To address computational chal-lenges, we design efficient heuristics that preserve almost 100% success while dra-matically reducing attack cost. In parallel, we propose a practical defense mech-anism that partially mitigates such attacks, paving the way for safer offline bandit evaluation. Finally, we validate our findings on the UCB bandit and provide theo-retical evidence that adversaries can delay optimal arm selection proportionally to the input dimension. Code is publicly available at: https://github.com/ hadi-hosseini/adversarial-attacks-offline-bandits .
+
+# 1 INTRODUCTION 
+
+The multi-armed bandit (MAB) framework is a cornerstone of online learning, balancing explo-ration and exploitation to efficiently identify the optimal choice (or “arm”) within a limited time horizon. MAB algorithms have been widely applied in domains such as online recommendation sys-tems (Kveton et al., 2015; Chapelle et al., 2014; Li et al., 2010), adaptive clinical trials (Kuleshov & Precup, 2014), and dynamic pricing (Tullii et al., 2024). More recently, they have been adopted for evaluating generative models—from diffusion models (Rezaei et al., 2025; Hu et al., 2025; 2024b; Ho et al., 2020; Rombach et al., 2022) and GANs (Rezaei et al., 2025; Hu et al., 2024a; Karras et al., 2019) to large language models (LLMs) such as ChatGPT (Hu et al., 2025; Dai et al., 2025; Achiam et al., 2023), Gemini (Hu et al., 2025; Dai et al., 2025; Team et al., 2023), and DeepSeek (Hu et al., 2025; Guo et al., 2025). In this setting, bandit algorithms (e.g., Upper Confidence Bound (UCB) 1
+
+> arXiv:2602.01658v1 [cs.LG] 2 Feb 2026
+
+Accepted as a conference paper at ICLR 2026 from Auer (2002)) offer a sample-efficient alternative to naive pairwise comparisons by rapidly identifying the best-performing model. While online evaluation remains effective, it is often costly and impractical for rapidly evolving gen-erative models. As a result, practitioners increasingly turn to offline evaluation, where a fixed logged dataset is reused to compare algorithms (e.g., UCB, ETC (Garivier et al., 2016), ε-greedy (Dann et al., 2022)) or tune hyperparameters without repeated data collection. Despite its practicality, this setting introduces two overlooked risks. First, it is vulnerable to adversarial manipulation that could bias the selection process. Second, it is prone to overfitting to the reward model when multiple degrees of freedom are available. For instance, recent work has shown a tendency to test numer-ous performance metrics or continuously adjust metric hyperparameters on the same logged dataset when training MABs (Rezaei et al., 2025; Hu et al., 2024b; Saito & Nomura, 2024). We aim to provide partial answers to the above concerns across a range of settings. Specifically, we study adversaries that manipulate only the reward model (rather than the data samples) in order to hijack the behavior of a bandit algorithm. While prior work has examined training-time adversarial attacks on bandits—typically by altering reward values or samples during online training (see Ap-pendix A)—no prior research has considered attacks on the reward model before training. We fill this gap by showing that even a weak adversary can succeed in this setting when the data is high-dimensional. In our threat model, the adversary has access to the offline (logged) dataset but cannot modify the samples, nor can it interfere with the learner’s training procedure; its only leverage is to perturb the reward model prior to training. We analyze two reward-model scenarios. First, we study linear reward functions in high-dimensional spaces. This setting, though simplified, offers clarity and valuable insights into the mechanics of our attack. Our results show that even small perturbations to the weights of a linear model can dramatically alter the bandit’s behavior. Second, we extend our analysis to nonlinear reward models such as deep neural networks (LeCun et al., 2015), which are widely used in practice. For instance, modern image-based generative models are often evaluated with neural reward functions such as CLIP (Radford et al., 2021; LAION-AI, 2021), BLIP (Li et al., 2022; Xu et al., 2023), and VQA models (Hu et al., 2023; Singh & Zheng, 2023; Cho et al., 2024). These models are typically open-source, with publicly available weights on platforms such as Hugging Face—making them convenient, but also vulnerable. We select two real-world image reward models from Hugging Face and apply our attack to them: one for assessing compositionality alignment and the other for evaluating aesthetic quality. We demonstrate that exposing verifier weights can be exploited: by constructing a linear approximation of the reward model, an adversary can craft perturbations of imperceptibly small norm that nonetheless yield highly effective attacks. Moreover, we show that this linear approximation becomes increasingly accurate as the network’s hidden layer width grows, consistent with predictions from Neural Tangent Kernel (NTK) theory (Jacot et al., 2018; Golikov et al., 2022). We identify several key insights and introduce novel algorithms that enable highly effective attacks on offline bandit training, supported by both theoretical analysis and empirical validation. Our main contributions are: 
+
+Theoretical foundations. We show that effective attacks require solving a targeted optimization problem; naive random perturbations fail to compromise the reward model. Empirically, we ob-serve an inverse relationship between dimension and attack cost: as input dimensionality increases, the required perturbation norm decreases, making high-dimensional data (e.g., images) especially vulnerable. We then complement empirical observations via theoretical support. Formally, for a 
+
+K-armed bandit over a d-dimensional input space with horizon T , we prove that full-trajectory attacks are feasible whenever d ≥ KT (Theorem 3.3), and that the ℓ2-norm of the required pertur-bation shrinks as eO(d−1/2) (Theorem 3.4). Our analysis is based on tools such as high-dimensional concentration inequalities and random matrix theory. 
+
+Computational efficiency. Solving the full optimization problem to hijack an entire trajectory can be computationally expensive. We design heuristic methods that dramatically reduce this cost while maintaining near-perfect attack success rates. We validate these attacks across multiple bandit algorithms, focusing on UCB but also extending to ETC and ϵ-greedy, showing that our method generalizes beyond a single algorithm. 
+
+Synthetic and real-world evaluation. We first validate our approach on synthetic data, then extend to real-world settings by targeting two widely used Hugging Face evaluators for generative models: 2Accepted as a conference paper at ICLR 2026 one measuring aesthetic quality and the other compositional alignment. In both cases, our attacks remain highly effective. 
+
+Defense. We propose a simple defense mechanism that can partially mitigate attacks under certain conditions, reducing attack success rates. However, a complete defense remains open, highlighting an important direction for future research. 
+
+# 2 PROBLEM DEFINITION AND NOTATION 
+
+For K ∈ N, let [K] = {1, 2, . . . , K }. We consider a stochastic multi-armed bandit problem with K
+
+arms, where each arm i ∈ [K] is associated with a data-generating distribution Pi over Rd. Here, 
+
+d denotes the dimension of the input space. At each round, when the bandit pulls arm i, it receives a sample X ∼ Pi, drawn independently from past rounds. The reward is then computed as r(X) ,where r : Rd → R is a known reward function that may be perturbed adversarially before training begins. We study two instantiations of the reward function: 1. Linear model: r(X) = w ⊤ X, with a fixed parameter vector w ∈ Rd.2. Neural network model: r(X) = NN θ (X) , where NN θ is a feedforward network with parameters θ ∈ RD and some fixed activation function σ(·) : R → R. The parameter dimension is D = d · W1 + W1 · W2 + · · · + WL−1 · WL + WL, for a network with L
+
+hidden layers of widths W1, W 2, . . . , W L, respectively. Throughout, we focus on the high-dimensional regime: either d ≫ 1 (linear case) or max i Wi ≫ 1
+
+(neural network case). We assume arm i∗ ∈ [K] is optimal, i.e., EPi∗ [r(X)] > EPi [r(X)] for 
+
+i̸ = i∗, where E[·] is expectation operator. Hence, we expect the bandit algorithm to (with high probability) learn to pull the optimal arm i∗ after some number T ≥ 1 of exploratory trials across the K arms. The value T is referred to as the horizon . Suppose we are given K logged datasets consisting of independent samples from each arm distribution P1, . . . , P K . Specifically, let Di =
+
+{X(i) 
+
+> j
+
+|j ∈ [ni]}, be a dataset of size ni2 containing i.i.d. samples from Pi. When the bandit pulls arm i for the ti-th time, it receives the sample X(i) 
+
+> ti
+
+, for ti ∈ [ni]. We assume that each dataset D1: K
+
+contains sufficiently many samples so that, throughout the T rounds, the bandit always observes a fresh sample upon each arm pull. 
+
+Our Problem: Our goal is to design an adversarial attack on the reward function r(·) such that, with high probability, the bandit fails to identify and exploit the optimal arm. Assume an adversary A
+
+with access to the offline logged datasets D1, . . . , DK , and the ability to perturb the reward model 
+
+r(·). In the linear case, the adversary modifies the parameter w to w + δ for some perturbation vector δ ∈ Rd. In the neural network case, the adversary modifies the parameter vector θ to θ +δ,where δ ∈ RD . In both settings, the perturbation norm is chosen as small as possible while still guaranteeing a prescribed level of damage to the bandit’s trajectory, for example, ensuring that the number of times the optimal arm i∗ is pulled falls below some threshold T ′ < T . In stronger attack scenarios, A may even enforce a pre-specified target trajectory for the multi-armed bandit. 
+
+# 3 METHOD 
+
+In this section, we focus on UCB (Auer, 2002) algorithm for simplicity, but our findings extend naturally to ETC and ε-greedy, as detailed in Appendix D. UCB begins by pulling each arm once, and then proceeds by selecting arms in a way that balances exploitation and exploration: it favors arms with higher observed average rewards, while a carefully designed exploration term encourages underexplored arms to be pulled. It is theoretically known that UCB achieves a regret bound of 
+
+O(log T ), which is optimal up to constants, making it widely used in practice. Let At = At(δ) for 
+
+t ∈ [T ] denote the arm chosen at step t when the adversary A selects the perturbation vector δ.Then, the algorithm proceeds for t = 1 , . . . , T as follows: • For t = 1 , . . . , K , pull each arm once. That is, At = t.3Accepted as a conference paper at ICLR 2026 • For t ≥ K, select the next arm according to the following deterministic maximization: 
+
+At+1 (δ) ≜ arg max 
+
+> i∈[K]
+
+(
+
+Λt(i; δ) ≜ 1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> j=1
+
+r  X(i) 
+
+> j
+
+; δ +
+
+s
+
+2 log tNi(t)
+
+)
+
+, (1) where Ni(t) denotes the number of times arm i has been pulled up to step t, and r(X; δ)
+
+denotes the adversarially perturbed reward value of input X given the perturbation vector 
+
+δ, e.g., r(X; δ) = (w + δ)⊤ X in the linear case. Also, Λt(i; δ) is called the UCB score of arm i at time step t.The adversary aims to keep ∥δ∥2 as small as possible. However, depending on its objective, A may design δ to achieve one of the following goals: 
+
+Full Trajectory Attack. In this scenario, A attempts to force the bandit to follow a completely predetermined, arbitrary, and fixed target trajectory eAt ∈ [K] for all t ∈ [T ]. This requires solving the following constrained optimization problem: 
+
+δ∗ ≜ arg min 
+
+> δ
+
+∥δ∥22 subject to Λt( eAt; δ) > Λt(i; δ), ∀ K < t ≤ T, i ̸ = eAt
+
+. (2) The optimization in equation 2 requires (T − K)( K − 1) constraints. In the linear reward model, these constraints are linear in δ.
+
+Trajectory-Free Attack. A less restrictive attack requires the bandit to avoid pulling the optimal arm at a given set of time-steps T ⊂ [T ]. Note that T may include all steps from K + 1 to T .Unlike the full trajectory attack, here A only ensures that i∗ is not selected, without prescribing exactly which arm must be pulled. One simplified formalization is as follows: consider an arbitrary trajectory eAt ∈ [K] for all t ∈ [T ] such that eAt̸ = i∗. Then we can define: 
+
+δ∗ ≜ arg min 
+
+> δ
+
+∥δ∥22 subject to Λt( eAt; δ) > Λt(i∗; δ), ∀ K < t ≤ T. (3) Here, the auxiliary sequence eAt̸ = i∗ for K < t ≤ T is arbitrary and can be optimized (e.g., via heuristics) by the attacker to further reduce attack strength. In our experiments, we use a simple round-robin strategy for eAt. The formulation in equation 3 requires only T − K constraints, as-suming T includes all steps from K + 1 to T . Trajectory-free attacks thus reduce the number of constraints by a factor of K − 1, significantly lowering computational cost when K is large. How-ever, for large T , they may still be expensive and difficult to design. To address this, we propose an online attack strategy. 
+
+Online Score-Aware (OSA) Attack. Consider a fixed set of time-steps T ⊂ [T ]. We iterate over 
+
+t ∈ T in increasing order. Let δ∗ 
+
+> t−1
+
+denote the optimal attack up to time step t − 1. At each step 
+
+t, the attacker checks whether the UCB score Λt(i∗; δ∗
+
+> t−1
+
+) is the largest among all arms. If not, we simply move on to the next t. Otherwise, we add the constraint 
+
+Λt(eit; δ) > Λt(i∗; δ),
+
+where eit is the index of the runner-up arm with the second highest UCB score at time t. The solution 
+
+δ∗ 
+
+> t
+
+is then updated using the additional constraint, and the process continues until the end of T .Therefore, instead of a single QP, a series of QPs with increasing number of constraints should be solved. However, the number of constraints in each QP is usually very small and the problem can be solved almost instantly. While a full theoretical analysis of the OSA attack is beyond the scope of this paper, we empirically observe that it substantially reduces computational cost. In practice, the number of effective con-straints generated by the online procedure is far smaller than T —often resembling O(log T )—which leads to significantly faster attack construction compared to both full-trajectory and trajectory-free methods. Pseudocode for all methods is provided in Appendix K. Some interesting and fundamental questions arise regarding the attack designs discussed above: • Optimization formulation. How can these attack designs be explicitly instantiated in real-world applications? In the next section, we show that for a linear reward model r(X) = 
+
+4Accepted as a conference paper at ICLR 2026 
+
+w⊤ X, all of the above formulations reduce to well-structured convex Quadratic Programs (QPs), which can be solved efficiently. In this setting, reducing the number of constraints substantially accelerates optimization. Interestingly, a similar argument also extends to wide neural network models. • Feasibility. The efficiency gains above are only meaningful if the optimization problems are feasible, i.e., if there exists at least one perturbation vector δ satisfying all constraints. In Section 3.2, we provide theoretical guarantees showing that, under mild assumptions on the reward model and the data-generating distributions P1, . . . , P K , the constraint set is feasible with probability 1, provided that the data dimension d (or, in the case of neural networks, the maximum width max i Wi) exceeds the number of constraints. Moreover, we establish a second main result: the norm of a feasible full-trajectory attack decreases at least as eO(d−1/2) with dimension d.3.1 OPTIMIZATION 
+
+The following result shows that, under a linear reward model, the proposed attack formulations admit an efficient convex optimization representation. 
+
+Theorem 3.1 (Linear Reward Model) . Consider the three attack designs in Section 3 under the linear reward model r(X) = w ⊤ X for some fixed vector w ∈ Rd. Then there exist an indexed vector set {Ti,t } and a scalar set {Ri,t }, for i ∈ [K − 1] and K < t ≤ T , such that all three attack designs can be expressed as the quadratic program 
+
+δ∗ ≜ arg min 
+
+> δ
+
+∥δ∥22 subject to δ⊤ Ti,t > R i,t , ∀(i, t ) ∈ I ⊂ [K − 1] × [T ]. (4) 
+
+The values of Ti,t and Ri,t are determined solely by the offline datasets D1, . . . , DK and the original reward model w. The joint arm–timestep index set I depends only on the choice of attack type (full-trajectory, trajectory-free, or OSA) and is determined according to the specification of the method. 
+
+Proof is given in Appendix B. The computational cost is governed by the size of I. In particular, for full-trajectory attacks we have |I| = O(T K ), for trajectory-free attacks |I| = O(T ), and for OSA attacks the effective size of I is typically much smaller in practice. Solving a QP of the form equation 4 with d variables and |I| constraints requires approximately eO |I| 3 + d|I| 2 operations (Gay et al., 1998), highlighting the central role of the constraint set size in the overall complexity. In our experiments (see Figure 7), we observed that OSA can reduce |I| to as small as O(log T ).When the reward model is a neural network NN θ (·), the UCB score Λi(t; δ) in equation 1 is non-linear in δ, and the convex reduction in Theorem 3.1 no longer holds. However, results from neural tangent kernel (NTK) theory (Jacot et al., 2018) show that for sufficiently wide networks with ran-domly initialized weights, the network behaves approximately linearly in its parameters. Formally, 
+
+NN θ + δ (X) = NN θ (X) + ∇θ NN θ (X) ⊤ δ +O W −1max 
+
+ ∀ X ∈ Rd, (5) where Wmax denotes the network width. Thus, for highly overparameterized networks the reward model can be well approximated by an affine function of δ, yielding a quadratic program analogous to equation 4, with affine constraints. Recall that ∇θ NN θ (X) represents the embedding of the input X in the neural tangent space of the network NN θ , centered at the parameter vector θ (Jacot et al., 2018). In fact, the output of an overparameterized neural network, for any fixed input X,asymptotically mimics a linear reward function with respect to the perturbation vector δ—essentially reducing to the purely linear case. 
+
+Corollary 3.2 (Overparameterized Neural Networks) . For asymptotically wide neural networks, linearization via the NTK approximation reduces the attack design to a convex quadratic program with D variables as in Theorem 3.1, where D is the number of parameters in θ. This program can be solved in eO(|I| 3 + D|I| 2) operations. 
+
+3.2 THEORETICAL GUARANTEES : F EASIBILITY AND ATTACK NORM 
+
+In this section, we present two sets of theoretical guarantees. The first, stated in Theorem 3.3, estab-lishes that under mild “non-degeneracy” conditions on the data-generating distributions P1, . . . , P K ,and in a sufficiently high-dimensional regime (i.e., d ≥ T K ), there always exists an attack (with 5Accepted as a conference paper at ICLR 2026 probability one over the sampling of datasets Di) that can steer the bandit toward any desired trajec-tory. 
+
+Theorem 3.3 (Feasibility Guarantee) . Assume the data-generating distributions P1, . . . , P K are non-singular, i.e., 
+
+λmin (Cov (Pi)) > 0,
+
+where Cov (·) denotes the d×d covariance matrix and λmin (·) the minimum eigenvalue. If d > (T −
+
+K)( K − 1) , then with probability 1 all optimization problems corresponding to the full-trajectory attack, the trajectory-free attack, and the OSA attack are feasible. 
+
+The proof (Appendix B) relies on linear-algebraic arguments and anti-concentration properties of non-degenerate distributions. A stronger result, requiring more technical machinery, is given in Theorem 3.4, where we show that in the high-dimensional regime, and under stronger assumptions on P1, . . . , P K , the magnitude of the attack decreases as eO(d−1/2) with dimension. We conjecture that an even more general result could be established for near-product measures, which cover a broader class of distributions, though this lies beyond the scope of the present work. For concreteness, let μi ≜ EPi [X] for i ∈ [K], and assume ∥μi∥2 = 1 for all i. For the linear reward model, we further assume ∥w∥2 = 1 , with μ⊤ 
+
+> i∗
+
+w = 1 and μ⊤ 
+
+> i
+
+w = 0 for i̸ = i∗. Such a configuration arises naturally in high-dimensional spaces, where independently drawn random vectors tend to be nearly orthogonal. We emphasize that these assumptions are introduced solely to simplify notation and exposition in subsequent sections; they are not essential to our analysis and do not affect the algorithmic design. 
+
+Theorem 3.4 (ℓ2-norm of High-dimensional Attack) . Consider the assumptions mentioned above for d > 2. For simplicity, assume all P1, . . . , P K are product measures and Cov (Pi) = I for all 
+
+i ∈ [K]. Then, provided d ≥ KT , the full-trajectory attack of equation 2 satisfies 
+
+∥δ∗∥2 ≤ O 
+
+r T 3 log T · log dKd 
+
+!
+
+, (6) 
+
+with probability at least 1 − 2d−1 over the randomness of D1, . . . , DK .
+
+The full proof, deferred to Appendix B, leverages tools from linear algebra, optimization, and ran-dom matrix theory. Here we provide a simplified proof sketch illustrating why attacks on high-dimensional bandits are feasible. It is well known that estimating the mean of high-dimensional random vectors becomes increasingly difficult as the dimension grows: fluctuations across many co-ordinates accumulate, making accurate estimation unreliable. A multi-armed bandit can be viewed as repeatedly estimating the means of several high-dimensional distributions and then selecting the arm that maximizes its reward. When the number of observations per arm, roughly T /K , is much smaller than the dimension d, such estimates are inherently unstable. In this regime, even a sim-ple manipulation of the reward function—when it has sufficient degrees of freedom, as in linear models or overparameterized neural networks—can easily mislead the bandit. Theorem 3.4 further establishes that the required attack magnitude actually decreases as the dimension increases. 
+
+# 4 EXPERIMENTS 
+
+In this section, we conduct a series of experiments to assess the effectiveness of our proposed attack method. Our study focuses on some central questions: ( Q1 ) How does the attack’s performance differ between linear and non-linear reward models with synthetic data? (Section 4.1). ( Q2 ) What is the impact of dimensionality on attack performance? (Section 4.2). ( Q3 ) Can our method be applied to real-world settings, including real data and reward models? (Section 4.3). ( Q4 ) Can our attack be applied to bandit algorithms other than UCB? (Section 4.4). ( Q5 ) Are there any defenses that can prevent this attack under certain circumstances? (Section 4.5). ( Q6 ) Can random noise perturbations achieve results comparable to our method? (Section 4.6). ( Q7 ) How does increasing the width of the non-linear reward model affect the attack success rate? (Section 4.7). Q8 How effective is our method against robust stochastic bandit algorithms under reward corruption? (Section 4.8) 6Accepted as a conference paper at ICLR 2026 
+
+Figure 1: Comparison of attack performance on linear and nonlinear reward models using OSA ,
+
+Trajectory-Free , and Full Trajectory methods. All attacks achieve a 100% success rate. The attack times (in seconds) are displayed on a logarithmic scale in the plot, highlighting the superior effi-ciency of OSA and illustrating the effect of varying parameters K and d (or max i Wi) on attack duration. 4.1 SYNTHETIC SETTING : A TTACK PERFORMANCE ACROSS REWARD MODELS 
+
+In this experiment, we evaluate the performance of our attack on reward models, examining its effec-tiveness in both linear and non-linear settings for synthetic data. To provide a more comprehensive assessment, we vary key parameters such as K and d. Furthermore, We evaluate all variants of our method: OSA , Trajectory-Free , and Full-Trajectory .This experiment focuses on two aspects: (1) demonstrating that both linear and non-linear reward models can be successfully attacked, and (2) comparing the attack time of the OSA and Trajectory 
+
+methods. As shown in Figure 1, all variants of our attack achieve a 100% attack success rate ( ASR )on the UCB algorithm. From these results, we observe that the OSA method substantially reduces the time required to generate perturbations (shown in the logarithmic scale). This demonstrates the clear efficiency advantage of the OSA approach. We also present additional experiments in Appendix C, showing that the number of constraints in OSA scales as O(log T ).4.2 IMPACT OF DIMENSIONALITY ON ATTACK PERFORMANCE 
+
+In this experiment, we validate our claim that increasing input dimensionality makes the bandit algo-rithm more vulnerable to attacks. To investigate this, we vary the input dimensionality while keeping all other parameters fixed. We observe that both the ℓ2 and ℓ∞ norms of the perturbation decrease rapidly, indicating that in higher-dimensional settings, smaller perturbations suffice to successfully attack the algorithm. Additionally, we reformulate the optimization problem from a Feasibility Pro-gram (FP) to a Quadratic Program (QP) to evaluate how effectively our method approximates the optimal solution. In the low-dimensional regime, the OSA solution shows a small gap relative to the Optimal solution. However, as the input dimensionality increases, this gap diminishes, demon-strating that our OSA method achieves near-optimal attacks in higher-dimensional settings. We can conclude that our OSA method not only identifies a perturbation quickly, but also produces one that is very close to the optimal solution. Moreover, we investigate whether our attack in high-dimension is imperceptible or not based on its geometry in Appendix H. 4.3 REAL -WORLD SETTING : R EAL DATA AND REWARD MODELS 
+
+We demonstrate that our attack can be applied in real-world settings, including real data and re-ward models, using image generative models as a case study. Specifically, we evaluate our attack on five generative models: Stable Diffusion 3 (SD3) and Stable Diffusion 1.4 (Rombach et al., 2022), Kandinsky 3 (Vladimir et al., 2024), Openjourney, and Stable Diffusion XL (Podell et al., 2023). We sample 30 random prompts from GenAI-Bench (Li et al., 2024) and curate logged data for each prompt by generating outputs from the models using seeds ranging from 1 to 100. For 7Accepted as a conference paper at ICLR 2026 
+
+Figure 2: Left: Effect of increasing input dimensionality on attack magnitude. Both the ℓ2 and 
+
+ℓ∞ norms of the perturbation decrease as the input dimensionality increases, indicating that higher-dimensional inputs are more vulnerable to attacks. Experimental settings: T = 100 , K = 3 ,ASR = 100% . Right: Effect of applying the proposed defense on attack success rates. Shuffling a portion of the logged data before running the bandit algorithm significantly reduces the effectiveness of attacks. Specifically, we shuffle the first T / 2 of the logged data before execution. reward models, we use two widely adopted models: Image Reward (Xu et al., 2023), which eval-uates the compositional alignment between the generated image and its prompt, and the Aesthetic Model (LAION-AI, 2021), which assesses the aesthetic quality of the generated image. Both models are widely used in prior work, and their weights are publicly available on HuggingFace. Moreover, both models are large, so we keep their weights frozen, except for a small subset used in the attack. As shown in Figure 3, the distribution of our attack success rate (ASR) is high: if we select a random prompt, generate logged data for it, and perform our attack, there is approximately an 80% probabil-ity that the ASR falls between 90–100%. We further demonstrate that our method can also attack a randomly initialized Reward model with arbitrary weights; details are provided in Appendix F. Ad-ditionally, to illustrate our method more clearly, a complete and detailed visualization of our attack on the Aesthetic Reward Model is provided in Appendix J.  
+
+> (a) Aesthetic Reward Model (b) Image Reward Model
+
+Figure 3: Distribution of ASR values for the Aesthetic and Image reward models under the OSA method across two configurations. Each subplot shows the ASR distribution for one reward model. 4.4 ATTACKING BANDIT ALGORITHMS BEYOND UCB Throughout this paper, we use the UCB (Auer, 2002) algorithm as our main bandit algorithm. To evaluate the robustness of our attack, we also consider scenarios where the adversary employs other bandit algorithms, specifically ETC (Garivier et al., 2016) and ϵ-greedy (Dann et al., 2022). Table 1 presents the results of our attack on these algorithms, showing that it achieves a 100% ASR across all these algorithms. Additional details about these algorithms are provided in Appendix D. 8Accepted as a conference paper at ICLR 2026 
+
+Figure 4: Left : Attack success rate as a function of the hidden layer width in the reward model ( T =100 ). The results show that a sufficiently wide hidden layer is required for the attack to succeed; once the width exceeds 750 neurons, the ASR reaches 100%. Right : Attack success rate versus the ℓ2 norm of random noise perturbations. The results show that even with increasing perturbation magnitude, the ASR remains nearly constant, demonstrating that random noise is largely ineffective in attacking the bandit algorithm. 4.5 OUR PROPOSED DEFENSE 
+
+We propose a defense that remains effective even when the environment is aware of the attack method, has access to the logged data, and is able to shuffle it. The defense operates by randomly shuffling a portion of the logged data before running the bandit algorithm. This simple yet effective strategy can substantially reduce the attack’s success. As shown in Figure 2, shuffling only T / 2 of the logged data is sufficient to significantly mitigate the attack. Additional results exploring other fractions of shuffled data are provided in Appendix G. 4.6 EFFECT OF RANDOM NOISE PERTURBATIONS ON ATTACK PERFORMANCE 
+
+We demonstrate that applying a random noise perturbation, even with a larger ℓ2 norm, fails to produce effective attacks. As shown in the right part of Figure 4, when no perturbation is applied, the attack success rate (ASR) is approximately 25%. Increasing the ℓ2 norm of the random perturbation has little impact on the ASR, which remains nearly constant across a wide range of perturbation magnitudes. This indicates that simple random noise is largely ineffective at compromising the bandit algorithm. 4.7 EFFECT OF NON -L INEAR REWARD MODEL WIDTH ON ATTACK SUCCESS 
+
+In this experiment, we investigate the impact of the reward model’s width on attack performance. For our theoretical assumptions to hold in practice, the network’s linear approximation must be valid. To achieve this, the reward model is designed with a single hidden layer of sufficient width. As the number of neurons increases, the linear approximation becomes more accurate (Jacot et al., 2018). Our results indicate that having enough neurons in this hidden layer is critical for a successful attack. As illustrated in the left part of Fig. 4, once the number of neurons exceeds 750 , the attack success rate reaches 100 %. Implementation details of the reward model training for synthetic data are provided in Appendix E. 4.8 COMPARISON OF OUR METHOD WITH ROBUST STOCHASTIC BANDIT ALGORITHMS 
+
+Existing corruption-robust MAB works (Niss & Tewari, 2020; Lykouris et al., 2018; Gupta et al., 2019) assume an adversary who actively modifies the realized rewards during the bandit interaction, i.e., the adversary is active, present throughout training, and directly alters the reward feedback as it is generated. In contrast, our attack perturbs the internal weights of the reward model before bandit training begins. The adversary does not have access to the environment where the bandit is run, which we believe is a much more realistic setting. However, we additionally evaluated 9Accepted as a conference paper at ICLR 2026 our attack against the Fast–Slow algorithm (Lykouris et al., 2018), a representative robust bandit method. As shown in Figure 5, this algorithm is also vulnerable. With a corruption parameter of 0.5
+
+(a typical setting in their own experiments), our attack succeeds 100% of the time, while keeping the perturbation norm small (around 0.3). 
+
+Figure 5: Our pre-training attack successfully hijacks the Fast–Slow robust bandit (Lykouris et al., 2018), achieving 100% success with minimal ℓ2-norm perturbation ( ≈ 0.3) for K ∈ { 3, 5}, T =1000 , and d = 1000 .Moreover, we evaluate our attack against the ε-contamination algorithm (Niss & Tewari, 2020), a robust variant of UCB. Figure 6 illustrates that for a reasonable contamination level ( ε = 0 .15 ), our attack achieves a 100% ASR while requiring only a small ℓ2-norm perturbation (approximately 0.2). 
+
+Figure 6: Effectiveness of our attack against the ε-contamination algorithm (Niss & Tewari, 2020), a robust UCB variant. Experiments are conducted with T ∈ { 100 , 1000 }, K ∈ { 3, 5}, d = 1000 ,
+
+α = 0 .1, σ = 1 , using the α-trimmed strategy. 
+
+# 5 CONCLUSION 
+
+In this work, we investigate the vulnerabilities of offline bandit algorithms used to evaluate machine learning models, including generative models. We show that publicly sharing reward model weights on platforms like Hugging Face exposes these models to adversarial attacks and highlight the crit-ical role of logged data in offline bandit evaluation. We introduce a novel threat, demonstrating that even small, imperceptible perturbations to reward model weights can completely hijack bandit behavior. Our analysis starts with linear reward models, revealing their high susceptibility to manip-ulation in high-dimensional settings, and extends to nonlinear models such as ReLU-based neural networks. We validate our approach on real data by downloading publicly available weights from Hugging Face and successfully attacking these models. To mitigate such attacks, we propose a de-fense strategy and, for scenarios where the attacker only aims to prevent optimal arm selection, we introduce an efficient on–off heuristic that is both fast and effective. Finally, we provide theoretical support showing how perturbations can systematically steer bandit behavior in proportion to input dimensionality. 10 Accepted as a conference paper at ICLR 2026 
+
+# REFERENCES 
+
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Ale-man, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al. Gpt-4 technical report. arXiv preprint arXiv:2303.08774 , 2023. Kingma DP Ba J Adam et al. A method for stochastic optimization. arXiv preprint arXiv:1412.6980 ,1412(6), 2014. Abien Fred Agarap. Deep learning using rectified linear units (relu). arXiv preprint arXiv:1803.08375 , 2018. Peter Auer. Using confidence bounds for exploitation-exploration trade-offs. Journal of machine learning research , 3(Nov):397–422, 2002. Olivier Chapelle, Eren Manavoglu, and Romer Rosales. Simple and scalable response prediction for display advertising. ACM Transactions on Intelligent Systems and Technology (TIST) , 5(4):1–34, 2014. Jaemin Cho, Yushi Hu, Jason Baldridge, Roopal Garg, Peter Anderson, Ranjay Krishna, Mohit Bansal, Jordi Pont-Tuset, and Su Wang. Davidsonian scene graph: Improving reliability in fine-grained evaluation for text-to-image generation. In ICLR , 2024. Ferdinando Cicalese, Eduardo Laber, Marco Molinaro, et al. Teaching with limited information on the learner’s behaviour. In International Conference on Machine Learning , pp. 2016–2026. PMLR, 2020. Jeremy Cohen, Elan Rosenfeld, and Zico Kolter. Certified adversarial robustness via randomized smoothing. In international conference on machine learning , pp. 1310–1320. PMLR, 2019. Xiangxiang Dai, Yuejin Xie, Maoli Liu, Xuchuang Wang, Zhuohua Li, Huanyu Wang, and John Lui. Multi-agent conversational online learning for adaptive llm response identification. arXiv preprint arXiv:2501.01849 , 2025. Chris Dann, Yishay Mansour, Mehryar Mohri, Ayush Sekhari, and Karthik Sridharan. Guarantees for epsilon-greedy reinforcement learning with function approximation. In International confer-ence on machine learning , pp. 4666–4689. PMLR, 2022. Sanjoy Dasgupta, Daniel Hsu, Stefanos Poulis, and Xiaojin Zhu. Teaching a black-box learner. In 
+
+International Conference on Machine Learning , pp. 1547–1555. PMLR, 2019. Evrard Garcelon, Baptiste Roziere, Laurent Meunier, Jean Tarbouriech, Olivier Teytaud, Alessandro Lazaric, and Matteo Pirotta. Adversarial attacks on linear contextual bandits. Advances in Neural Information Processing Systems , 33:14362–14373, 2020. Aur´ elien Garivier, Tor Lattimore, and Emilie Kaufmann. On explore-then-commit strategies. Ad-vances in Neural Information Processing Systems , 29, 2016. David M Gay, Michael L Overton, and Margaret H Wright. A primal-dual interior method for nonconvex nonlinear programming. In Advances in Nonlinear Programming: Proceedings of the 96 International Conference on Nonlinear Programming , pp. 31–56. Springer, 1998. Eugene Golikov, Eduard Pokonechnyy, and Vladimir Korviakov. Neural tangent kernel: A survey. 
+
+arXiv preprint arXiv:2208.13614 , 2022. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, Peiyi Wang, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. Anupam Gupta, Tomer Koren, and Kunal Talwar. Better algorithms for stochastic bandits with adversarial corruptions. In Conference on Learning Theory , pp. 1562–1578. PMLR, 2019. Mohammad Hajiesmaili, Mohammad Sadegh Talebi, John Lui, Wing Shing Wong, et al. Adversar-ial bandits with corruptions: Regret lower bound and no-regret algorithm. Advances in Neural Information Processing Systems , 33:19943–19952, 2020. 11 Accepted as a conference paper at ICLR 2026 Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Advances in neural information processing systems , 33:6840–6851, 2020. Seyed Mohammad Hadi Hosseini, Amir Mohammad Izadi, Ali Abdollahi, Armin Saghafian, and Mahdieh Soleymani Baghshah. T2i-fineeval: Fine-grained compositional metric for text-to-image evaluation. arXiv preprint arXiv:2503.11481 , 2025. Xiaoyan Hu, Ho-fung Leung, and Farzan Farnia. A multi-armed bandit approach to online selection and evaluation of generative models. arXiv preprint arXiv:2406.07451 , 2024a. Xiaoyan Hu, Ho-fung Leung, and Farzan Farnia. An online learning approach to prompt-based selection of generative models and llms. In Forty-second International Conference on Machine Learning , 2024b. Xiaoyan Hu, Ho-Fung Leung, and Farzan Farnia. Pak-ucb contextual bandit: An online learning approach to prompt-aware selection of generative models and llms. In Proceedings of the 42nd International Conference on Machine Learning , volume 267, pp. 24447–24481, 2025. Yushi Hu, Benlin Liu, Jungo Kasai, Yizhong Wang, Mari Ostendorf, Ranjay Krishna, and Noah A Smith. Tifa: Accurate and interpretable text-to-image faithfulness evaluation with question an-swering. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pp. 20406–20417, 2023. Arthur Jacot, Franck Gabriel, and Cl´ ement Hongler. Neural tangent kernel: Convergence and gen-eralization in neural networks. Advances in neural information processing systems , 31, 2018. Kwang-Sung Jun, Lihong Li, Yuzhe Ma, and Jerry Zhu. Adversarial attacks on stochastic bandits. 
+
+Advances in neural information processing systems , 31, 2018. Tero Karras, Samuli Laine, and Timo Aila. A style-based generator architecture for generative adversarial networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 4401–4410, 2019. Volodymyr Kuleshov and Doina Precup. Algorithms for multi-armed bandit problems. arXiv preprint arXiv:1402.6028 , 2014. Branislav Kveton, Csaba Szepesvari, Zheng Wen, and Azin Ashkan. Cascading bandits: Learning to rank in the cascade model. In International conference on machine learning , pp. 767–776. PMLR, 2015. LAION-AI. aesthetic-predictor. https://github.com/LAION-AI/aesthetic-predictor, 2021. Yann LeCun, Yoshua Bengio, and Geoffrey Hinton. Deep learning. nature , 521(7553):436–444, 2015. Baiqi Li, Zhiqiu Lin, Deepak Pathak, Jiayao Li, Yixin Fei, Kewen Wu, Tiffany Ling, Xide Xia, Pengchuan Zhang, Graham Neubig, et al. Genai-bench: Evaluating and improving compositional text-to-visual generation. arXiv preprint arXiv:2406.13743 , 2024. Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi. Blip: Bootstrapping language-image pre-training for unified vision-language understanding and generation. In International conference on machine learning , pp. 12888–12900. PMLR, 2022. Lihong Li, Wei Chu, John Langford, and Robert E Schapire. A contextual-bandit approach to personalized news article recommendation. In Proceedings of the 19th international conference on World wide web , pp. 661–670, 2010. Fang Liu and Ness Shroff. Data poisoning attacks on stochastic bandits. In International Conference on Machine Learning , pp. 4042–4050. PMLR, 2019. Guanlin Liu and Lifeng Lai. Action-manipulation attacks on stochastic bandits. In ICASSP 2020-2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , pp. 3112–3116. IEEE, 2020. 12 Accepted as a conference paper at ICLR 2026 Thodoris Lykouris, Vahab Mirrokni, and Renato Paes Leme. Stochastic bandits robust to adver-sarial corruptions. In Proceedings of the 50th Annual ACM SIGACT Symposium on Theory of Computing , pp. 114–122, 2018. Yuzhe Ma, Kwang-Sung Jun, Lihong Li, and Xiaojin Zhu. Data poisoning attacks in contextual bandits. In International Conference on Decision and Game Theory for Security , pp. 186–204. Springer, 2018. Seyed-Mohsen Moosavi-Dezfooli, Alhussein Fawzi, Omar Fawzi, and Pascal Frossard. Universal adversarial perturbations. In Proceedings of the IEEE conference on computer vision and pattern recognition , pp. 1765–1773, 2017. Laura Niss and Ambuj Tewari. What you see may not be what you get: Ucb bandit algorithms robust to epsilon-contamination. In Conference on Uncertainty in Artificial Intelligence , pp. 450–459. PMLR, 2020. Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas M¨ uller, Joe Penna, and Robin Rombach. Sdxl: Improving latent diffusion models for high-resolution image synthesis. arXiv preprint arXiv:2307.01952 , 2023. Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International conference on machine learning , pp. 8748–8763. PmLR, 2021. Parham Rezaei, Farzan Farnia, and Cheuk Ting Li. Be more diverse than the most diverse: Optimal mixtures of generative models via mixture-UCB bandit algorithms. In The Thirteenth Interna-tional Conference on Learning Representations , 2025. Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bj¨ orn Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF confer-ence on computer vision and pattern recognition , pp. 10684–10695, 2022. Yuta Saito and Masahiro Nomura. Hyperparameter optimization can even be harmful in off-policy learning and how to deal with it. arXiv preprint arXiv:2404.15084 , 2024. Jaskirat Singh and Liang Zheng. Divide, evaluate, and refine: Evaluating and improving text-to-image alignment with iterative vqa feedback. Advances in Neural Information Processing Sys-tems , 36:70799–70811, 2023. Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan, Ian Goodfellow, and Rob Fergus. Intriguing properties of neural networks. In International conference on machine learning , 2014. Gemini Team, Rohan Anil, Sebastian Borgeaud, Jean-Baptiste Alayrac, Jiahui Yu, Radu Soricut, Johan Schalkwyk, Andrew M Dai, Anja Hauth, Katie Millican, et al. Gemini: a family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 , 2023. Matilde Tullii, Solenne Gaucher, Nadav Merlis, and Vianney Perchet. Improved algorithms for contextual dynamic pricing. Advances in Neural Information Processing Systems , 37:126088– 126117, 2024. Arkhipkin Vladimir, Viacheslav Vasilev, Andrei Filatov, Igor Pavlov, Julia Agafonova, Nikolai Gerasimenko, Anna Averchenkova, Evelina Mironova, Bukashkin Anton, Konstantin Kulikov, et al. Kandinsky 3: Text-to-image synthesis for multifunctional generative framework. In Pro-ceedings of the 2024 Conference on Empirical Methods in Natural Language Processing: System Demonstrations , pp. 475–485, 2024. Martin J Wainwright. High-dimensional statistics: A non-asymptotic viewpoint , volume 48. Cam-bridge university press, 2019. Jiazheng Xu, Xiao Liu, Yuchen Wu, Yuxuan Tong, Qinkai Li, Ming Ding, Jie Tang, and Yuxiao Dong. Imagereward: Learning and evaluating human preferences for text-to-image generation. 
+
+Advances in Neural Information Processing Systems , 36:15903–15935, 2023. 13 Accepted as a conference paper at ICLR 2026 
+
+# A RELATED WORK 
+
+While adversarial attacks on supervised learning models have been extensively studied (Szegedy et al., 2014; Moosavi-Dezfooli et al., 2017; Cicalese et al., 2020; Cohen et al., 2019; Dasgupta et al., 2019), the vulnerabilities of bandit algorithms remain less explored. This is particularly important in settings where reward models (Singh & Zheng, 2023; Cho et al., 2024; Hu et al., 2023; Hos-seini et al., 2025) are combined with bandit algorithms as evaluators (Rezaei et al., 2025; Hu et al., 2024b), highlighting the need to understand prior adversarial attacks on bandit algorithms and to prepare for developing new attack strategies. Recent studies have investigated adversarial attacks on multi-armed bandits (MABs) (Jun et al., 2018; Liu & Shroff, 2019; Liu & Lai, 2020) and linear con-textual bandits (Ma et al., 2018; Garcelon et al., 2020). In reward poisoning attacks, an adversary manipulates the reward signals received by the agent from the environment (Jun et al., 2018; Liu & Shroff, 2019; Niss & Tewari, 2020; Lykouris et al., 2018; Gupta et al., 2019; Hajiesmaili et al., 2020). By subtly altering these rewards, the attacker can bias the learning process, causing the agent to favor specific actions or arms, which may lead to suboptimal or adversary-driven behavior. In lin-ear contextual bandits, adversarial attacks have focused on two main strategies. The first is reward poisoning, where the adversary modifies the rewards associated with chosen actions to steer the agent toward particular arms (Ma et al., 2018; Garcelon et al., 2020). The second is context poison-ing, in which the attacker alters the observed context vectors while leaving the rewards unchanged, misleading the agent into making suboptimal or attacker-desired decisions (Garcelon et al., 2020). Together, these attacks demonstrate the vulnerabilities of linear contextual bandits to both reward and context-based manipulations. Our work differs from prior studies in that, rather than directly at-tacking the rewards, we target the reward models themselves. This approach is particularly relevant in the emerging usage of bandit algorithms as evaluation metrics. We show that in high-dimensional settings, reward models are vulnerable, making it possible for an attacker to easily manipulate them and thereby hijack the behavior of the bandit algorithm. 
+
+# B PROOFS 
+
+Proof of Theorem 3.1. We first establish the result for the case of full-trajectory attacks. The other two variants differ only in that they employ a subset of the (T − K)( K − 1) constraints; hence, both the optimization formulation and the feasibility properties can be deduced directly from the analysis of the full-trajectory case. In this regard, we define the residual outputs Z as Z(i) 
+
+> j
+
+≜ X(i) 
+
+> j
+
+− μi,therefore we have E[Z (i) 
+
+> j
+
+] = 0 for all valid i and j. Let us define S(i) 
+
+> j
+
+∈ Rd for i ∈ [K] and k ∈ [ni]
+
+as 
+
+S(i) 
+
+> k
+
+≜ 1
+
+k
+
+> k
+
+X
+
+> j=1
+
+X(i) 
+
+> j
+
+= μi + 1
+
+k
+
+> k
+
+X
+
+> j=1
+
+Z(i) 
+
+> j
+
+.
+
+In this regard, we have E[S (i) 
+
+> k
+
+] = μi, for all i and regardless of k ≥ 1. Therefore, the second sub-problem above reduces to 
+
+arg min 
+
+> δ
+
+∥ δ ∥22 (7) 
+
+subject to (w + δ)⊤ h
+
+S(i) 
+
+> Ni(t)
+
+− S(j) 
+
+> Nj(t)
+
+i
+
+> p2 log t
+
+
+
+N −1/2 
+
+> j
+
+(t) − N −1/2 
+
+> i
+
+(t)
+
+
+
+(for i = eAt, ∀j̸ = i, K < t ≤ T ),
+
+and Ni(t) ≜ Pt−1 
+
+> t′=1
+
+1( eAt′ = i). The above set of inequality constraints can be further simplified via introducing new symbols, and hence the above convex feasibility problem can be rewritten as 
+
+arg min 
+
+> δ
+
+∥ δ ∥22 (8) 
+
+subject to δ⊤ Tj,t > R j,t , ∀j ∈ [K − 1] , K < t ≤ T, 
+
+14 Accepted as a conference paper at ICLR 2026 where the vectors Tj,t and scalars Rj,t depend on samples in datasets Di and the target sequence 
+
+eAt. More precisely, we have 
+
+Tj,t ≜  μi − μj′
+
+ +
+
+ 1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> l=1
+
+Z(i) 
+
+> l
+
+− 1
+
+Nj′ (t) 
+
+> Nj′(t)
+
+X
+
+> l=1
+
+Z(j′)
+
+> l
+
+ , (9) 
+
+Rj,t ≜ − w⊤ Tj,t +p2 log t
+
+
+
+N −1/2 
+
+> j′
+
+(t) − N −1/2 
+
+> i
+
+(t)
+
+
+
+,
+
+where we have i ≜ eAt, and j′ ∈ [K − 1] is the index of the set [K] after removing eAt.In the case where the reward model is a neural network rather than linear, the NTK approximation in equation 5, together with the assumption max i Wi ≫ 1, yields an analogous QP form, with modified definitions of Tj,t and Rj,t :
+
+Tj,t ≜ 1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> l=1
+
+∇θ NN θ (X (i) 
+
+> l
+
+) − 1
+
+Nj′ (t) 
+
+> Nj′(t)
+
+X
+
+> l=1
+
+∇θ NN θ (X (j′) 
+
+> l
+
+), (10) 
+
+Rj,t ≜ −
+
+ 1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> l=1
+
+NN θ (X (i) 
+
+> l
+
+) − 1
+
+Nj′ (t) 
+
+> Nj′(t)
+
+X
+
+> l=1
+
+NN θ (X (j′) 
+
+> l
+
+)
+
+ + p2 log t
+
+
+
+N −1/2 
+
+> j′
+
+(t) − N −1/2 
+
+> i
+
+(t)
+
+
+
+.
+
+This completes the proof. 
+
+Proof of Theorem 3.3. Without loss of generality, we assume i∗ = 1 . Recalling the notation from the proof of Theorem 3.1, for all valid j and t, we have 
+
+E w⊤ Tj,t 
+
+ =
+
+
+
+1 eAt = 1 0 eAt̸ = 1 , j ̸ = 1 
+
+−1 eAt̸ = 1 , j = 1 
+
+, (11) 
+
+Var w⊤ Tj,t 
+
+ = 1
+
+Ni(t) w⊤ Cov Pi w + 1
+
+Nj′ (t) w⊤ Cov Pj′ w .
+
+Note that both Tj,t and Rj,t are deterministic. Also, we have 
+
+|Rj,t | ≤ w⊤ Tj,t + p2 log t
+
+
+
+1 − t−1/2
+
+. (12) The set of constraints can be rewritten in the following matrix form: 
+
+T δ ⪰ R, (13) where C × d matrix T and C-dimensional vector R are formed via row-wise concatenation of Tj,t sand Rj,t s, respectively. Here, C denotes the number of constraints which is at most (K −1)( T −K).Note that we have replaced ≻ with ⪰ by assuming infinitesimally small margins in the constraints. This modification simplifies the subsequent part of the proof. Also, it should be noted that both T
+
+and R are random. We need to show that the stochastic inequality system T δ ⪰ R is feasible with probability 1. We proceed by contradiction. Without loss of generality, assume that the first inequality T⊤ 
+
+> 1
+
+δ ≥ R1
+
+is infeasible (with positive probability), given that the remaining C − 1 inequalities are satisfied. Formally, assume 
+
+P
+
+n 
+
+δ T⊤ 
+
+> 1
+
+δ ≥ R1
+
+o
+
+∩
+
+n
+
+δ T⊤ 
+
+> i
+
+δ ≥ Ri, i = 2 , . . . , C 
+
+o
+
+= ∅
+
+
+
+> 0.
+
+Then we must have 
+
+P
+
+n 
+
+δ T δ = R
+
+o
+
+= ∅
+
+
+
+> 0,
+
+that is, the stochastic equation system T δ = R is unsolvable with positive probability. Since the number of variables d exceeds the maximum number of equations (T − K)( K − 1) , this can only occur if the rows of T fail to be linearly independent with positive probability. However, this is impossible by construction of T in equation 9. Indeed, since all resid-uals {Z(i) 
+
+> j
+
+}j∈[ni] are independently drawn and each distribution Pi is non-degenerate (i.e., 
+
+λmin (Cov (Pi)) > 0 for every i ∈ [K]), the rows of T are distributed in general position and are therefore linearly independent with probability 1. This completes the proof. 15 Accepted as a conference paper at ICLR 2026 
+
+Proof of Theorem 3.4. We begin with the following lemma: 
+
+Lemma B.1. Assume (T − K)( K − 1) < d and consider the constrained optimization problem 
+
+δ∗ ≜ arg min 
+
+> δ
+
+∥ δ ∥22 subject to T δ ⪰ R. (14) 
+
+Define eδ ≜ T†R, where † denotes the Moore–Penrose pseudo-inverse, i.e., eδ = ( TT ⊤)−1T⊤R.
+
+Then we have ∥ δ∗ ∥2 ≤ ∥ eδ∥2.
+
+Proof. The argument is straightforward. Removing any constraint from equation 14 (equivalently, removing a row of T) cannot increase ∥ δ∗ ∥2. Hence, the maximum possible ℓ2-norm of δ∗ occurs when all constraints are active. Formally, 
+
+∥ δ∗ ∥2 ≤ arg min 
+
+> δ
+
+∥ δ ∥22 subject to T δ = R
+
+> 2
+
+= ∥eδ∥2, (15) where the last equality follows from the definition of the Moore–Penrose pseudo-inverse, which yields the unique minimum-ℓ2-norm solution to an underdetermined linear system. Also, according to Theorem 3.3, we know the linear equation system T δ = R is solvable (hence eδ exists) with probability 1. This completes the proof. Next, we bound ∥eδ∥2. In order to do this, first note that 
+
+∥eδ∥2 ≤ ∥R∥2
+
+σmin (T) , (16) where σmin (·) denotes the minimum singular value. Therefore, we need to: i) find a high-probability bound for σmin (T), and ii) establish a similar bound for ∥R∥2. This requires an appropriate matrix representation for the construction of T, whose rows are defined in equation 9: any row of T = μi − μj +
+
+ 1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> l=1
+
+Z(i) 
+
+> l
+
+− 1
+
+Nj (t) 
+
+> Nj(t)
+
+X
+
+> l=1
+
+Z(j)
+
+> l
+
+ , (17) for any two properly defined indices i, j . We then leverage existing tools from random matrix theory to establish our main results. 
+
+Matrix-form generation of T. Let us define the residual matrix Γ as follows: 
+
+Γ ≜
+
+h
+
+Z(1) 1 · · · Z(1)  
+
+> n1
+
+· · · Z(K)1 · · · Z(K)
+
+> nK
+
+i⊤
+
+, (18) which is an (n1 + · · · + nK ) × d dimensional matrix that collects all the Z vectors as its rows. According to the assumptions in the statement of the theorem, Γ is a random matrix with independent rows. Moreover, since each data-generating distribution is assumed to be a product measure, the entries in each row are also independent and have variance 1. We are particularly interested in a sub-matrix of Γ, denoted by Γ∗ ∈ R(T −K)×d, which consists only of those vectors Z(i) 
+
+> j
+
+that correspond to arms pulled during the target trajectory for time-steps K < t ≤ T . Since the target trajectory is fixed and deterministic, Γ∗ is still a random matrix with independently distributed entries of unit variance. Recall that Ni(T ) denotes the number of times arm i has been pulled up to the horizon T for a given fixed target trajectory. For any non-degenerate trajectory eAt, we have Ni(T ) ≤ O (T /K ), ∀i ∈ [K].
+
+Let m denote the maximum number of times any arm has appeared during the trajectory, so that 
+
+m ≤ O (T /K ). Now, consider the following family of matrices: 
+
+Λn ≜
+
+
+
+1 1/2 · · · 1/n 
+
+0 1/2 · · · 1/n 
+
+... . . . . . . ...
+
+0 0 · · · 1/n 
+
+ , ∀n ∈ N. (19) 16 Accepted as a conference paper at ICLR 2026 
+
+Lemma B.2. we have λmin (Λ n) = 1 /n .Proof. Proof is straightforward. For some fixed n ∈ N, let us denote the eigenvalues of Λn by 
+
+λ1, . . . , λ n. Then, we have det (Λ n − λiI) = 0 for all i ∈ [n]. On the other hand, since Λn − λiI is upper-triangular, we have 
+
+det (Λ n − λj I) = 
+
+> n
+
+Y
+
+> i=1
+
+ 1
+
+i − λj
+
+
+
+, ∀j ∈ [n].
+
+Therefore, we must have λj = 1 /j for all j ∈ [n] and consequently λmin (Λ n) = 1 /n , which completes the proof. Consider the matrix Λm, and let us denote its columns by v1, . . . , vm ∈ Rm. Based on the definition of T in equation 9, each row of T consists of a mean-difference term μi − μj (for properly defined indices i, j ), together with a term that depends solely on residuals. This residual part can be rewritten as 
+
+1
+
+Ni(t)
+
+> Ni(t)
+
+X
+
+> l=1
+
+Z(i) 
+
+> l
+
+− 1
+
+Nj (t) 
+
+> Nj(t)
+
+X
+
+> l=1
+
+Z(j) 
+
+> l
+
+=
+
+0 vNi(t) 0 − 0 vNj (t) 0⊤
+
+Γ∗, (20) where 0 vi 0 denotes a vector of dimension T − K obtained by padding vi with zeros both before and after. In this regard, the random matrix T can be expressed as 
+
+T = M + V ⊤Γ∗, (21) where M is a low-rank matrix consisting of the mean-difference terms μi − μj as its rows. This includes (potentially) all possible pairwise differences between the means of the K distributions 
+
+P1, . . . , P K , with repetitions as required. Note that M can have at most K nonzero singular values. The matrix V ∈ R(T −K)×(T −K)( K−1) collects all combinations of vectors of the form 
+
+0 vNi(t) 0 − 0 vNj (t) 0,
+
+as its columns. The matrix V is fully determined by the target trajectory and can be regarded as a row/column-wise augmentation of Λm. Therefore, 
+
+σmin (V ) ≥ O (σmin (Λ m)) = O(1 /m ) ≥ O (K/T ) . (22) Consequently, we obtain 
+
+σmin (T) ≥ O (K/T ) · σmin (Γ ∗). (23) What remains, with respect to bounding the denominator in equation 16, is to establish a high-probability bound on σmin (Γ ∗). To this aim, we invoke a well-established result from random matrix theory. There are several known high-probability bounds for the minimum and maximum singular values of random matrices with independently drawn entries of equal variance 1. In particular, we have: 
+
+Theorem B.3 (Based on Theorem 6.1 of Wainwright (2019)) . For any positive δ, and assuming 
+
+d ≫ T − K, we have 
+
+σmin (Γ ∗) ≥ √d (1 − δ) − √T − K, (24) 
+
+with probability at least 1 − e−dδ 2/2.
+
+The proof can be found in the reference. Therefore, for any δ > 0,
+
+P σmin (T) ≥ O K√dT
+
+! 
+
+1 − δ −
+
+q T −Kd
+
+!
+
+≥ 1 − e−dδ 2/2. (25) Here, we used the fact that data-generating distributions are product measures with independent entries, such as N (μ, σ 2I) for any mean vector μ and variance-per-dimension σ2. Next, we try to (with high probability) upper-bound the nominator of equation 16. 17 Accepted as a conference paper at ICLR 2026 
+
+Figure 7: Number of constraints in the OSA method as a function of the time horizon T . The results show that the number of constraints grows logarithmically with T (O(log T )) for both K = 3 and 
+
+K = 5 arms, explaining the high efficiency of the method. 
+
+High-probability bounds on ∥R∥2. What remains is to bound ∥R∥2 in equation 16. From equa-tion 11 and equation 12, and using Chernoff bound (Wainwright, 2019), we obtain a naive high-probability bound as follows: 
+
+P
+
+
+
+|Ri| ≥ c1/2 O 1 + plog T 
+
+≤ e−c, ∀ c > 0, i ∈ [( K − 1)( T − K)] . (26) Therefore, using (T − K)( K − 1) ≤ KT and assuming T ≫ 1, we have 
+
+P
+
+
+
+∥R∥2 ≥ O  p cKT log T 
+
+≤ e−c, ∀ c > 0. (27) Combining equation 25 and equation 27, and applying the union bound, we obtain the following high-probability bound for ∥eδ∥2 (and hence ∥δ∗∥2), for any δ, c > 0:
+
+P ∥eδ∥2 ≤ O 
+
+ T 3/2√log T
+
+√Kd 
+
+
+
+·√c
+
+1 − δ − p(T − K)/d 
+
+!
+
+≥ 1 − e−c − e−dδ 2/2. (28) Finally, choosing c = log d and δ = d−1/3 yields the bound stated in the theorem and completes the proof. 
+
+# C ANALYSIS OF CONSTRAINT NUMBER IN THE OSA M ETHOD 
+
+We study the effect of increasing the time horizon T on the number of constraints in the OSA method. Our observations show that, while the number of constraints grows with T , this growth follows an 
+
+O(log T ) pattern, as illustrated in Fig. 7 for T ranging from 10 to 100 ,000 . To confirm this behavior, we repeat the experiment for two values of the number of arms, K = 3 and K = 5 , and observe the same pattern in both cases. This small number of constraints is one of the main reasons that makes the OSA method so fast. 
+
+# D ADDITIONAL DETAILS ON ETC AND ϵ-GREEDY ALGORITHMS 
+
+D.1 ETC A LGORITHM 
+
+The Explore-Then-Commit (ETC) (Garivier et al., 2016) algorithm is a simple bandit strategy that divides the learning process into two distinct phases. During the exploration phase, the algorithm 18 Accepted as a conference paper at ICLR 2026 Table 1: Comparison of attack performance on linear and non-linear reward models using the ϵ-greedy and ETC methods. All attacks achieve a 100% success rate ( ASR = 100 ). The table illustrates how varying the parameters K and D (or max i Wi) affects the attack duration. In this experiment, we set T = 100 and the number of exploration rounds for ETC to m = 5 .Reward Models Linear Reward Model Non-linear Reward Model 
+
+K d Attack Time K max i Wi Attack Time 
+
+ϵ-greedy Attack 
+
+3 10000 00:00 3 3000 00:22 3 1000 00:00 3 6000 00:12 5 10000 00:00 5 3000 00:18 5 1000 00:00 5 6000 00:13 
+
+Explore-Then-Commit (ETC) 
+
+3 10000 00:00 3 3000 00:03 3 1000 00:00 3 6000 00:06 5 10000 00:00 5 3000 00:04 5 1000 00:00 5 6000 00:09 uniformly samples each arm a predetermined number of times to gather initial reward estimates. Once the exploration phase is complete, ETC commits to the arm with the highest estimated reward for the remainder of the time horizon. This approach provides a balance between exploration and exploitation while remaining easy to implement and analyze. The length of the exploration phase can be tuned to optimize performance depending on the problem setting. To attack ETC, the adversary only needs to wait until the exploration phase is complete. At the transition between the exploration and commit phases, the adversary manipulates the rewards so that the empirical mean of the target arm exceeds that of the optimal arm. During the subsequent commit phase, the algorithm then selects the target arm. Since the ETC constraint set involves only a single constraint, the attack is fast and straightforward, particularly in high-dimensional settings. D.2 ϵ-GREEDY ALGORITHM 
+
+The ϵ-greedy (Dann et al., 2022) algorithm selects a random arm with probability ϵ (exploration) and the arm with the highest estimated reward with probability 1 − ϵ (exploitation) at each time step. In our experiments, we use an adaptive ϵ that decreases over time, allowing the algorithm to explore more during the early stages and gradually exploit the best-known arm as more information is gath-ered. This time-dependent strategy enables the algorithm to balance exploration and exploitation effectively, and the choice of the initial ϵ and its decay schedule directly influences its performance. To attack ϵ-greedy, the adversary follows the same principle as OSA . During random arm selections, no attack is performed. However, when the algorithm selects the arm with the highest empirical mean, the adversary intervenes to prevent the optimal arm from being pulled. Specifically, the target arm is chosen as the runner-up, and its empirical value is increased to surpass the optimal arm, as modifying the runner-up is simpler than other arms. This approach makes the attack fast and highly efficient. For the ETC algorithm, we set the number of exploration rounds to m = 5 , meaning each arm is selected exactly five times before the commit phase begins. For the ϵ-greedy algorithm, we set the initial ϵ to 0.1 and apply decay over time, with a minimum value of 0.01 .
+
+# E IMPLEMENTATION DETAILS OF REWARD MODEL TRAINING FOR 
+
+# SYNTHETIC DATA 
+
+We train several neural networks, each with a single hidden layer whose size varies depending on the task. The networks are optimized using Adam (Adam et al., 2014) and employ the ReLU activation function (Agarap, 2018). Training is performed using the mean squared error (MSE) loss. The 19 Accepted as a conference paper at ICLR 2026       
+
+> (a) ASR before and after defense on the linear reward model when T / 4of the logged data is shuffled. The defense significantly reduces the attack success rates across all attack methods.
+> (b) ASR before and after defense on the linear reward model when 3T / 4of the logged data is shuffled. The defense further reduces attack success rates compared to the T / 4case.
+
+Figure 8: Comparison of ASR before and after defense on the linear reward model under different fractions of logged data shuffled as a defense. logged data is split into training and validation sets, with 80% used for training and 20% reserved for validation. Networks are trained for 100 epochs with a batch size of 1024 and a learning rate of 
+
+10 −3. For supervision, the ground truth is computed as the inner product of the data with the mean of the optimal arm. 
+
+# F ADDITIONAL RESULTS ON ATTACKING THE REAL DATASET 
+
+To demonstrate the generality of our attack, in addition to two pretrained reward models com-monly used to evaluate generative image models, Image Reward (Xu et al., 2023) and Aesthetic Model (LAION-AI, 2021), we attack a randomized reward network. This random reward model is initialized with random weights and we freeze the majority of its parameters except for a single hidden layer. Despite its random initialization, the model’s trajectory can still be hijacked by our method: the ASR distribution for this random reward model closely matches those of the Image Re-ward and Aesthetic models in Figure 3. Figure 9 shows the distribution of our attack on the random reward model. 
+
+Figure 9: ASR distribution on the random reward model, showing vulnerability similar to the Image Reward and Aesthetic models despite random weights. 
+
+# G ADDITIONAL RESULTS ON THE DEFENSE METHOD 
+
+The effectiveness of the shuffling defense can be further evaluated by varying the fraction of logged data that is shuffled. In particular, we consider two additional settings where T / 2 and 3T / 4 of the logged data are shuffled before running the bandit algorithm. The results demonstrate that increasing 20 Accepted as a conference paper at ICLR 2026 the portion of shuffled data substantially reduces the attack success rate (ASR) across all attack methods. Detailed results for these settings are presented in Figure 8. 
+
+# H GEOMETRY OF ATTACK VECTOR 
+
+We visualize the geometry of the attack vector relative to other vectors, we reduce the perturbation space to three dimensions using PCA. As shown in Fig. 10a and Fig. 10b, the perturbations are neither trivial nor simply the reverse of the vector w. This demonstrates that the attack is subtle, imperceptible, and not easily detectable from the bandit algorithm’s perspective.            
+
+> (a) T= 100 , K = 3 , D = 1000 ,OSA (b) T= 100 , K = 4 , D = 1000 ,OSA
+
+Figure 10: 3D visualization of perturbations for different values of K.
+
+# I A R EALISTIC AND PRACTICAL THREAT MODEL FOR MODERN BANDIT 
+
+# SYSTEMS 
+
+Our setting, similar to most modern and practical MAB formulations, assumes that pulling an arm produces a data sample, not a direct reward value, and the bandit/learner then evaluates the reward based on that sample. For example, an image generator or an LLM returns an image or text when queried (equivalent to pulling an arm), and the learner assesses a reward (e.g., fidelity or quality) using some reward function. Such reward functions may be linear or neural networks. Here, sample generation is handled by the environment, to which we assume no access, whereas reward functions are typically derived from publicly available pretrained models that can be poisoned and later down-loaded by an unknowing learner for bandit training. Several of the cited works (Rezaei et al., 2025; Hu et al., 2024b) in our Introduction highlight exactly this kind of setting. Another point to mention is that we believe our setting is more realistic in practice than previous attack strategies. Instantiated attack perturbation requires the adversary to be online, active, and present inside the private server where the bandit is trained. This is actually too much to assume from the adversary’s side. We (both theoretically and experimentally) show that poisoning the reward function before training even be-gins can still cause equally significant damage, while the attack itself is much simpler to perform. We believe it is important for the community to recognize that such a vulnerability exists in offline bandits, which may motivate future efforts toward developing defense mechanisms. 
+
+# J VISUALIZATION OF OSA M ETHOD ON REAL REWARD MODEL 
+
+Figure 11 illustrates our OSA attack on the Aesthetic Reward Model (LAION-AI, 2021). The first panel presents the baseline experiment: UCB (Auer, 2002) is run using the reward scores from the model, which leads it to consistently select SD3 (Rombach et al., 2022) as the optimal arm since it achieves the highest aesthetic scores. The plot depicts the arm-selection trajectory over time under this setting. The second panel shows the same experiment under our attack. By manipulating the weights of reward model, the attacker hijacks UCB so that it selects the Openjourney model as the optimal arm. Timesteps targeted by OSA method are highlighted in gray. 21 Accepted as a conference paper at ICLR 2026 
+
+> (a) Results with UCB on real data.
+> (b) Results with OSA on real data.
+
+Figure 11: Comparison of methods on real data. (a) UCB results. (b) OSA results. 22 Accepted as a conference paper at ICLR 2026 
+
+# K ALGORITHMS 
+
+The detailed algorithms for the Full Trajectory Attack (Algorithm 1), OSA Attack (Algorithm 2), and Trajectory-Free Attack (Algorithm 3) are provided below. Each follows the same structure with three functions: select arm , find perturbation , and update , with differences noted in the comments. 
+
+Algorithm 1: Full Trajectory Attack 
+
+Function select arm( t, K, eA):if t ≤ K then return t, False 
+
+else 
+
+// Adversary selects an arm according to the target trajectory 
+
+arm ← eAt
+
+return arm , True 
+
+Function find perturbation( K, S, G, F, C, {μi}Ki=1 , use NN ):
+
+// Consider all the inequalities 
+
+for j ← 1 to K, j̸ = arm do if use NN then 
+
+dj ← G(arm ) − G(j)
+
+cj ←
+
+q 2 log tNj −
+
+q 2 log tNarm + (F (j) − F(arm ))
+
+else 
+
+dj ← S(arm ) − S(j)
+
+cj ←
+
+q 2 log tNj −
+
+q 2 log tNarm − μ⊤ 
+
+> j
+
+dj
+
+Append (dj , c j ) to CM ← ∅
+
+foreach (d, c ) ∈ C do 
+
+M ← M ∪ { δ⊤d ≥ c + 10 −6}
+
+δ ← solve QP in Eq. equation 2 with constraints M
+
+return δ
+
+Function update( X, S(arm ), F(arm ), G(arm ), use NN ):
+
+Narm ← Narm + 1 
+
+if use NN then 
+
+G(arm ) ← G(arm ) + 1 
+
+> Narm
+
+(∇N N θ (X) − G(arm ))F(arm ) ← F(arm ) + 1 
+
+> Narm
+
+(N N θ (X) − F(arm ))
+
+else 
+
+S(arm ) ← S(arm ) + 1 
+
+> Narm
+
+(X − S(arm ))
+
+// Inputs: {D i}Ki=1 Logged data, eA is target trajectory, {μi}Ki=1 are inferred means, use NN is a boolean flag, N N θ is the reward model 
+
+Input: K, d, T, {D i}Ki=1 , use NN , N N θ , {μi}Ki=1 , eA
+
+Output: Perturbation δ
+
+// N : counts, S: sample mean, G: mean gradient, F: mean network output, C: constraint set 
+
+Initialize N, S, G, F ← 0
+
+Initialize C ← ∅, δ ← 0
+
+for t ← 1 to T do 
+
+arm, do attack ← select arm( t, K, eA)
+
+if do attack then 
+
+δ ← find perturbation( K, S, G, F, C, {μi}Ki=1 , use NN )
+
+Pull arm , observe X ∼ D arm 
+
+update( X, S(arm ), F(arm ), G(arm ), use NN )
+
+return δ
+
+23 Accepted as a conference paper at ICLR 2026 
+
+Algorithm 2: OSA Attack: Online Score-Aware Attack 
+
+Function select arm( t, K, N, R):if t ≤ K then return t, False 
+
+else 
+
+// Select the runner-up arm for attack 
+
+for j ← 1 to K do 
+
+UCB[ j] ← R(j) +
+
+q 2 log tNj
+
+arm ← arg max j UCB[ j]
+
+// Attack if the arm with the highest UCB is the optimal arm 
+
+do attack ← (arm == 1) 
+
+return arm , do attack 
+
+Function find perturbation( S, G, F, C, μ1, use NN ):
+
+// Construct inequality constraints to prevent selection of optimal arm 
+
+if use NN then 
+
+d ← G(arm ) − G(1) 
+
+c ←  q 2 log tN1 −
+
+q 2 log tNarm 
+
+ + (F (1) − F(arm ))
+
+else 
+
+d ← S(arm ) − S(1) 
+
+c ←  q 2 log tN1 −
+
+q 2 log tNarm 
+
+ − μ⊤ 
+
+> 1
+
+d
+
+Append (d, c ) to CM ← ∅
+
+foreach (d, c ) ∈ C do 
+
+M ← M ∪ { δ⊤d ≥ c + 10 −6}
+
+δ ← solve QP in Eq. equation 2 with constraints M
+
+return δ
+
+Function update( X, R, S(arm ), F(arm ), G(arm ), use NN , δ ):
+
+Narm ← Narm + 1 
+
+if use NN then 
+
+G(arm ) ← G(arm ) + 1 
+
+> Narm
+
+(∇N N θ (X) − G(arm ))F(arm ) ← F(arm ) + 1 
+
+> Narm
+
+(N N θ (X) − F(arm ))
+
+else 
+
+S(arm ) ← S(arm ) + 1 
+
+> Narm
+
+(X − S(arm ))
+
+// Update empirical rewards using current δ
+
+Update R using δ
+
+// Inputs: {D i}Ki=1 Logged data, {μi}Ki=1 are inferred means, use NN is a boolean flag, N N θ is the reward model 
+
+Input: K, d, T, {D i}Ki=1 , use NN , N N θ , {μi}Ki=1 are inferred means 
+
+Output: Perturbation δ
+
+// N : counts, S: sample mean, G: mean gradient, F: mean network output, R: empirical rewards, C:constraint set 
+
+Initialize N, S, G, F ← 0
+
+Initialize C ← ∅, δ ← 0
+
+for t ← 1 to T do 
+
+arm, do attack ← select arm( t, K, N, R)
+
+if do attack then 
+
+δ ← find perturbation( S, G, F, C, μ1, use NN )
+
+Pull arm , observe X ∼ D arm 
+
+update( X, R, S(arm ), F(arm ), G(arm ), use NN , δ )
+
+return δ
+
+24 Accepted as a conference paper at ICLR 2026 
+
+Algorithm 3: Trajectory-Free Attack 
+
+Function select arm( t, K ):if t ≤ K then return t, False 
+
+else 
+
+// Select a sub-optimal arm in round-robin order 
+
+arm ← next sub-optimal arm 
+
+return arm , True 
+
+Function find perturbation( S, G, F, C, μ 1, use NN ):
+
+// Construct constraints only w.r.t. optimal arm 
+
+if use NN then 
+
+d ← G(arm ) − G(1) 
+
+c ←  q 2 log tN1 −
+
+q 2 log tNarm 
+
+ + (F (1) − F(arm ))
+
+else 
+
+d ← S(arm ) − S(1) 
+
+c ←  q 2 log tN1 −
+
+q 2 log tNarm 
+
+ − μ⊤ 
+
+> 1
+
+d
+
+Append (d, c ) to CM ← ∅
+
+foreach (d, c ) ∈ C do 
+
+M ← M ∪ { δ⊤d ≥ c + 10 −6}
+
+δ ← solve QP in Eq. equation 2 with constraints M
+
+return δ
+
+Function update( X, S(arm ), F(arm ), G(arm ), use NN ):
+
+Narm ← Narm + 1 
+
+if use NN then 
+
+G(arm ) ← G(arm ) + 1 
+
+> Narm
+
+(∇N N θ (X) − G(arm ))F(arm ) ← F(arm ) + 1 
+
+> Narm
+
+(N N θ (X) − F(arm ))
+
+else 
+
+S(arm ) ← S(arm ) + 1 
+
+> Narm
+
+(X − S(arm ))
+
+// Inputs: {D i}Ki=1 Logged data, {μi}Ki=1 are inferred means, use NN is a boolean flag, N N θ is the reward model 
+
+Input: K, d, T, {D i}Ki=1 , {μi}Ki=1 , use NN 
+
+Output: Perturbation δ
+
+// N : counts, S: sample mean, G: mean gradient, F: mean network output, C: constraints 
+
+Initialize N, S, G, F ← 0
+
+Initialize C ← ∅, δ ← 0
+
+for t ← 1 to T do 
+
+arm, do attack ← select arm( t, K )
+
+if do attack then 
+
+δ ← find perturbation( S, G, F, μ 1, C, use NN )
+
+Pull arm , observe X ∼ D arm 
+
+update( X, S(arm ), F(arm ), G(arm ), use NN )
+
+return δ
+
+25 Accepted as a conference paper at ICLR 2026 
+
+# L THE USE OF LARGE LANGUAGE MODELS (LLM S)
+
+We used Large Language Models (LLMs) only in a limited way, specifically for minor writing polish and phrasing suggestions. 26

@@ -9,55 +9,51 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-26 ~ 2026-03-06
-- 运行时间：2026-03-06 19:16:57 UTC
+- 最新运行日期：2026-02-27 ~ 2026-03-07
+- 运行时间：2026-03-07 19:02:15 UTC
 - 运行状态：成功
-- 本次总论文数：17
-- 精读区：6
+- 本次总论文数：15
+- 精读区：4
 - 速读区：11
 
 ### 今日简报（AI）
-今日深度复盘 17 篇 RL 顶尖论文，重点解析评分 9.0 的 RePO 框架如何通过“重述”策略完美融合在线与离线学习。
-核心结论指出，模仿成功经验与离线 RL 是提升大模型推理能力及多领域泛化性的关键路径。
-建议优先研读 RePO 论文，掌握利用离线知识加速策略优化的前沿范式。
-- 详情：[/20260226-20260306/README](/20260226-20260306/README)
+本期精选 15 篇前沿论文，深度探索强化学习在多轮交互智能体与生成式推荐中的核心突破。
+重点推荐通过自进化合成数据构建可验证奖励的工具智能体，以及利用分布稳健策略优化解决推荐系统中的排斥难题。
+建议开发者关注小模型推理的忠实度优化及 F-GRPO 算法，以提升模型在复杂及罕见场景下的泛化表现。
+- 详情：[/20260227-20260307/README](/20260227-20260307/README)
 
 ### 精读区论文标签
-1. [RePO: Bridging On-Policy Learning and Off-Policy Knowledge through Rephrasing Policy Optimization](/20260226-20260306/2602.10819v1-repo-bridging-on-policy-learning-and-off-policy-knowledge-through-rephrasing-policy-optimization)  
-   标签：评分：9.0/10、query:rl-ts
-2. [Success Conditioning as Policy Improvement: The Optimization Problem Solved by Imitating Success](/20260226-20260306/2601.18175v1-success-conditioning-as-policy-improvement-the-optimization-problem-solved-by-imitating-success)  
+1. [From Self-Evolving Synthetic Data to Verifiable-Reward RL: Post-Training Multi-turn Interactive Tool-Using Agents](/20260227-20260307/2601.22607v2-from-self-evolving-synthetic-data-to-verifiable-reward-rl-post-training-multi-turn-interactive-tool-using-agents)  
    标签：评分：8.0/10、query:rl-ts
-3. [OffSeeker: Online Reinforcement Learning Is Not All You Need for Deep Research Agents](/20260226-20260306/2601.18467v1-offseeker-online-reinforcement-learning-is-not-all-you-need-for-deep-research-agents)  
+2. [Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation](/20260227-20260307/2602.10430v1-breaking-the-curse-of-repulsion-optimistic-distributionally-robust-policy-optimization-for-off-policy-generative-recommendation)  
    标签：评分：8.0/10、query:rl-ts
-4. [Reinforcement Learning from Meta-Evaluation: Aligning Language Models Without Ground-Truth Labels](/20260226-20260306/2601.21268v1-reinforcement-learning-from-meta-evaluation-aligning-language-models-without-ground-truth-labels)  
+3. [Think Longer to Explore Deeper: Learn to Explore In-Context via Length-Incentivized Reinforcement Learning](/20260227-20260307/2602.11748v1-think-longer-to-explore-deeper-learn-to-explore-in-context-via-length-incentivized-reinforcement-learning)  
    标签：评分：8.0/10、query:rl-ts
-5. [A Step Back: Prefix Importance Ratio Stabilizes Policy Optimization](/20260226-20260306/2601.22718v1-a-step-back-prefix-importance-ratio-stabilizes-policy-optimization)  
-   标签：评分：8.0/10、query:rl-ts
-6. [TSR: Trajectory-Search Rollouts for Multi-Turn RL of LLM Agents](/20260226-20260306/2602.11767v2-tsr-trajectory-search-rollouts-for-multi-turn-rl-of-llm-agents)  
+4. [RAPO: Expanding Exploration for LLM Agents via Retrieval-Augmented Policy Optimization](/20260227-20260307/2603.03078v1-rapo-expanding-exploration-for-llm-agents-via-retrieval-augmented-policy-optimization)  
    标签：评分：8.0/10、query:rl-ts
 
 ### 速读区论文标签
-1. [To Mix or To Merge: Toward Multi-Domain Reinforcement Learning for Large Language Models](/20260226-20260306/2602.12566v1-to-mix-or-to-merge-toward-multi-domain-reinforcement-learning-for-large-language-models)  
-   标签：评分：8.0/10、query:rl-ts
-2. [LLMs Can Learn to Reason Via Off-Policy RL](/20260226-20260306/2602.19362v1-llms-can-learn-to-reason-via-off-policy-rl)  
-   标签：评分：8.0/10、query:rl-ts
-3. [Localized Dynamics-Aware Domain Adaption for Off-Dynamics Offline Reinforcement Learning](/20260226-20260306/2602.21072v1-localized-dynamics-aware-domain-adaption-for-off-dynamics-offline-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-ts
-4. [Towards Better RL Training Data Utilization via Second-Order Rollout](/20260226-20260306/2602.22765v1-towards-better-rl-training-data-utilization-via-second-order-rollout)  
-   标签：评分：8.0/10、query:rl-ts
-5. [SearchGym: Bootstrapping Real-World Search Agents via Cost-Effective and High-Fidelity Environment Simulation](/20260226-20260306/2601.14615v1-searchgym-bootstrapping-real-world-search-agents-via-cost-effective-and-high-fidelity-environment-simulation)  
+1. [Training Multi-Turn Search Agent via Contrastive Dynamic Branch Sampling](/20260227-20260307/2602.03719v1-training-multi-turn-search-agent-via-contrastive-dynamic-branch-sampling)  
    标签：评分：7.0/10、query:rl-ts
-6. [When Sharpening Becomes Collapse: Sampling Bias and Semantic Coupling in RL with Verifiable Rewards](/20260226-20260306/2601.15609v2-when-sharpening-becomes-collapse-sampling-bias-and-semantic-coupling-in-rl-with-verifiable-rewards)  
+2. [Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models](/20260227-20260307/2602.05897v1-stop-rewarding-hallucinated-steps-faithfulness-aware-step-level-reinforcement-learning-for-small-reasoning-models)  
    标签：评分：7.0/10、query:rl-ts
-7. [POPE: Learning to Reason on Hard Problems via Privileged On-Policy Exploration](/20260226-20260306/2601.18779v1-pope-learning-to-reason-on-hard-problems-via-privileged-on-policy-exploration)  
+3. [F-GRPO: Don't Let Your Policy Learn the Obvious and Forget the Rare](/20260227-20260307/2602.06717v1-f-grpo-dont-let-your-policy-learn-the-obvious-and-forget-the-rare)  
    标签：评分：7.0/10、query:rl-ts
-8. [DynaWeb: Model-Based Reinforcement Learning of Web Agents](/20260226-20260306/2601.22149v1-dynaweb-model-based-reinforcement-learning-of-web-agents)  
+4. [CoMI-IRL: Contrastive Multi-Intention Inverse Reinforcement Learning](/20260227-20260307/2602.07496v1-comi-irl-contrastive-multi-intention-inverse-reinforcement-learning)  
    标签：评分：7.0/10、query:rl-ts
-9. [Efficient Epistemic Uncertainty Estimation for Large Language Models via Knowledge Distillation](/20260226-20260306/2602.01956v1-efficient-epistemic-uncertainty-estimation-for-large-language-models-via-knowledge-distillation)  
+5. [OPE: Overcoming Information Saturation in Parallel Thinking via Outline-Guided Path Exploration](/20260227-20260307/2602.08344v1-ope-overcoming-information-saturation-in-parallel-thinking-via-outline-guided-path-exploration)  
+   标签：评分：7.0/10、query:rl-ts
+6. [Semi-Supervised Cross-Domain Imitation Learning](/20260227-20260307/2602.10793v1-semi-supervised-cross-domain-imitation-learning)  
+   标签：评分：7.0/10、query:rl-ts
+7. [Uncertainty-Aware Extrapolation in Bayesian Oblique Trees](/20260227-20260307/2601.22899v1-uncertainty-aware-extrapolation-in-bayesian-oblique-trees)  
    标签：评分：6.0/10、query:rl-ts
-10. [Learning to Reason Faithfully through Step-Level Faithfulness Maximization](/20260226-20260306/2602.03507v1-learning-to-reason-faithfully-through-step-level-faithfulness-maximization)  
+8. [Resource-Efficient Reinforcement for Reasoning Large Language Models via Dynamic One-Shot Policy Refinement](/20260227-20260307/2602.00815v1-resource-efficient-reinforcement-for-reasoning-large-language-models-via-dynamic-one-shot-policy-refinement)  
    标签：评分：6.0/10、query:rl-ts
-11. [Reasoning Cache: Continual Improvement Over Long Horizons via Short-Horizon RL](/20260226-20260306/2602.03773v1-reasoning-cache-continual-improvement-over-long-horizons-via-short-horizon-rl)  
+9. [Efficient Adversarial Attacks on High-dimensional Offline Bandits](/20260227-20260307/2602.01658v1-efficient-adversarial-attacks-on-high-dimensional-offline-bandits)  
+   标签：评分：6.0/10、query:rl-ts
+10. [FaithRL: Learning to Reason Faithfully through Step-Level Faithfulness Maximization](/20260227-20260307/2602.03507v2-faithrl-learning-to-reason-faithfully-through-step-level-faithfulness-maximization)  
+   标签：评分：6.0/10、query:rl-ts
+11. [When RL Meets Adaptive Speculative Training: A Unified Training-Serving System](/20260227-20260307/2602.06932v1-when-rl-meets-adaptive-speculative-training-a-unified-training-serving-system)  
    标签：评分：6.0/10、query:rl-ts
 
 

@@ -1,0 +1,605 @@
+Title: Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models
+
+URL Source: https://arxiv.org/pdf/2602.05897v1
+
+Published Time: Fri, 06 Feb 2026 02:16:13 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+Shuo Nie 1 2 ∗
+
+Hexuan Deng 1 3 ∗
+
+Chao Wang 2 Ruiyu Fang 2 Xuebo Liu 1 †
+
+Shuangyong Song 1 Yu Li 4 Min Zhang 1 Xuelong Li 2 †
+
+## Abstract 
+
+As large language models become smaller and more efficient, small reasoning models (SRMs) are crucial for enabling chain-of-thought (CoT) reasoning in resource-constrained settings. How-ever, they are prone to faithfulness hallucinations, especially in intermediate reasoning steps. Exist-ing mitigation methods based on online reinforce-ment learning rely on outcome-based rewards or coarse-grained CoT evaluation, which can inad-vertently reinforce unfaithful reasoning when the final answer is correct. To address these limita-tions, we propose Faithfulness-Aware Step-Level Reinforcement Learning (FaithRL), introducing step-level supervision via explicit faithfulness re-wards from a process reward model, together with an implicit truncated resampling strategy that gen-erates contrastive signals from faithful prefixes. Experiments across multiple SRMs and Open-Book QA benchmarks demonstrate that FaithRL consistently reduces hallucinations in both the CoT and final answers, leading to more faithful and reliable reasoning. Code is available at http s://github.com/Easy195/FaithRL .
+
+## 1. Introduction 
+
+The development of large language models (LLMs) is trend-ing toward greater efficiency and smaller model sizes (Team et al., 2025b; Haque et al., 2025). This shift reduces deploy-ment costs and expands application scenarios, particularly in resource-constrained environments such as edge devices and mobile platforms (Gunter et al., 2024; Prieto & Abad, 
+
+> *
+
+Equal contribution 1Institute of Computing and Intelli-gence, Harbin Institute of Technology, Shenzhen, China 2Institute of Artificial Intelligence (TeleAI), China Telecom Corp Ltd 
+
+> 3
+
+Zhongguancun Academy, Beijing, China 4College of Integrated Circuits, Zhejiang University, Hangzhou, Zhejiang, China. Cor-respondence to: Xuebo Liu <liuxuebo@hit.edu.cn>, Xuelong Li <xuelong_li@ieee.org>. 
+
+Preprint. February 6, 2026. Context : …… Lisa was last seen around 10:30 p.m. October 3, asleep in her crib, police said. Authorities were called to the home about 4 a.m. October 4………      
+
+> When was the authorities be called to home? When was the missing child last seen?
+> …… authorities were called to the house
+> around 10:30 p.m. on October 3 ……the last time she was seen was on the same day as the surveillance, which is October 3 at around 10:30 p.m.…
+> Missing child Lisa, was last seen around 10:30 p.m. on October 3.
+> …… I think police were called to the home at about 10:30 PM on Oct. 3 ……
+> The authorities were called to the house around 10:30 pm on October 3rd.
+> Question CoT Answer
+> DeepSeek-R1-Distill-Qwen-1.5B Question Related to Faithfulness Hallucintion Step
+> Severe Faithfulness Hallucination in CoT
+
+Figure 1. For small reasoning models, faithfulness hallucinations in the CoT and the final answer are often inconsistent, making outcome-only rewards ineffective. Figure shows an example on NewsQA with DeepSeek-R1-Distill-Qwen-1.5B (DPSK-1.5B): although the final answer is correct, faithfulness hallucinations still occur within the CoT. By constructing new questions based on hallucinated CoT steps, we find that the model frequently produces incorrect answers, indicating that faithfulness hallucinations in the CoT can trigger further errors. 
+
+2025). It is also becoming a key factor in overcoming per-formance bottlenecks (Pham et al., 2025). In this context, small reasoning models (SRMs) leverage chain-of-thought (CoT) reasoning for test-time scaling, achieving strong per-formance at low deployment cost (Snell et al., 2024). How-ever, compared to non-reasoning models or larger models, SRMs are more prone to faithfulness hallucinations, which limits their adoption (Deng et al., 2024; Kalai et al., 2025). To address this problem, recent methods focus on online reinforcement learning (online RL), e.g., GRPO (Shao et al., 2024; Wen et al., 2025), often outperform traditional ap-proaches (Lightman et al., 2024; Rao et al., 2025a). How-ever, these approaches either rely solely on outcome-based rewards, thereby overlooking unfaithful reasoning steps dur-ing the CoT stage (Si et al., 2025), or provide only a coarse, global CoT score without penalizing unfaithful steps (Li & Ng, 2025). As illustrated in Figure 1, when the final answer is correct but the CoT is incorrect, outcome rewards can mistakenly reinforce hallucinatory CoT. Such CoT reflects the model’s misinterpretation of the context, which can lead to hallucinated answers on other problems. Even worse, little prior work targets reasoning models directly, leaving their distinct hallucination dynamics largely unexplored. 1
+
+> arXiv:2602.05897v1 [cs.CL] 5 Feb 2026 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models
+
+To address these issues, we propose Faithfulness-Aware Step-Level Reinforcement Learning (FaithRL). We intro-duce step-level rewards from two perspectives. First, we design explicit step-level rewards by leveraging a process reward model (PRM) to assess the faithfulness of each rea-soning step, together with strategies that mitigate reward hacking. Second, we introduce implicit step-level rewards via truncated resampling: when an unfaithful CoT step is de-tected, we regenerate the continuation from a faithful prefix to provide positive counterexamples. This tree-structured sampling naturally yields step-level contrastive signals, en-abling targeted penalization of hallucinated CoT steps. Results show that FaithRL consistently outperforms all methods across various SRMs in Open-Book Question An-swer (QA). On average, it reduces answer hallucinations by 3.86% in terms of F1 and by 3.48% in terms of LLM-as-a-judge, compared to the best baseline. Further analysis confirms that our method significantly mitigates CoT hallu-cinations, whereas optimizing with an outcome-only reward instead exacerbates CoT hallucinations. Moreover, in cases where the CoT is incorrect but the final answer is correct, the erroneous CoT is often harmful and can readily lead to incorrect answers. Our contributions are: • We demonstrate the harmful impact of hallucinated CoT, filling an important gap in mitigating faithfulness hallucinations in SRMs. • We provide step-level supervision via a combination of explicit step-level rewards and implicit contrastive data generation. • Extensive experiments across multiple SRMs and di-verse Open-Book QA benchmarks demonstrate consis-tent improvements in faithfulness. 
+
+## 2. Related Work 
+
+Hallucinations in LLMs. Hallucination remains a fun-damental challenge for LLMs, typically categorized into factual hallucinations and faithfulness hallucinations (Deng et al., 2023; Kalai et al., 2025; Yao et al., 2025; Liu et al., 2025). Factual hallucinations deviate from objective facts or fabricate information, while faithfulness hallucinations arise when outputs diverge from source context, violate instructions, or exhibit internal inconsistencies (Alansari & Luqman, 2025; Huang et al., 2025a; Guo et al., 2025; Rao et al., 2025b). With the growing adoption of Large Reasoning Models (LRMs) for multi-step reasoning tasks, recent advances increasingly rely on reinforcement learning to incentivize long-horizon reasoning, where CoT serves as an explicit intermediate process. Representative mod-els include OpenAI o1 (OpenAI et al., 2024), DeepSeek R1 (DeepSeek-AI et al., 2025), Kimi k1.5 (Team et al., 2025a), and QwQ (Team, 2025). Although reasoning mod-els improve effectiveness and reasoning capability (Ye et al., 2025; Deng et al., 2025), they exhibit more severe hallu-cinations than non-reasoning models (Kalai et al., 2025; Shojaee et al., 2025). We attribute this largely to halluci-nations within the CoT, which can be more prevalent than those in final answers. 
+
+Mitigating Factual Hallucination. Recent work has ex-plored various approaches to mitigate factual hallucinations. TruthRL (Wei et al., 2025) employs a ternary reward under GRPO to encourage abstention under uncertainty, reducing factual hallucinations in QA. LoVeC (Zhang et al., 2025a) trains models to output sentence-level confidence scores via reinforcement learning, indirectly alleviating factual hallu-cinations. Mask-DPO (Gu et al., 2025) introduces sentence-level factual masks into DPO, aligning only factually correct content and substantially reducing fine-grained factual hallu-cinations. However, these methods mainly focus on final an-swer correctness and largely overlook hallucinations within the CoT, limiting their applicability to reasoning models. 
+
+Mitigating Faithfulness Hallucination. Several stud-ies have attempted to mitigate faithfulness hallucinations. KD (Nguyen et al., 2025) supervises student models with teacher outputs to enhance response fidelity. RLFH (Wen et al., 2025) and Scope (Duong et al., 2025) leverage self-judging or contrastive signals for alignment, while Dual-GRPO (Si et al., 2025) jointly optimizes long- and short-form generation to enhance context faithfulness. FSPO (Li & Ng, 2025) introduces step-level scoring with average pool-ing to improve reasoning faithfulness. Scaf-GRPO (Zhang et al., 2025b) adopts a scaffolded GRPO curriculum to im-prove reasoning performance. Despite these advances, existing methods fail to precisely penalize unfaithful reasoning steps. Little prior work specif-ically targets reasoning models, leaving their distinct hal-lucination dynamics largely unexplored. To address these limitations, we propose FaithRL, which explicitly penalizes unfaithful reasoning steps using step-level signals. 
+
+## 3. Analyzing Faithfulness Hallucinations in SRMs 
+
+In this section, we conduct a series of analyses on faithful-ness hallucinations in reasoning models. First, we show that SRMs tend to suffer from more severe faithfulness halluci-nations. Second, we find that SRMs’ faithfulness hallucina-tions are more pronounced in CoT than in answers, which leads to the inconsistency where correct answers coexist with unfaithful CoT. Finally, an attack experiment shows that this inconsistency is harmful. When SRMs are faced with new problems constructed based on unfaithful halluci-nated steps in CoT, they often produce incorrect answer. 2Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models                                                                                              
+
+> Table 1. Preliminary evaluation of faithfulness hallucinations across various reasoning models’ scales. ∆denotes the difference compared to the best-performing reasoning model in the same series.
+> Models SQuAD NewsQA TriviaQA NQ HotpotQA Average ∆
+> Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. DPSK-7B 89.20 57.04 87.20 44.63 82.60 69.98 82.60 60.13 89.40 66.66 86.20 59.69 --
+> DPSK-1.5B 73.40 43.49 67.40 34.14 61.00 51.46 62.60 46.08 66.60 49.20 66.20 44.87 -20.00 -14.82 Qwen3-8B 97.20 75.23 96.80 54.26 93.00 84.63 95.40 72.58 94.80 77.94 95.44 72.93 --
+> Qwen3-1.7B 93.40 73.48 92.00 53.53 85.40 78.48 89.40 67.95 90.40 72.81 90.12 69.25 -5.32 -3.68 Qwen3-0.6B 86.60 63.59 82.20 45.26 77.40 67.99 78.80 61.02 81.60 63.21 81.32 60.21 -14.12 -12.72
+
+3.1. Preliminaries Faithfulness Hallucinations in Open-Book Question An-swering. We study faithfulness hallucinations in Open-Book Question Answering, where each instance consists of a question Q and an external context C that provides the evidence required to answer Q. Despite the strong rea-soning abilities of reasoning models (Huang et al., 2025a), they often exhibit insufficient contextual grounding, leading to reasoning steps or final answers that contradict or are unsupported by C. Following Huang et al. (2025b),we refer to this failure mode as faithfulness hallucination. Formally, for the k-th rollout, given (C, Q ), a policy πθ
+
+generates a reasoning trajectory in the form of a CoT Sk =
+
+{Sk1, . . . , S kN }, followed by an answer Ak. The model is expected to produce both the intermediate reasoning steps and the final answer such that they are strictly grounded in the provided context C, prompts used are in Appendix A.1. 
+
+Datasets and Metrics. For dataset selection, we fol-low Huang et al. (2025b) and use SQuAD (Rajpurkar et al., 2016), NewsQA (Trischler et al., 2017), TriviaQA (Joshi et al., 2017), NQ (Kwiatkowski et al., 2019), and Hot-potQA (Yang et al., 2018) to analyze faithfulness hallu-cinations in reasoning models. We evaluate SRMs performance from two complementary perspectives: answer accuracy and answer faithfulness. The former compares the answer against the gold answer, while the latter assesses whether the answer is supported by the given context, without relying on gold answers. Follow-ing Huang et al. (2025b), we use F1 score (Acc.) to evaluate SRMs answer accuracy on open-book QA datasets. Follow-ing Yao et al. (2025), we further introduce the Faithful Rate (Faith) HA, defined as the percentage of test samples whose answer is judged to be faithful to the context by an LLM-as-a-judge , where HA(Ak, C ) = 1 Ak is faithful to C,prompts used are in Appendix A.3. 
+
+3.2. Experimental Results and Analysis Severe Faithfulness Hallucinations in SRMs. As shown in Table 1, we conduct experiments on reasoning models of various scales, the results reveal that LRMs, such as DPSK-                  
+
+> Table 2. The table reports the results of Section 3.2 on NewsQA.
+> CoT Faith and Key CoT Faith denote the proportion of samples without faithfulness hallucinations in all CoT sentences and in key CoT reasoning paths, respectively. Attack Succ. indicates attack success rate, where induced questions lead to unfaithful answers.
+> Models Faith CoT Faith Key CoT Faith Attack Succ. DPSK-1.5B 67.40 6.00 39.11 59.48
+> Qwen3-1.7B 92.00 28.35 52.93 48.75
+
+7B and Qwen3-8B, achieve high scores in both Faith and Acc., demonstrating an ability to generate relatively faithful answers. However, SRMs, specifically DPSK-1.5B and Qwen3-0.6B exhibit pronounced faithfulness hallucinations in their final answers; their Faithful Rates and Acc. scores are significantly lower than those of LRMs with the same architecture. Therefore, our work focuses on leveraging RL to mitigate hallucinations in SRMs, aiming to enhance their capacity to generate more faithful responses. 
+
+More Severe CoT Faithfulness Hallucinations than An-swer in SRMs. To investigate the causes of severe faith-fulness hallucinations in SRMs, we conduct a CoT hal-lucination detection experiment to analyze their impact on answer correctness. We use Qwen3-32B to evaluate the faithfulness of each CoT sentence with respect to the context, where HS (Skj , C ) = 1(Skj is faithful to C) and quantify hallucinations using the CoT Faithful Rate (CoT Faith) , defined as 1(P 
+
+> j
+
+HS (Skj , C ) = N ), representing the proportion of samples whose CoT contains no faithful-ness hallucination sentences, where N denotes the number of sentences in the CoT. Prompts used are in Appendix A.2. As shown in Table 2, faithfulness hallucinations in the CoT are severe. For DPSK-1.5B, the CoT Faith is only 6%, far below the answer Faith of 67.40%. However, some CoT sentences are only loosely related to the answer, and detected hallucinations may correspond to transitional or irrelevant content. To better relate answer correctness to CoT hallucinations, we adopt a step-wise ablation strategy inspired by Jacovi et al. (2025). By masking individual context and CoT sentences, we examine changes in the Perplexity (PPL) of subsequent sentences and the answer. Specifically, we implement a recursive search analogous 3Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+to a tree search algorithm. We identify the Top-1 CoT sentence whose removal causes the largest increase in an-swer PPL, and recursively trace its most influential preced-ing sentence until reaching the context. This procedure yields the key reasoning path most relevant to the answer. We use the Key CoT Faithful Rate (Key CoT Faith) to quantify hallucinations in key reasoning paths, defined as 
+
+1(P 
+
+> j∈R
+
+HS (Skj , C ) = |R| ), representing the proportion of samples whose key reasoning paths contain no faith-fulness hallucinations, where R denotes the set of indices corresponding to the key reasoning path. For DPSK-1.5B, Key CoT Faith is 39.11%, lower than the 67.40% Faithful Rate of answers. This gap indicates that faithfulness hallu-cinations are more prevalent in the CoT than in the answers. Moreover, unfaithful CoT can still yield correct answers, as models may rely on latent knowledge or shortcut reasoning. This suggests that faithfulness evaluation in SRMs should consider the CoT process, since outcome-only rewards may reinforce hallucinatory reasoning. 
+
+Faithfulness Hallucinations within the CoT Result in Incorrect Answers. To show that treating samples with unfaithful CoT but correct answers as positive signals is harmful, we conduct an attack experiment using GPT-5.2, focusing on cases where the CoT contains faithfulness hallucinations while the final answer remains correct. We first collect the initial CoT responses of DPSK-1.5B and Qwen3-1.7B on NewsQA and identify hallucinated state-ments using Qwen3-32B as a faithfulness judge. As shown in Figure 1, based on these hallucinated statements, GPT-5.2 is prompted to generate new questions derived from the unfaithful reasoning steps. For each sample, we generate five candidate attack questions. Each question is sampled five times. The question with the highest error count is se-lected to construct the final attack set. Prompts we used are provided in Appendix A.4. As shown in Table 2, the attack success rate is 59.48% for DPSK-1.5B and 48.75% for Qwen3-1.7B. These findings indicate that answer correctness alone is insufficient to judge the presence of faithfulness hallucinations and, more im-portantly, should not serve as the sole reward signal during training. Even when the answer happens to be correct, un-derlying reasoning flaws can lead to severe errors on new queries. This finding offers a new perspective on mitigating faithfulness hallucinations in SRMs: the training process must consider both answer accuracy and CoT faithfulness. 
+
+## 4. Our Proposed Method 
+
+Section 3 show that mitigating faithfulness hallucinations requires evaluating both CoT faithfulness and answer cor-rectness. To overcome the limitation of traditional GRPO, which assigns rewards solely based on the final answer, we introduce explicit step-level rewards with PRM for CoT reasoning. Besides, inspired by the tree-structured training paradigm of PRM (Zhang et al., 2025c), step-level supervi-sion can also be introduced implicitly by contrasting rollouts that share common reasoning prefixes. Therefore, we pro-pose FaithRL , a reinforcement learning framework that integrates explicit and implicit step-level rewards to jointly optimize reasoning faithfulness and answer correctness. 
+
+4.1. Implicit Step-Level Rewards with Dynamic Truncated Resampling 
+
+Implicit step-level rewards are typically derived from rollout-based comparisons. FaithRL realizes them in a more struc-tured and efficient manner through dynamic trajectory re-sampling. As shown in the left half of Figure 2, we propose Dynamic Truncated Resampling (DTR), which adaptively controls rollouts via step-wise verification, enabling finer-grained credit assignment while improving both faithfulness and sampling efficiency. 
+
+Verification and Truncation. For the k-th rollout, an ini-tial CoT Sk = {Sk1, . . . , S kN } is generated from prompt 
+
+P . Following Li & Ng (2025), we use HHEM-2.1 (Hughes et al., 2023) as a PRM to verify the faithfulness of each sen-tence Skt to the context C, which exhibits stronger overall performance than Qwen3-8B (Yang et al., 2025), as shown in Appendix B.1. If an unfaithful step is detected at po-sition t, the trajectory is truncated, and the faithful prefix 
+
+Sk1, . . . , S k(t−1) is appended to P to form a new prompt 
+
+P ′. A revised rollout Srk = {Sk1, . . . , S k(t−1) , S rkt , . . . } is generated from P ′, preventing regeneration of correct pre-ceding steps and avoiding redundant sampling of incorrect paths, thereby reducing token consumption per trajectory. 
+
+Equivalence to an Implicit Step-Level Reward. We show that DTR can be interpreted as assigning implicit step-level rewards that penalize unfaithful reasoning steps while preserving rewards for faithful prefixes. Let Rk and Rrk denote the rewards of the original and re-vised rollouts, respectively. Since both trajectories share the identical prefix {Sk1, . . . , S k(t−1) }, the total reward can be decomposed into two parts. The shared prefix effectively receives an average reward of (Rk + Rrk)/2, while the di-vergent suffixes receive differential rewards: tokens in the unfaithful suffix receive −(Rrk − Rk)/2, and tokens in the resampled suffix receive (Rrk − Rk)/2.When resampling corrects a hallucinated step, unfaithful reasoning steps tend to receive lower rewards than their resampled counterparts, while the corrected continuation is rewarded; accordingly, we typically observe Rrk > R k.Therefore, although DTR does not introduce explicit step-level reward functions, it induces an implicit step-level re-ward signal that suppresses hallucination-prone reasoning while reinforcing faithful prefixes. 4Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models Information Gain Reward              
+
+> Repeation Reward
+> x11 x12 …x1i
+> CoT S 11
+> x21 x22 …x2i
+> CoT S 12
+> xj1 xj2…xji
+> CoT S 1j
+> xa1 xa2 …xai
+> Answer 1
+> Ranswer (A 2)
+> Faithful Step
+> Level Reward
+
+Policy 
+
+Model                  
+
+> S11 …S12 S13 S1j
+> Sk1 …Sk2 Sk3 Skj Ak
+> S31 …S32 S33 S3j
+> …
+> …
+> …
+> …
+> …
+> S21 …S22 S23 S2j
+> S13' …S1j'
+> S23' …S2j' S22'
+
+Input                          
+
+> Rcot (S k1 )
+> Answer Incorrect Answer Correct
+> x31 x32 …x3i
+> CoT S 13
+> …
+> x11 x12 …x1i
+> CoT S k1
+> x21 x22 …x2i
+> CoT S k2
+> xj1 xj2…xji
+> CoT S kj
+> xa1 xa2 …xai
+> Answer k
+> x31 x32 …x3i
+> CoT S k3
+> …
+> Rcot(S k2 )Rcot(Sk3) Rcot(S kj)Ranswer (A k)
+> Answer Reward
+> 4.1 Implicit Step-Level Rewards with
+> Dynamic Truncated Resampling 4.2 Explicit Step-Level Rewards with PRM
+
+PRM 
+
+> A3
+> A2
+> A2'
+> A1
+> A1'
+
+Figure 2. An overview of the FaithRL framework. The left part illustrates the Implicit Step-Level Rewards with Dynamic Truncated Resampling . The model performs sentence-level faithfulness detection on the CoT generated by the policy model. When a faithfulness hallucination is detected, the reasoning process is truncated, and the faithful CoT sentences preceding it are used as a prefix for resampling. The right part depicts Explicit Step-Level Rewards with PRM . When the final answer is incorrect, the Ranswer is uniformly assigned to all tokens in the CoT and final answer. When the answer is correct, step-level rewards are applied to individual CoT sentences, with each sentence-level reward propagated to its tokens. This design enables precise penalization of faithfulness hallucinations while preserving correct and faithful reasoning steps. 
+
+Parity Sampling for Faithful Paths. The number of roll-outs k is set to half of the standard GRPO due to each truncated trajectory being paired with a resampled continua-tion, which doubles the effective trajectory count. To keep the total trajectory count consistent with the baseline, if the initial CoT is fully faithful, we perform one additional inde-pendent sampling from the original prompt P . This ensures DTR maintains the same sampling budget as GRPO. 
+
+4.2. Explicit Step-Level Rewards with PRM 
+
+For explicit step-level rewards, we use PRM evaluations to score each reasoning step and assign the resulting reward to the corresponding CoT tokens, enabling precise penalization of unfaithful steps. 
+
+Faithful Step Level Reward. For the CoT generated by SRMs, we divide it into sentences and use HHEM-2.1 as PRM to verify whether each sentence is faithful to the context. We give each sentence a faithful step level reward. For the j-th sentence in the CoT of the k-th rollout, denoted as Skj , the context is Ck, the reward function is defined as: 
+
+Rfact (Ck , S kj ) = 
+
+(
+
+1, if Skj is faithful to Ck ,
+
+−1, otherwise. (1) 
+
+Information Gain Reward. Under the aforementioned step-level reward, the model exhibits reward-hacking be-haviors by generating steps that are correct but yield no information gain. While these steps secure high step-level rewards, they do not contribute to the actual reasoning pro-cess. This specifically manifests in two ways: generating redundant correct steps or artificially inflating the token consumption of correct steps. To penalize this verbosity without value, we propose an information gain reward that shifts the optimization focus from text length to information density. By implementing a dual constraint on both sentence count and tokens per sentence, we effectively suppress redundant CoT expansions. This encourages the model to allocate its generation budget toward informative reasoning rather than reward-oriented verbosity. Specifically, for the j-th sentence in the CoT of the k-th rollout, denoted as Skj , we define the following sequence-level penalties: 
+
+Rsent (Skj ) = −λs(j − Ls)+, (2) 
+
+Rtok (Skj ) = −λt(|Skj | − Lt)+. (3) 
+
+The overall information gain reward is then given by: 
+
+Rinf (Skj ) = Rsent (Skj ) + Rtok (Skj ), (4) 
+
+where |Skj | denotes the token count of Skj , while λs, λ t
+
+and Ls, L t represent the penalty coefficients and their corre-sponding safety thresholds. The operator (x)+ = max(0 , x )
+
+applies the penalty when the constraints are exceeded. 
+
+Repetition Reward. Following Yeo et al. (2025), we intro-duce an n-gram repetition penalty Rrep to prevent repetitive loops. This penalty serves as an extension of our information gain reward, as it penalizes redundant segments that yield zero additional information. In addition to ensuring reason-ing diversity, Rrep effectively accelerates convergence by guiding the model away from degenerate, low-information trajectories during the early stages of GRPO training. 5Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+Table 3. Main results of DPSK-1.5B, Qwen3-0.6B, and Qwen3-1.7B on five QA benchmarks. Base represents the original model.                                                                                                                                                                                                                                                                               
+
+> Models Method SQuAD NewsQA TriviaQA NQ HotpotQA Average Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. DPSK-1.5B Base 73.40 43.49 67.40 34.14 61.00 51.46 62.60 46.08 66.60 49.20 66.20 44.87
+> SFT 75.26 44.20 70.24 35.65 66.28 54.98 68.05 49.11 68.65 52.40 69.70 47.27
+> GRPO 85.60 43.78 68.53 30.46 66.81 37.24 71.24 42.76 81.80 40.12 74.80 38.87
+> Self-Refine 73.74 41.34 68.50 33.28 65.20 54.03 62.29 45.90 68.27 48.65 67.60 44.64
+> KD 81.20 54.98 66.81 40.26 69.19 53.70 71.48 53.25 76.60 57.46 73.06 51.93
+> FSPO 72.83 56.46 69.45 40.02 68.23 60.84 68.62 56.85 67.65 57.30 69.36 54.29
+> FaithRL 87.80 63.32 77.06 43.56 76.20 55.03 78.60 59.38 85.40 62.74 81.01 56.81 Qwen3-0.6B Base 86.60 63.59 82.20 45.26 77.40 67.99 78.80 61.02 81.60 63.21 81.32 60.21
+> SFT 87.31 65.12 84.60 47.20 76.42 66.57 79.80 62.34 83.29 65.35 83.28 61.32
+> GRPO 82.00 50.48 81.27 31.32 74.61 35.78 79.21 39.76 79.85 35.60 79.39 38.59
+> Self-Refine 87.60 66.93 84.00 45.74 76.57 68.42 78.83 63.82 80.79 64.27 81.56 61.84
+> KD 86.42 65.12 81.23 46.20 77.80 67.14 78.86 61.40 83.64 65.42 81.59 61.06
+> FSPO 85.17 65.34 83.45 48.46 77.64 66.82 79.42 62.39 84.61 63.87 82.06 61.38
+> FaithRL 89.24 69.18 86.29 50.41 79.63 69.05 80.44 65.31 86.40 66.46 84.40 64.08 Qwen3-1.7B Base 93.40 73.48 92.00 53.53 85.40 78.48 89.40 67.95 90.40 72.81 90.12 69.25
+> SFT 93.84 72.78 92.42 53.12 87.10 76.26 90.43 69.02 91.46 73.74 91.05 68.98
+> GRPO 88.95 74.04 90.60 54.20 85.88 71.74 89.80 71.39 85.60 74.56 88.17 71.19
+> Self-Refine 94.20 74.15 92.73 52.18 85.61 77.59 90.62 68.46 90.61 72.46 90.75 70.97
+> KD 93.81 71.56 92.69 50.35 86.84 75.36 90.35 63.93 92.57 73.10 91.25 66.86
+> FSPO 93.57 71.83 91.37 52.96 85.93 76.47 90.22 67.27 91.83 75.46 90.58 68.80
+> FaithRL 94.63 75.27 93.56 54.06 87.48 78.40 90.83 73.05 93.40 76.98 91.98 73.55
+
+For the k-th rollout, CoT Sk = {Sk1, . . . , S kN }, if this ratio exceeds a pre-defined threshold τ , a linear penalty scaled by λrep is applied: 
+
+Rrep (Sk ) = −λrep ·
+
+
+
+1 − |U k ||G k |
+
+
+
+> +
+
+(5) 
+
+where Gk denotes the multiset of all n-grams in the gener-ated sequence, and Uk represents the set of unique n-grams. 
+
+Step-Level Reward Assignment. We first assess the correctness of the answer using the rule-based function 
+
+Ranswer (Ak). Given the the k-th rollout answer Ak, the reward is defined as: 
+
+Ranswer (Ak ) = 
+
+(
+
+1, if the answer is correct, 
+
+−1, otherwise. (6) 
+
+If the answer is incorrect, we assign Ranswer (Ak) to all CoT tokens to uniformly penalize any reasoning path that leads to a wrong answer. If the answer is correct, we instead compute step-level rewards for the CoT and apply them to the tokens within each sentence to ensure the model reaches the right answer through faithful reasoning rather than unfaithful CoT. For the answer, we always apply Ranswer (Ak) to each answer token. For a token xi ∈ Skj , where Skj is the j-th sentence in the CoT of the k-th rollout, the reward Rcot is defined as: 
+
+Rcot =
+
+(
+
+Ranswer , if Ranswer = −1,Rfact + Rinf + Rrep , otherwise. (7) 
+
+Our training strategy utilizes GRPO loss without KL for optimization. 
+
+## 5. Exerperiment 
+
+5.1. Experimental Setup 
+
+We use the dataset and metrics mentioned in Section 3.1. 
+
+Baseline. We employ SFT and vanilla GRPO strategy as primary variants of our method. Additionally, we adopt KD (Nguyen et al., 2025), Self-Refine (Madaan et al., 2023), and FSPO (Li & Ng, 2025) as competitive baselines for com-prehensive comparison, more details in the Appendix B.2. 
+
+Training Details. Following Li & Ng (2025), we ran-domly sample 8,000 examples from HotpotQA and 2Wiki-MultiHopQA as training data. We train our model using the verl framework. During training, we use a batch size of 8, generate 8 rollouts for each prompt, and set the maximum length for both prompt and response to 2,048 tokens. Train-ing is conducted for one epoch on NVIDIA A800 GPUs. 
+
+5.2. Main Results Superior Performance across All Models. As shown in Table 3, FaithRL outperforms all methods across vari-ous SRMs. On average, it reduces answer hallucinations by 3.86% in terms of Acc. and by 3.48% in terms of Faith, compared to the best baseline. Compared with existing base-lines, FaithRL directly penalizes faithfulness hallucinations at their point of occurrence. This targeted feedback enables more precise correction of unfaithful reasoning steps, result-ing in consistently superior performance across models. 
+
+FaithRL Maintains Training Efficiency. Although in-6Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+Table 4. Ablation results of the proposed components on DPSK-1.5B. We separately study the effects of ablating the dynamic truncated resampling, the information gain reward (R sent and R tok ), and the repetition reward (R rep ).                                                                              
+
+> Method SQuAD NewsQA TriviaQA NQ HotpotQA Average Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. FaithRL 87.80 63.32 77.06 43.56 76.20 55.03 78.60 59.38 85.40 62.74 81.01 56.81 w/o Resample 87.56 63.24 76.47 43.28 69.65 54.98 76.84 57.42 82.41 62.38 78.59 56.26
+> w/o R rep 87.17 60.17 73.81 41.92 72.21 53.58 77.19 59.21 84.27 62.17 78.93 55.41
+> w/o R sent 81.24 47.58 71.54 31.79 68.49 42.25 75.67 52.74 84.55 49.04 76.30 44.68
+> w/o R tok 84.27 37.46 72.43 23.36 66.75 32.41 76.35 36.96 83.42 33.42 76.64 32.72
+
+Table 5. Results of different resampling strategies across five QA benchmarks. Resample indicates the use of the dynamic truncated resampling, while Full and Random represent different implementations of the dynamic truncated resampling.                                                               
+
+> Models Resample Random Full SQuAD NewsQA TriviaQA NQ HotpotQA Average Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. Faith Acc. DPSK-1.5B
+> ✓××84.42 65.34 75.21 44.26 70.81 56.03 75.24 58.35 82.39 61.94 77.61 57.18
+> ✓✓×84.95 59.06 76.64 40.95 69.06 51.45 73.47 52.34 82.40 56.26 77.30 52.01
+> ✓×✓87.80 63.32 77.06 43.56 76.20 55.03 78.60 59.38 85.40 62.74 81.01 56.81
+
+corporating PRM for sentence-level hallucination detection introduces additional overhead, the overall training cost re-mains comparable. This is largely due to the information gain reward, which discourages redundant CoT expansion and reduces unnecessary token generation. Our DTR strat-egy further saves tokens by preserving faithful prefixes and avoiding redundant computation. For DPSK-1.5B, FaithRL reduces SRM-generated tokens to about one-third of those produced by vanilla GRPO, requiring 22.59 GPU hours on NVIDIA A800 GPUs versus 23.52 GPU hours for standard GRPO, demonstrating that hallucination mitigation can be achieved without sacrificing efficiency. 
+
+5.3. Ablation Study The Essential Role of Information Gain Reward in Sta-ble Reasoning Training. The results of the ablation study are shown in Table 4. We ablate the two components of the information gain reward: the constraint on the number of CoT sentences (R sent ) and the token count per sentence (R tok ). Removing R sent reduces the average Acc. by 21.35%, and removing R tok leads to a 42.40% reduction in Acc.. Moreover, completely removing R inf leads to excessively long outputs that cause training to collapse. These results indicate that the information gain reward R inf is essential for suppressing hallucinatory verbosity, thereby ensuring stable and effective training. 
+
+Impact of Repetition Reward on Reducing Redundancy in Reasoning. Excluding repetition reward R rep results a 2.46% decrease in average Acc. and in a 2.57% decrease in average Faith. We observe that without this penalty, the model is prone to falling into redundant logical loops during the reasoning process. Instead, the inclusion of R rep incen-tivizes the model to avoid reasoning trajectories containing 0 200 400 600 800 1000 
+
+DPSK-1.5B Training Steps 
+
+> 30
+> 40
+> 50
+> 60
+> 70
+> Percentage (%)
+> FaithRL: Answer Faithful Rate
+> FaithRL: Key CoT Faithful Rate
+> GRPO: Answer Faithful Rate
+> GRPO: Key CoT Faithful Rate
+
+Figure 3. Curves of Key CoT Faithful Rate and Answer Faithful Rate during training on DPSK-1.5B evaluated on NewsQA. 
+
+repetitive statements, thereby accelerating convergence. 
+
+Impact of Dynamic Truncated Resampling on Perfor-mance in Complex Reasoning. Removing the resam-pling mechanism leads to notable performance declines on complex reasoning benchmarks such as TriviaQA and HotpotQA. This demonstrates that our DTR is essential for stabilizing the reasoning process in challenging scenar-ios. This mechanism reinforces faithful reasoning patterns through implicit step-level rewards, leading to superior ro-bustness compared to independent sampling. 
+
+Resampling Strategy Selection. To identify the optimal configuration for balancing reasoning faithfulness and task performance, we compare different sampling strategies with an initial rollout of 8 samples per question on DPSK-1.5B. 
+
+Resample triggers additional sampling only when faithful-ness hallucinations are detected in the CoT; otherwise, no extra samples are generated. Under this resampling scheme, 
+
+Full enforces a fixed total budget of 16 samples per ques-tion by completing the remaining samples with independent rollouts from scratch when the number of resampled trajec-7Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models                                                           
+
+> Table 6. The results of attack experiment on NewsQA.
+> Data Method DPSK-1.5B Qwen3-1.7B Faith Acc. Faith Acc. NewsQA Base 40.52 25.35 52.25 34.14
+> SFT 43.14 27.98 55.86 33.86
+> KD 51.63 35.00 57.20 38.52
+> FSPO 44.45 30.47 54.26 36.54
+> GRPO 52.94 31.54 62.16 38.62
+> FaithRL 69.28 39.20 69.40 40.05
+> Table 7. The results of CoT halluciantion detection experiment on
+> NewsQA . The correct and incorrect columns represent the correct-ness of the answer. HR and KHR denote the average hallucination rate over all sentences in the CoT and the average hallucination rate along the key reasoning paths in the CoT, respectively.
+> Models Method HR KHR Correct Incorrect Correct Incorrect DPSK-1.5B Base 21.03 40.64 19.28 35.75
+> FaithRL 6.09 10.89 5.43 10.40
+> Qwen3-1.7B Base 8.26 19.72 6.96 18.77
+> FaithRL 5.11 12.04 3.97 7.88
+
+tories is insufficient. In contrast, Random also completes the remaining budget, but does so by randomly truncat-ing a sentence from an existing trajectory and continuing generation from the resulting prefix. As shown in Table 5, 
+
+Resample+Full achieves the best trade-off between Faithful Rate and Acc., and is therefore adopted in our experiments. 
+
+5.4. Analysis 
+
+This section provides an analysis to substantiate the ne-cessity of jointly considering CoT faithfulness and answer correctness during SRMs training. We first show that vanilla GRPO, which rewards answer correctness, exacerbates CoT faithfulness hallucinations during training. We then demon-strate that such hallucinated CoT reasoning leads to severe failures under adversarial attacks. Finally, we verify that FaithRL effectively reduces CoT faithfulness hallucinations. 
+
+Vanilla GRPO Exacerbates Faithfulness Hallucinations in CoT. To verify that relying on answer correctness as reward signal in vanilla GRPO exacerbates faithfulness hal-lucinations in CoT, we analyze how faithfulness evolves throughout training. As described in Section 3.2, since not all CoT sentences contribute to the final answer, we focus on Key CoT Faithful Rate, and track both Key CoT Faith and answer Faith during training as shown in Figure 3. We observe that although GRPO reduces hallucinations in final answers, it exacerbates hallucinations within CoT. This occurs because GRPO rewards answer correctness alone, reinforcing samples with correct answers despite contain-ing faithfulness-hallucinated reasoning steps. In contrast, FaithRL achieves higher faithfulness at both the CoT and answer levels. These results suggest that outcome-based GRPO fails to fundamentally resolve faithfulness hallucina-tions in SRMs; effective mitigation requires jointly optimiz-ing the reasoning process and the answer during training. 
+
+Severe Consequences of Vanilla GRPO under Adver-sarial Attacks. To demonstrate the harm caused by the vanilla GRPO strategy, which uses outcome-only rewards and reinforces samples with correct answers despite un-faithful CoT reasoning, we conduct adversarial attack ex-periments following Section 3.2. We collect samples with unfaithful CoT but correct answers from the original out-puts of DPSK-1.5B and Qwen3-1.7B, use GPT-5.2 to induce attacks based on the hallucinated reasoning steps, and con-struct an attack set for evaluating models. As shown in Table 6, all methods suffer substantial perfor-mance degradation on the attack question set, indicating that unfaithful CoT reasoning leads to incorrect answers. FaithRL consistently outperforms all baselines and shows stronger robustness. For DPSK-1.5B, compared to standard GRPO, the relative performance improvement of FaithRL over GRPO widens under adversarial attack, representing a 248% amplification (30.87% vs. 12.45%) in terms of Faith. This suggests that rewarding only final outcomes in GRPO fails to eliminate faithfulness hallucinations in SRMs and leads to more severe errors under adversarial induction. 
+
+Mitigating CoT Faithfulness Hallucinations with FaithRL. Finally, to verify the practical effectiveness of FaithRL in reducing CoT faithfulness hallucinations, we conduct a CoT hallucination detection experiment follow-ing Section 3.2 using Qwen3-32B to determine whether each CoT sentence is faithful to the context and quan-tify hallucinations using the Hallucination Rate (HR), de-fined as 1
+
+> N
+
+P 
+
+> j
+
+HS (Skj , C ), where N denotes the num-ber of sentences in the CoT, representing the propor-tion of hallucinated sentences among all CoT sentences. We further define the Key Hallucination Rate (KHR) as 
+
+> 1
+> |R|
+
+P 
+
+> j∈R
+
+HS (Skj , C ), where R denotes the set of indices corresponding to the key reasoning path in the CoT, repre-senting the hallucination rate along the key reasoning path. As shown in Table 7, FaithRL substantially reduces both HR and KHR, which demonstrates that FaithRL not only improves answer faithfulness but also mitigates hallucina-tions along critical reasoning paths, thereby enhancing the reliability and trustworthiness of CoT reasoning through precise penalization of unfaithful intermediate steps. 
+
+## 6. Conclusion 
+
+In this paper, we propose FaithRL, a reinforcement learn-ing framework for mitigating faithfulness hallucinations in SRMs. By combining implicit step-level rewards from 8Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+dynamic truncated resampling with explicit PRM-based rewards, FaithRL provides fine-grained supervision to pe-nalize unfaithful CoT reasoning. FaithRL achieves supe-rior performance across multiple SRMs and open-book QA datasets. We also show that vanilla GRPO, which only relies on outcome-based rewards, exacerbates faithfulness halluci-nations in CoTs with correct answers, underscoring the need to jointly consider CoT faithfulness and answer correctness. 
+
+## Impact Statement 
+
+This paper presents work whose goal is to advance the field of machine learning by improving the reliability and faithfulness of small reasoning models. By mitigating hal-lucinations in intermediate reasoning steps, our research contributes to the development of more trustworthy and transparent AI systems. There are many potential societal consequences of our work, none of which we feel must be specifically highlighted here. 
+
+## References 
+
+Alansari, A. and Luqman, H. Large language models hal-lucination: A comprehensive survey. arXiv preprint arXiv:2510.06265 , 2025. URL https://arxiv.or g/abs/2510.06265 .DeepSeek-AI, Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R., Zhu, Q., Ma, S., Wang, P., et al. Deepseek-r1: Incentivizing reasoning capabil-ity in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. URL https://arxiv.or g/abs/2501.12948 .Deng, H., Ding, L., Liu, X., Zhang, M., Tao, D., and Zhang, M. Improving Simultaneous Machine Translation with Monolingual Data. In AAAI , pp. 12728–12736. AAAI Press, 2023. Deng, H., Jiao, W., Liu, X., Zhang, M., and Tu, Z. DRPrun-ing: Efficient Large Language Model Pruning through Distributionally Robust Optimization, November 2024. Deng, H., Jiao, W., Liu, X., Rao, J., and Zhang, M. Rea-rl: Reflection-aware online reinforcement learning for efficient large reasoning models. arXiv preprint arXiv:2505.19862 , 2025. URL https://arxiv.or g/abs/2505.19862 .Duong, S., Bronnec, F. L., Allauzen, A., Guigue, V., Lum-breras, A., Soulier, L., and Gallinari, P. SCOPE: A self-supervised framework for improving faithfulness in con-ditional text generation. In The Thirteenth International Conference on Learning Representations, ICLR 2025, Sin-gapore, April 24-28, 2025 . OpenReview.net, 2025. URL 
+
+https://openreview.net/forum?id=dTkq aCKLPp .Gu, Y., Zhang, W., Lyu, C., Lin, D., and Chen, K. Mask-dpo: Generalizable fine-grained factuality alignment of llms. In The Thirteenth International Conference on Learning Representations, ICLR 2025, Singapore, April 24-28, 2025 . OpenReview.net, 2025. URL https:// openreview.net/forum?id=d2H1oTNITn .Gunter, T., Wang, Z., Wang, C., Pang, R., Narayanan, A., Zhang, A., Zhang, B., Chen, C., Chiu, C.-C., Qiu, D., et al. Apple intelligence foundation language models. 
+
+arXiv preprint arXiv:2407.21075 , 2024. URL https: //arxiv.org/abs/2407.21075 .Guo, W., Shi, Z., Li, Z., Wang, Y., Liu, X., Wang, W., Liu, F., Zhang, M., and Li, J. Jailbreak-r1: Exploring the jailbreak capabilities of llms via reinforcement learning, 2025. URL https://arxiv.org/abs/2506.0 0782 .Haque, M. A., Rahman, F., Gupta, K. D., Shujaee, K., and George, R. Tinyllm: Evaluation and optimization of small language models for agentic tasks on edge devices. 
+
+arXiv preprint arXiv:2511.22138 , 2025. URL https: //arxiv.org/abs/2511.22138 .Huang, L., Yu, W., Ma, W., Zhong, W., Feng, Z., Wang, H., Chen, Q., Peng, W., Feng, X., Qin, B., and Liu, T. A survey on hallucination in large language models: Prin-ciples, taxonomy, challenges, and open questions. ACM Transactions on Information Systems , 43(2):1–55, Jan-uary 2025a. ISSN 1558-2868. doi: 10.1145/3703155. URL http://dx.doi.org/10.1145/3703155 .Huang, Y., Zhang, Y., Cheng, N., Li, Z., Wang, S., and Xiao, J. Dynamic attention-guided context decoding for mitigating context faithfulness hallucinations in large language models. In Che, W., Nabende, J., Shutova, E., and Pilehvar, M. T. (eds.), Findings of the Asso-ciation for Computational Linguistics: ACL 2025 , pp. 5174–5193, Vienna, Austria, 2025b. Association for Computational Linguistics. ISBN 979-8-89176-256-5. doi: 10.18653/v1/2025.findings-acl.269. URL 
+
+https://aclanthology.org/2025.findin gs-acl.269/ .Hughes, S., Bae, M., and Li, M. Vectara Hallucination Leaderboard, 2023. URL https://github.com/v ectara/hallucination-leaderboard .Jacovi, A., Wang, A., Alberti, C., Tao, C., Lipovetz, J., Olszewska, K., Haas, L., Liu, M., Keating, N., Blo-niarz, A., et al. The facts grounding leaderboard: Bench-marking llms’ ability to ground responses to long-form input. arXiv preprint arXiv:2501.03200 , 2025. URL 
+
+https://arxiv.org/abs/2501.03200 .9Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+Joshi, M., Choi, E., Weld, D., and Zettlemoyer, L. TriviaQA: A large scale distantly supervised challenge dataset for reading comprehension. In Barzilay, R. and Kan, M.-Y. (eds.), Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 1601–1611, Vancouver, Canada, 2017. Association for Computational Linguistics. doi: 10.18653/v1/P17-1147. URL https://aclantho logy.org/P17-1147/ .Kalai, A. T., Nachum, O., Vempala, S. S., and Zhang, E. Why language models hallucinate. arXiv preprint arXiv:2509.04664 , 2025. URL https://arxiv.or g/abs/2509.04664 .Kwiatkowski, T., Palomaki, J., Redfield, O., Collins, M., Parikh, A. P., Alberti, C., Epstein, D., Polosukhin, I., Devlin, J., Lee, K., et al. Natural questions: a benchmark for question answering research. Trans. Assoc. Comput. Linguistics , 7:452–466, 2019. doi: 10.1162/TACL\_A\ _00276. URL https://doi.org/10.1162/tacl _a_00276 .Li, J. and Ng, H. T. Reasoning models hallucinate more: Factuality-aware reinforcement learning for large reason-ing models. arXiv preprint arXiv:2505.24630 , 2025. URL 
+
+https://arxiv.org/abs/2505.24630 .Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let’s verify step by step. In The Twelfth Inter-national Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 . OpenReview.net, 2024. URL https://openreview.net/forum ?id=v8L0pN6EOi .Liu, B., Li, H., Wang, S., Nie, S., and Zhang, S. Sub-graph aggregation for out-of-distribution generalization on graphs. Proceedings of the AAAI Conference on Artifi-cial Intelligence , 39(18):18763–18771, April 2025. ISSN 2159-5399. doi: 10.1609/aaai.v39i18.34065. URL 
+
+http://dx.doi.org/10.1609/aaai.v39i18 .34065 .Madaan, A., Tandon, N., Gupta, P., Hallinan, S., Gao, L., Wiegreffe, S., Alon, U., Dziri, N., Prabhumoye, S., Yang, Y., et al. Self-refine: Iterative refinement with self-feedback. In Oh, A., Naumann, T., Globerson, A., Saenko, K., Hardt, M., and Levine, S. (eds.), Advances in Neural Information Processing Systems 36: Annual Conference on Neural Information Processing Systems 2023, NeurIPS 2023, New Orleans, LA, USA, December 10 - 16, 2023 , 2023. URL http://papers.nip s.cc/paper_files/paper/2023/hash/91e dff07232fb1b55a505a9e9f6c0ff3-Abstrac t-Conference.html .Nguyen, H., He, Z., Gandre, S. A., Pasupulety, U., Shivaku-mar, S. K., and Lerman, K. Smoothing out hallucinations: Mitigating llm hallucination with smoothed knowledge distillation. arXiv preprint arXiv:2502.11306 , 2025. URL 
+
+https://arxiv.org/abs/2502.11306 .OpenAI, :, Jaech, A., Kalai, A., Lerer, A., Richardson, A., El-Kishky, A., Low, A., Helyar, A., Madry, A., et al. Openai o1 system card. arXiv preprint arXiv:2412.16720 ,2024. URL https://arxiv.org/abs/2412.1 6720 .Pham, Q. P. M., Nguyen, K. T. N., Doan, N. H., Pham, C. A., Sun, Q., Qi, W., Inui, K., and Song, D. Smallplan: Leverage small language models for sequential path planning with simulation-powered, llm-guided distilla-tion. arXiv preprint arXiv:2505.00831 , 2025. URL 
+
+https://arxiv.org/abs/2505.00831 .Prieto, P. and Abad, P. Edge deployment of small language models, a comprehensive comparison of cpu, gpu and npu backends. arXiv preprint arXiv:2511.22334 , 2025. URL https://arxiv.org/abs/2511.22334 .Rajpurkar, P., Zhang, J., Lopyrev, K., and Liang, P. SQuAD: 100,000+ questions for machine comprehension of text. In Su, J., Duh, K., and Carreras, X. (eds.), Proceed-ings of the 2016 Conference on Empirical Methods in Natural Language Processing , pp. 2383–2392, Austin, Texas, 2016. Association for Computational Linguis-tics. doi: 10.18653/v1/D16- 1264. URL https: //aclanthology.org/D16-1264/ .Rao, J., Liao, Y., Liu, X., Lin, Z., Lian, L., Jin, D., Cheng, S., Yu, J., and Zhang, M. Seapo: Strategic error amplifica-tion for robust preference optimization of large language models, 2025a. URL https://arxiv.org/abs/ 2509.24781 .Rao, J., Liu, X., Deng, H., Lin, Z., Yu, Z., Wei, J., Meng, X., and Zhang, M. Dynamic sampling that adapts: Iterative dpo for self-aware mathematical reasoning, 2025b. URL 
+
+https://arxiv.org/abs/2505.16176 .Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y. K., Wu, Y., et al. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 , 2024. URL https://arxiv.org/abs/2402.03300 .Shojaee, P., Mirzadeh, I., Alizadeh, K., Horton, M., Bengio, S., and Farajtabar, M. The illusion of thinking: Under-standing the strengths and limitations of reasoning mod-els via the lens of problem complexity. arXiv preprint arXiv:2506.06941 , 2025. URL https://arxiv.or g/abs/2506.06941 .10 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+Si, S., Zhao, H., Gao, C., Bai, Y., Wang, Z., Gao, B., Luo, K., Li, W., Huang, Y., Chen, G., et al. Teaching large language models to maintain contextual faithfulness via synthetic tasks and reinforcement learning. arXiv preprint arXiv:2505.16483 , 2025. URL https://arxiv.or g/abs/2505.16483 .Snell, C., Lee, J., Xu, K., and Kumar, A. Scaling llm test-time compute optimally can be more effective than scal-ing model parameters. arXiv preprint arXiv:2408.03314 ,2024. URL https://arxiv.org/abs/2408.0 3314 .Team, K., Du, A., Gao, B., Xing, B., Jiang, C., Chen, C., Li, C., Xiao, C., Du, C., Liao, C., et al. Kimi k1.5: Scaling reinforcement learning with llms. arXiv preprint arXiv:2501.12599 , 2025a. URL https://arxiv.or g/abs/2501.12599 .Team, M., Xiao, C., Li, Y., Han, X., Bai, Y., Cai, J., Chen, H., Chen, W., Cong, X., Cui, G., et al. Minicpm4: Ultra-efficient llms on end devices. arXiv preprint arXiv:2506.07900 , 2025b. URL https://arxiv. org/abs/2506.07900 .Team, Q. Qwq-32b: Embracing the power of reinforcement learning, March 2025. URL https://qwenlm.git hub.io/blog/qwq-32b/ .Trischler, A., Wang, T., Yuan, X., Harris, J., Sordoni, A., Bachman, P., and Suleman, K. NewsQA: A machine comprehension dataset. In Blunsom, P., Bordes, A., Cho, K., Cohen, S., Dyer, C., Grefenstette, E., Hermann, K. M., Rimell, L., Weston, J., and Yih, S. (eds.), Proceedings of the 2nd Workshop on Representation Learning for NLP ,pp. 191–200, Vancouver, Canada, 2017. Association for Computational Linguistics. doi: 10.18653/v1/W17-2623. URL https://aclanthology.org/W17-262 3/ .Wei, Z., Yang, X., Sun, K., Wang, J., Shao, R., Chen, S., Kachuee, M., Gollapudi, T., Liao, T., Scheffer, N., et al. Truthrl: Incentivizing truthful llms via reinforce-ment learning. arXiv preprint arXiv:2509.25760 , 2025. URL https://arxiv.org/abs/2509.25760 .Wen, X., Lou, J., Lu, X., Ji, Y., Guan, X., Lu, Y., Lin, H., He, B., Han, X., Zhang, D., et al. On-policy self-alignment with fine-grained knowledge feedback for hallucination mitigation. In Che, W., Nabende, J., Shutova, E., and Pilehvar, M. T. (eds.), Findings of the Association for Computational Linguistics: ACL 2025 , pp. 5215–5231, Vienna, Austria, 2025. Association for Computational Linguistics. ISBN 979-8-89176-256-5. doi: 10.18653/v 1/2025.findings-acl.271. URL https://aclantho logy.org/2025.findings-acl.271/ .Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., et al. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. URL 
+
+https://arxiv.org/abs/2505.09388 .Yang, Z., Qi, P., Zhang, S., Bengio, Y., Cohen, W., Salakhut-dinov, R., and Manning, C. D. HotpotQA: A dataset for diverse, explainable multi-hop question answering. In Riloff, E., Chiang, D., Hockenmaier, J., and Tsujii, J. (eds.), Proceedings of the 2018 Conference on Empiri-cal Methods in Natural Language Processing , pp. 2369– 2380, Brussels, Belgium, 2018. Association for Compu-tational Linguistics. doi: 10.18653/v1/D18-1259. URL 
+
+https://aclanthology.org/D18-1259/ .Yao, Z., Liu, Y., Chen, Y., Chen, J., Fang, J., Hou, L., Li, J., and Chua, T.-S. Are reasoning models more prone to hallucination? arXiv preprint arXiv:2505.23646 , 2025. URL https://arxiv.org/abs/2505.23646 .Ye, Y., Huang, Z., Xiao, Y., Chern, E., Xia, S., and Liu, P. Limo: Less is more for reasoning. arXiv preprint arXiv:2502.03387 , 2025. URL https://arxiv.or g/abs/2502.03387 .Yeo, E., Tong, Y., Niu, M., Neubig, G., and Yue, X. Demystifying long chain-of-thought reasoning in llms. 
+
+arXiv preprint arXiv:2502.03373 , 2025. URL https: //arxiv.org/abs/2502.03373 .Zhang, C., Zhu, X., Li, C., Collier, N., and Vlachos, A. Re-inforcement learning for better verbalized confidence in long-form generation. arXiv preprint arXiv:2505.23912 ,2025a. URL https://arxiv.org/abs/2505.2 3912 .Zhang, X., Wu, S., Zhu, Y., Tan, H., Yu, S., He, Z., and Jia, J. Scaf-grpo: Scaffolded group relative policy op-timization for enhancing llm reasoning. arXiv preprint arXiv:2510.19807 , 2025b. URL https://arxiv.or g/abs/2510.19807 .Zhang, Y., Wu, Y., Zhang, H., Li, W., Chen, H., Wu, J., Li, G., Han, Z., and Tresp, V. Groundedprm: Tree-guided and fidelity-aware process reward modeling for step-level reasoning, 2025c. URL https://arxiv.org/ab s/2510.14942 .11 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+## A. Prompts 
+
+We introduce all prompts used in the main text. Parts enclosed in “{}” represent external input. 
+
+A.1. The Prompt for Open-Book QA 
+
+This prompt is used in Section 3.1 as the instruction for guiding the model to answer open-book QA questions. 
+
+The Prompt for Open-Book QA: 
+
+Use the following knowledge to answer the given question accurately and only based on the knowledge provided. 
+
+Knowledge: 
+
+{knowledge} 
+
+Question: 
+
+{question} 
+
+Your answer MUST be enclosed in a LaTeX box like this: \\boxed{{your answer here}} .
+
+Answer: 
+
+A.2. The Prompt for CoT Hallucination Detection 
+
+This prompt is used in the CoT hallucination detection experiment in Section 3.2. Using Qwen3-32B, we provide a context and a single sentence from the CoT generated by SRMs, and determine whether this sentence can be derived from the given context, i.e., whether it is faithful to the context. In addition, for transitional sentences such as meta-statements (e.g., “Wait, I need to think”), which do not introduce any new factual information, we consider them to contain no faithfulness hallucinations. 
+
+The Prompt for CoT Hallucination Detection: 
+
+You are a strict fact-checker. Use the following context as the only source of truth to evaluate the candidate sentence. 
+
+Context: 
+
+{context} 
+
+Candidate sentence: 
+
+{sentence} 
+
+Classification rules 
+
+• yes : The candidate is fully correct and completely consistent with the context — no contradictions, no missing key facts, and no fabricated or altered details. • no : The candidate is incorrect in any way, including contradictions, omissions that change the meaning, or fabri-cated/unreasonable information not supported by the context. • neutral : The candidate is a reasoning transition, meta-statement, or summary-introduction phrase (e.g., "So, final summary:") that does not itself introduce new factual content. 
+
+Output: 
+
+Only output one label — yes, no, or neutral. Do not provide explanations or additional text. 
+
+A.3. The Prompt for Faithful Rate 
+
+This prompt is used in Section 3.2 to determine whether the answer is faithful to the given context, thereby enabling the computation of the Faithful Rate. Given a context, a question, and a model-generated answer, we use Qwen3-32B to assess whether the answer is faithful to the context. 12 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+The Prompt for LLM Faithful Rate: 
+
+Your job is to look at a piece of knowledge, a question, and a predicted answer, and then assign a grade of either ["CORRECT", "INCORRECT", "NOT_ATTEMPTED"] . First, I will give examples of each grade, and then you will grade a new example. 
+
+The following are examples of CORRECT predicted answers. Knowledge: Arthur’s Magazine (1844–1846) was an American literary periodical published in Philadelphia in the 19th century. First for Women is a woman’s magazine published by Bauer Media Group in the USA. 
+
+Question: Which magazine was started first Arthur’s Magazine or First for Women? 
+
+Predicted answer 1: Arthur’s Magazine 
+
+Predicted answer 2: Arthur’s Magazine, because it started in 1844 while First for Women was launched much later. 
+
+These predicted answers are all CORRECT because: 
+
+• They are fully supported by the provided knowledge. • They do not contain any information that contradicts the knowledge. • Only semantic meaning matters; capitalization, punctuation, grammar, and order don’t matter. 
+
+The following are examples of INCORRECT predicted answers. Knowledge: Arthur’s Magazine (1844–1846) was an American literary periodical published in Philadelphia in the 19th century. First for Women is a woman’s magazine published by Bauer Media Group in the USA. 
+
+Question: Which magazine was started first Arthur’s Magazine or First for Women? 
+
+Predicted answer 1: First for Women was started first. 
+
+Predicted answer 2: They both started in the same year. 
+
+These predicted answers are all INCORRECT because: 
+
+• They contain information that contradicts the provided knowledge. • Even if partly correct, any contradiction makes the answer incorrect. 
+
+The following are examples of NOT_ATTEMPTED predicted answers. Knowledge: Arthur’s Magazine (1844–1846) was an American literary periodical published in Philadelphia in the 19th century. First for Women is a woman’s magazine published by Bauer Media Group in the USA. 
+
+Question: Which magazine was started first Arthur’s Magazine or First for Women? 
+
+Predicted answer 1: I don’t know which one started first. 
+
+Predicted answer 2: One of them was earlier, but I’m not sure which. 
+
+These predicted answers are all NOT_ATTEMPTED because: 
+
+• They do not provide the important information needed to answer the question. • They neither confirm nor contradict the knowledge. 
+
+Also note the following things: 
+
+• Knowledge is a supplement to the content of a problem, and the answer is obtained by combining the problem and knowledge. The content in the answer may not only come from knowledge, but also from the problem. As long as the answer is included in both the problem and knowledge, it is sufficient. If neither the problem nor knowledge contains the answer and the predicted answer makes something up, it is INCORRECT. • If the knowledge and question does not contain the answer and the predicted answer says it cannot answer or gives only partial info without contradiction, it is NOT_ATTEMPTED. • Ignore differences in capitalization, punctuation, grammar, or word order, as long as the same. • Typos in names are fine if the intended name is clear. 
+
+Here is a new example. Simply reply with either CORRECT, INCORRECT, NOT_ATTEMPTED. Don’t apologize or correct yourself if there was a mistake; we are just trying to grade the answer. 
+
+Knowledge: {knowledge} 
+
+Question: {question} 
+
+Predicted answer: {predicted_answer} 
+
+Grade the predicted answer of this new question as one of: A: CORRECT B: INCORRECT C: NOT_ATTEMPTED Just return the letters "A", "B", or "C", with no text around it. 
+
+13 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models 
+
+A.4. The Prompt for Attack Experiment 
+
+This prompt is used in the attack experiments in Section 3.2. We provide GPT-5.2 with a context, the original question, and CoT in which hallucinated sentences are explicitly annotated. The prompt instructs GPT to generate new questions that are likely to induce incorrect model responses, based on the hallucinated statements in CoT. 
+
+The Prompt for Attack Experiment: 
+
+Context: 
+
+{context} 
+
+Original Question: 
+
+{original_q} 
+
+Model’s Previous Reasoning Trace (contains a subtle but critical failure): 
+
+{annotated_cot} 
+
+You are NOT allowed to fix, explain, analyze, or correct the reasoning error. 
+
+INTERNAL FAILURE ALIGNMENT 
+
+Internally identify the specific reasoning failure associated with [[WRONG_STEP]] . Use this failure strictly as a blueprint for constructing adversarial questions. • Do NOT explain, analyze, justify, or correct the failure. • Do NOT mention the failure explicitly in the questions. 
+
+CORE OBJECTIVE 
+
+Generate FIVE highly adversarial questions that: • Are fully answerable using the Context alone. • Systematically induce the SAME incorrect assumption, entity confusion, or logical shortcut that caused the previous failure. • Cause a reasoning-based language model to commit early to an incorrect reasoning path and never recover. 
+
+CRITICAL CONSTRAINTS 
+
+• Do NOT signal ambiguity, uncertainty, or trickiness. • Do NOT make the questions sound adversarial or artificial. • The incorrect reasoning path MUST appear simpler and more obvious than the correct one. • The correct reasoning path MUST require careful verification across multiple facts. 
+
+FAILURE AMPLIFICATION RULES 
+
+Each adversarial question MUST: 1. Reuse the SAME misleading cue that triggered the original failure (e.g., entity name overlap). 2. Introduce at least ONE additional distractor that reinforces the incorrect assumption. 3. Make the incorrect answer a highly plausible span directly supported by surface-level reading. 4. Require the correct answer to depend on at least TWO disambiguation steps. 
+
+TARGET MODEL WEAKNESS ASSUMPTIONS 
+
+• Trusts the first entity that matches; Overweights frequently mentioned facts. • Prefers short, fluent reasoning chains; Rarely backtracks. 
+
+OUTPUT FORMAT (Strict JSON, no extra text): 
+
+{{ "new_question_1": "...", "standard_answer_1": "...", "new_question_2": "...", "standard_answer_2": "...", "new_question_3": "...", "standard_answer_3": "...", "new_question_4": "...", "standard_answer_4": "...", "new_question_5": "...", "standard_answer_5": "...", }} 
+
+14 Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models                                                                                               
+
+> Table 8. Comparison results of different PRM configurations.
+> Models PRM SQuAD NewsQA TriviaQA NQ HotpotQA Average
+> Faith. Acc. Faith. Acc. Faith. Acc. Faith. Acc. Faith. Acc. Faith. Acc. DPSK-1.5B HHEM-2.1 87.80 63.32 77.06 43.56 76.20 55.03 78.60 59.38 85.40 62.74 81.01 56.81 Qwen3-8B 85.53 65.43 77.80 43.45 72.76 61.54 76.63 63.10 84.62 69.71 79.47 60.65 Qwen3-0.6B HHEM-2.1 89.24 69.18 86.29 50.41 79.63 69.05 80.44 65.31 86.40 66.46 84.40 64.08 Qwen3-8B 74.27 63.34 76.40 46.01 73.40 64.43 71.45 60.23 83.22 68.76 75.75 60.55 Qwen3-1.7B HHEM-2.1 94.63 75.27 93.56 54.06 87.48 78.40 90.83 73.05 93.40 76.98 91.98 71.55 Qwen3-8B 84.80 74.24 74.23 49.43 80.21 73.94 84.42 69.76 82.62 67.42 81.26 66.96
+
+## B. Experimental Details 
+
+B.1. PRM Selection for Reasoning Step Reward 
+
+In Section 4.1, we discussed the utilization of PRM to evaluate the faithfulness of CoT sentences relative to the context. To identify the optimal model for this judgment task, we comparatively evaluated Qwen3-8B (Yang et al., 2025) and HHEM-2.1 (Hughes et al., 2023) as the underlying PRM. We then conducte hallucination mitigation experiments using our proposed method with both configurations. From Table 8, it can be seen that using HHEM-2.1 as the PRM achieved good results, with high Acc. and Faithful Rate. Therefore, we chose HHEM-2.1 as the PRM for the experiment. 
+
+B.2. Baseline Details 
+
+While FaithRL begins with 8 initial rollouts, its resampling strategy effectively results in 16 samples per prompt. To ensure a fair comparison, we generate 16 rollouts per prompt for all baselines, matching the total number of samples produced by FaithRL’s resampling strategy. 
+
+SFT. For a fair comparison, we use the same training set as FaithRL. For each question in the training set, we sample 16 responses and select those with correct answers as the final SFT training set. 
+
+KD (Nguyen et al., 2025). We apply knowledge distillation to improve factuality, using Qwen3-32B and DPSK-32B as teachers for their respective student models Qwen3 series and DPSK-1.5B. Following Nguyen et al. (2025), we maintain identical hyperparameters and settings. To ensure fairness in data quality, we adopt a rejection sampling approach where 16 responses are generated per training instance. The sample that satisfies the correctness criteria and yields the maximum F1 score is designated as the hard label for student training. 
+
+Self-Refine (Madaan et al., 2023). Generate the initial response, evaluate it through feedback, and optimize the response iteratively based on this feedback until a satisfactory version is obtained. We follow Madaan et al. (2023) and set the maximum number of iterations as 3. 
+
+GRPO (Shao et al., 2024). Follow Shao et al. (2024), we use the original GRPO strategy with only outcome correctness as the reward signal. For a fair comparison, except for the rollout count being 16, the hyperparameter settings of GRPO are the same as those of FaithRL. 
+
+FSPO (Li & Ng, 2025). By assessing the reasoning trajectory through fine-grained step-wise rewards, FSPO fosters a more robust reliance on CoT, thereby mitigating grounding errors. To remain consistent with FaithRL, we modified the FSPO prompt structure so that the model has access to the full context from the initial question, maintaining structural consistency with our approach. For a fair comparison, except for the rollout count being 16, the hyperparameter settings of FSPO are the same as those of FaithRL. 15
