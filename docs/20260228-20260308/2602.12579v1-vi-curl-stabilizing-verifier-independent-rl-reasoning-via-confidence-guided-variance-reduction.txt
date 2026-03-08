@@ -1,0 +1,1362 @@
+Title: VI-CuRL: Stabilizing Verifier-Independent RL Reasoning via Confidence-Guided Variance Reduction
+
+URL Source: https://arxiv.org/pdf/2602.12579v1
+
+Published Time: Mon, 16 Feb 2026 01:27:00 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+## VI-CuRL: Stabilizing Verifier-Independent RL Reasoning via Confidence-Guided Variance Reduction 
+
+Xin-Qiang Cai 1 Masashi Sugiyama 1,21RIKEN AIP, Tokyo, Japan 2The University of Tokyo, Tokyo, Japan 
+
+Abstract 
+
+Reinforcement Learning with Verifiable Rewards (RLVR) has emerged as a dominant paradigm for enhancing Large Language Models (LLMs) reasoning, yet its reliance on external verifiers limits its scalability. Recent findings suggest that RLVR primarily functions by eliciting latent capabilities, motivating the development of verifier-free algorithms. However, in such settings, standard methods like Group Relative Policy Optimization face a critical challenge: destructive gradient variance that often leads to training collapse. To address this issue, we introduce 
+
+Verifier-Independent Curriculum Reinforcement Learning (VI-CuRL) , a framework that leverages the model’s intrinsic confidence to construct a curriculum independent from external verifiers. By prioritizing high-confidence samples, VI-CuRL effectively manages the bias-variance trade-off, specifically targeting the reduction of action and problem variance . We provide a rigorous theoretical analysis, proving that our estimator guarantees asymptotic unbiasedness. Empirically, VI-CuRL promotes stability and consistently outperforms verifier-independent baselines across six challenging benchmarks with/without verifiers. 
+
+1. Introduction 
+
+Reinforcement Learning with Verifiable Rewards (RLVR) has recently emerged as a dominant paradigm for enhancing the reasoning capabilities of large language models (LLMs) in post-training [ 24 , 6 ]. Typically, RLVR relies on an external verifier to provide reward signals that guide the model toward correct reasoning paths [ 31 ]. However, obtaining reliable verifiers is often prohibitively expensive or infeasible for many open-ended tasks [ 2, 15 ]. Meanwhile, recent studies suggest that the success of RLVR may be largely attributed to its ability to elicit the 1
+
+> arXiv:2602.12579v1 [cs.LG] 13 Feb 2026
+
+model’s latent potential rather than injecting new knowledge [ 3 , 6 ]. Consequently, there is a growing interest in verifier-free algorithms that can unlock these capabilities without reliance on ground-truth supervision [16, 38]. Despite its promise, RLVR, like many reinforcement learning (RL) approaches, faces a significant challenge: training instability due to high gradient variance [ 33 , 34 ]. Traditional RL methods employ various techniques to reduce variance, often introducing a controlled amount of bias to stabilize training, known as the bias-variance trade-off [ 5, 23 ]. In the context of RLVR, particularly in verifier-free settings, this issue is exacerbated. Without effective external supervision to prune incorrect trajectories, the variance in LLM training becomes destructively large, often leading to performance collapse [37]. 
+
+Figure 1: Conceptual overview of VI-CuRL. Unlike standard RL that treats all samples equally, VI-CuRL dynamically selects high-confidence samples to stabilize training via a principled bias-variance trade-off, without accessing external verifiers. To address this instability, curriculum learning presents a promising direction, proposing to train models on a sequence of progressively harder examples to improve convergence [ 1, 26 ]. While curriculum-based approaches for RLVR, such as Adaptive Curriculum Reinforcement Finetuning (AdaRFT) [ 27 ] and Variance-based Curriculum Reinforcement Learning (VCRL) [ 10 ], have been proposed, they are verifier-dependent and rely on verifier-provided information to construct the curriculum. While in verifier-free scenarios, however, the destructive impact of variance is far more severe, and such external guidance is absent [ 37 ]. Therefore, we propose Verifier-Independent Curriculum Reinforcement Learning (VI-CuRL) , as illustrated in Figure 1. Instead of relying on the variance of external training data [ 37 ] or signals from verifiers [ 15 , 31 ], VI-CuRL 2leverages the model’s intrinsic confidence as a proxy for sample difficulty. Specifically, we define confidence as the length-normalized negative entropy of the generation. As justified by our variance decomposition, this selection mechanism specifically targets and reduces the action variance and problem variance terms, which are the primary drivers of instability. By prioritizing high-confidence samples in the early stages, our method achieves a favorable bias-variance balance. We guarantee that, as the curriculum progresses, the surrogate objective asymptotically converges to the true objective, ensuring both stability and final performance. In this work, we formalize the variance collapse phenomenon in verifier-independent RL and provide a rigorous theoretical framework that justifies our intrinsic curriculum approach. We implement VI-CuRL and evaluate it across challenging logic and mathematical reasoning benchmarks, demonstrating that it effectively prevents the training collapse observed in standard baselines. Our results show that VI-CuRL achieves performance competitive with oracle-verified methods, offering a scalable and stable path for applying RL to the vast array of domains where ground-truth verification remains out of reach. 
+
+2. Preliminaries and Problem Formulation 
+
+In this section, we introduce the preliminaries and problem formulation. 
+
+Notation.. We consider a prompt x drawn from a data distribution p(x). At each iteration, we maintain a trainable policy πθ parameterized by θ ∈ Rd, and a behavior policy πθold (the policy from the current outer iteration). We also assume a fixed reference policy πref (typically the initial Supervised Fine-Tuning (SFT) policy) for Kullback-Leibler (KL) regularization. Given a prompt x, we sample G trajectories {y1, . . . , y G} from πθold (·| x), where each yi = ai, 1: Ti consists of Ti tokens. We denote the state at step t as si,t = ( x, a i,<t ). The group-relative advantage Ai
+
+for trajectory i is: 
+
+Ai = R(x, y i) − ¯RσR + ϵ , (1) where ¯R and σR are the mean and standard deviation of rewards within the group, and ϵ is a small constant to prevent division by zero. 
+
+Base Surrogate Objective.. We adopt the Group Relative Policy Optimization (GRPO) framework [ 24 ], which we view as optimizing a Proximal Policy Optimization (PPO) style surrogate objective 3with group-relative advantages and explicit KL regularization. Specifically, we define the log-ratio 
+
+ri,t (θ) and probability ratio ρi,t (θ) as: 
+
+ri,t (θ) := log πθ(ai,t |si,t ) − log πθold (ai,t |si,t ),ρi,t (θ) := exp( ri,t (θ)) .
+
+The per-prompt, per-group surrogate loss averages over both rollouts and tokens to ensure boundedness: 
+
+ℓ(θ; x, y 1: G) := 1
+
+G
+
+> G
+
+X
+
+> i=1
+
+1
+
+TiTiX
+
+> t=1
+
+h
+
+Lclip (i, t ; θ) − βKL KL( πθ(·| si,t )|| πref (·| si,t )) 
+
+i
+
+, (2) where the standard PPO-Clip term is: 
+
+Lclip (i, t ; θ) := min 
+
+
+
+ρi,t (θ)Ai, clip( ρi,t (θ), 1 − ϵ, 1 + ϵ)Ai
+
+
+
+.
+
+This normalization makes the loss scale approximately length-invariant (independent of Ti) in practice. The global training objective is to maximize the expected value of this surrogate: 
+
+L(θ) := Ex∼p(x) Ey1: G∼πθold (·| x)
+
+ ℓ(θ; x, y 1: G) . (3) In standard GRPO, we estimate the gradient of L(θ) by sampling prompts and groups from πθold 
+
+and performing multiple epochs of stochastic gradient ascent on ℓ.
+
+Curriculum RL.. Standard RL treats all samples from p(x) equally. Curriculum methods effectively optimize a sequence of objectives Lt(θ), where the data distribution is re-weighted. The goal is to start with a “simple” distribution where gradient variance is low, and gradually anneal towards the target distribution p(x). In our setting, we define this re-weighting explicitly through an inclusion probability based on model confidence. Prior works have validated that intrinsic model probabilities can serve as reliable proxies for correctness [ 12 , 8 , 22 ]. We formalize this signal as follows: 
+
+Definition 2.1 (Model Confidence) . Quantifying confidence in LLMs is achieved by aggregating token-level probabilities. To obtain a stable signal c(x) ∈ [0 , 1] that depends only on the prompt, we first define the normalized uncertainty u(x) as the expectation over trajectories sampled from the behavior policy πθold :
+
+u(x) := Ey∼πθold (·| x)
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+H(πθold (·| st)) log |V| 
+
+#
+
+, (4) 4where H is the Shannon entropy and |V| is the vocabulary size. The model confidence is defined as the complement: 
+
+c(x) := 1 − u(x) ∈ [0 , 1] . (5) High confidence implies the model has a “decisive” belief about the reasoning path. While sequence likelihood is not always a reliable predictor of correctness due to hallucinations [ 22 ], we leverage it here as an effective proxy for Curriculum Difficulty to stabilize training, rather than as a ground-truth verification signal. 
+
+3. Verifier-Independent Curriculum Reinforcement Learning 
+
+We propose Verifier-Independent Curriculum Reinforcement Learning (VI-CuRL) , a novel framework for solving the high-variance challenge independent from verifiers. 
+
+3.1. The VI-CuRL Objective 
+
+To formally operationalize our curriculum, we define a sequence of curriculum phases indexed by t = 1 , . . . , T . Each phase is associated with a confidence threshold τt that determines which samples are included in the training process. 
+
+Curriculum Mask and Retention Rate.. We define the curriculum mask wt(x) based on the frozen confidence scores. The selection is deterministic given the prompt and the threshold τt:
+
+wt(x) = 1[c(x) ≥ τt]. (6) The target retention rate βt corresponds to the population probability: 
+
+βt = Ex∼p(x)[wt(x)] ∈ (0 , 1] . (7) In the implementation (Algorithm 1), we estimate βt using the empirical batch retention ˆβt =
+
+> 1
+> B
+
+PBj=1 wt(xj ). 5The Weighted Surrogate Objective.. For each phase t, we optimize a re-weighted version of the standard surrogate L(θ) that restricts learning to the selected subspace. To maintain the scale of the original objective, we introduce the importance sampling weight 1 /β t:
+
+Lt(θ) := Ex∼p(x)Ey1: G∼πθold (·| x)
+
+h wt(x)
+
+βt
+
+ℓ(θ; x, y 1: G)
+
+i
+
+. (8) This weighted objective trades bias for variance. By focusing on the “easy” high-confidence region, it reduces the effective variance of the gradient estimator, albeit by optimizing a biased data distribution. 
+
+The Curriculum Gradient Estimator.. To optimize Lt(θ), we use the standard auto-differentiation subgradient of the clipped PPO surrogate. Critically, the advantages Ai, masks wt(x), and weights 
+
+βt are treated as constants (“stop-gradients”) during the inner loop updates: ˆgt := wt(x)
+
+βt
+
+∇θℓ(θ; x, y 1: G). (9) 
+
+3.2. Curriculum Schedule and Algorithm 
+
+We now detail the practical implementation of the VI-CuRL framework. The optimization process is divided into T steps. At each step t, we seek to effectively filter the training batch to retain only the samples where the model exhibits high confidence. 
+
+Dynamic Quantile Thresholding.. Defining a fixed schedule for the confidence threshold τt is challenging because the model’s confidence distribution shifts as training progresses. A static threshold might result in either empty batches (if too high) or ineffective filtering (if too low). To address this, we define the curriculum schedule via a target retention rate βt ∈ (0 , 1]. We strictly enforce βt by dynamically setting τt to the (1 − βt)-th quantile of the batch confidence scores. Specifically, for a batch of prompts B = {x1, . . . , x B }, we calculate confidence scores cj = c(xj ). Let c(1) ≤ · · · ≤ c(B) be the sorted scores. The threshold is set using the sample quantile: 
+
+τt = c(⌊(1 −βt)B⌋). (10) This ensures the empirical retention ˆβt matches the target schedule. 6Algorithm 1 Verifier-Independent Curriculum RL 
+
+Input: Dataset D, Initial Policy πref , Total steps T , Curriculum steps Tcurr , Batch size B,Number of epochs K, Learning rate η.Initialize πθ ← πref .
+
+for t = 1 to T do 
+
+πθold ← πθ (Freeze behavior policy) Sample batch B = {xj }Bj=1 ∼ D .
+
+for each prompt xj ∈ B do 
+
+Sample group {yj,k }Gk=1 ∼ πθold (·| xj ). Compute rewards Rj,k , advantages Aj,k , and confidence cj = c(xj ). (Eq. (5)) 
+
+end for 
+
+Determine βt via schedule. Set τt as the (1 − βt)-quantile of {cj }.Compute masks wj = 1[cj ≥ τt]. 
+
+for k = 1 to K do 
+
+Sample minibatch M ⊂ B .Compute ˆ g = 1
+
+> |M|
+
+P 
+
+> j∈M
+> wj
+> βt
+
+∇θℓ(θ; xj , y j, 1: G). Update θ ← θ + ηˆg.
+
+end for end for 
+
+Algorithm.. The full VI-CuRL training procedure is summarized in Algorithm 1. We adopt a linear annealing schedule for βt. The algorithm follows a standard outer/inner loop structure: in the outer loop, we sample data from πθold , compute advantages and masks, and then in the inner loop, we perform multiple epochs of SGD on the masked surrogate. This algorithm effectively operationalizes the bias-variance trade-off: early in training, βt is small, and the algorithm focuses strictly on the “easiest” samples. As the model learns and variance naturally decreases, βt → 1, ensuring unbiased optimization of the full distribution. 74. Theoretical Analysis of the Bias-Variance Trade-off 
+
+In this section, we formalize the properties of VI-CuRL. Our analysis first addresses the “bias” component of the trade-off. We then dissect the “variance” component to reveal the source of the training stability. 
+
+4.1. Consistency of the Objective 
+
+A foundational property of our framework is that the normalized gradient estimator ˆgt(x, y ; θ)is, by construction, an unbiased estimator of the gradient of the surrogate objective Lt(θ). That is, E[ ˆgt(x, y ; θ)] = ∇θLt(θ). This ensures our algorithm correctly optimizes the objective for the current curriculum phase. The critical theoretical question, however, is whether maximizing these time-dependent surrogate objectives consistently leads to maximizing the base surrogate. Our first theorem confirms that it does: 
+
+Theorem 4.1 (Consistency of the Objective) . Assuming the per-prompt surrogate loss is bounded, 
+
+|ℓ(θ; x, y 1: G)| ≤ Lmax , the absolute difference between the true surrogate objective L(θ) and the weighted objective Lt(θ) is bounded by (1 − βt):
+
+|L (θ) − L t(θ)| ≤ 2Lmax (1 − βt). (11) The proof can be found in Appendix C.1. The bounded-surrogate assumption |ℓ(θ; x, y 1: G)| ≤ Lmax 
+
+is mild in practice with bounded rewards, group-normalized advantage, ratio clipping, and per-token KL penalty. [ 20 , 24 ]. Meanwhile, as the curriculum is annealed ( τt → 0), the retention rate 
+
+βt → 1, and the bound converges to zero, ensuring that Lt(θ) → L (θ). This theorem guarantees that the approximation error diminishes over time. 
+
+4.2. A Deeper Investigation of Variance 
+
+Having established that our objective is asymptotically correct, we now analyze how the curriculum tames the variance that destabilizes standard RL. To this end, here we decompose the variance into its constituent parts. 8Definition 4.2 (Vector Variance) . For a random vector Z ∈ Rd, we define its variance as the trace of its covariance matrix: Var( Z) := E[∥Z − E[Z]∥2].
+
+Theorem 4.3 (Variance Decomposition) . Let g(x, y 1: G; θ) := ∇θℓ(θ; x, y 1: G) be the gradient of the surrogate loss, and let ¯g(x; θ)( x; θ) = Ey1: G|πθold [g] be the expected gradient for a fixed prompt 
+
+x. The variance of the VI-CuRL estimator ˆgt(x, y ; θ) can be decomposed into three sources: 
+
+Var(ˆ gt(x, y ; θ)) = σ2
+
+> g,t
+
+βt
+
+|{z} 
+
+> Action Variance
+
++ Vprob ,t 
+
+βt
+
+| {z } 
+
+> Problem Variance
+
++ 1 − βt
+
+βt
+
+∥∇ θLt(θ)∥2
+
+| {z }
+
+> Masking Variance
+
+, (12) 
+
+where σ2 
+
+> g,t
+
+:= Ex|wt=1 [Var y1: G|πθold (g)] is the average action variance within the selected set of problems, and Vprob ,t := Var x|wt=1 ( ¯g(x; θ)) is the variance of mean gradients within that same set. 
+
+The proof can be found in Appendix C.2. This decomposition reveals the narrative of VI-CuRL. The curriculum’s power lies in making the numerators of the first two terms— σ2 
+
+> g,t
+
+(action consistency) 
+
+and Vprob ,t (problem homogeneity) —dramatically smaller. By selecting high-confidence (low-entropy) and homogeneous “easy” problems, their gradients become more consistent and well-aligned, reducing these numerators. The third term, “Masking Variance,” represents the cost of this trade-off, which vanishes as βt → 1. While the decomposition is exact, a simple upper bound of the form O(1 /β t) would be overly pessimistic, suggesting that variance explodes as the curriculum tightens. We provide a confidence-aware bound that resolves this contradiction. 
+
+Lemma 4.4 (Confidence-Aware Variance Bound) . Suppose there exists a non-increasing function 
+
+Gconf : [0 , 1] → [0 , ∞) such that for all selected prompts ( c(x) ≥ τt), the norm of the surrogate gradient is bounded by confidence: ∥∇ θℓ(θ; x, y 1: G)∥ ≤ Gconf (c(x)) . Then 
+
+Var(ˆ gt) ≤ Gconf (τt)2
+
+βt
+
+− ∥∇ θLt(θ)∥2. (13) The proof can be found in Appendix C.3. This lemma shows that as the curriculum threshold τt
+
+increases, the numerator Gconf (τt)2 decreases, counteracting the decrease in the denominator βt.Under reasonable assumptions (e.g., if βt ∝ (1 − τt) and Gconf (τt)2 ∝ (1 − τt)), this bound can remain stable instead of diverging. 9To formalize this intuition, we introduce a theorem below, which shows that under a small assumption about the curriculum’s effectiveness. 
+
+Theorem 4.5 (Curriculum-Sensitive Variance Bound) . Assume that for each phase t there exist constants a1, a 2 ≥ 0 and α > 0 such that the variance numerators from Theorem 4.3 decay faster than the retention rate 
+
+σ2 
+
+> g,t
+
+≤ a1 β1+ αt , and Vprob ,t ≤ a2 β1+ αt . (14) 
+
+Then the total variance is bounded by 
+
+Var(ˆ gt) ≤ (a1 + a2) βαt + 1 − βt
+
+βt
+
+∇θLt(θ) 2. (15) The proof can be found in Appendix C.4. In practice, assumption (14) is naturally satisfied because the curriculum selects for high-confidence samples where the policy’s entropy is low and the problem difficulty is homogeneous. Under this circumstance, the first two terms vanish as 
+
+βt → 0. The remaining term is the masking variance, which is also expected to be small in practice, as the gradient on the “easiest” problems, ∥∇ θLt(θ)∥, should be close to zero. The theorem thus confirms that VI-CuRL successfully trades a controllable bias for a dramatically reduced variance. 
+
+5. Experiments 
+
+To validate the effectiveness of VI-CuRL, we conducted experiments on several reasoning tasks. Our code is available at https://github.com/caixq1996/VI-CURL .
+
+5.1. Experimental Setup 
+
+We trained on three small backbones, Qwen2.5-Math-1.5B , DeepSeek-R1-Distill-Qwen-1.5B ,and Llama-3.2-3B-Instruct , and one scale-up model Qwen2.5-Math-7B . Rewards for the oracle baselines came from a rule-based checker that extracted the final \boxed{\cdot} answer and tested numeric/rational equivalence. For verifier-independent methods, we relied solely on intrinsic signals (e.g., majority vote or entropy). We implemented VI-CuRL as a curriculum hook within VERL [25 ], following a PPO-style GRPO recipe. Evaluation used six verifiable math suites— AIME-2024 ,
+
+AIME-2025 , AMC-2023 , MATH500 , Minerva MATH , and OlympiadBench —reporting 
+
+Pass@1 and Pass@8 with 16 samples and averaged over 5 random seeds. Compute was 8 ×A100 (40GB) GPUs servers. More details can be found in Appendix D. 10 Baselines. We evaluated VI-CuRL against two categories of baselines: 
+
+• Curriculum RL with Ground Truth : We compared against VCRL [ 10 ] and AdaRFT 
+
+[27 ]. Both were curriculum-based RLVR algorithms but fundamentally relied on access to ground-truth labels (verifiers) to guide the curriculum, unlike VI-CuRL which is verifier-independent. 
+
+• Standard RL (Oracle) : Standard RLVR training using the true verifier reward. This served as a topline for performance. 
+
+• Majority Vote : A verifier-independent baseline where the reward was determined by self-consistency (majority voting) among rollout samples, similar to approaches explored in TTRL [39]. 
+
+• Entropy : A verifier-independent baseline that used the prediction entropy of the model’s outputs as the reward signal (penalizing high entropy). This aligned with recent methods like RENT [21] and EMPO [36]. 
+
+5.2. Main Results 
+
+We presented a detailed comparison of our method against baselines across two distinct experimen-tal settings: Oracle Reward and Verifier-Free (Intrinsic) Reward. Table 1 and Table 2 summarized the performance. In the Oracle setting, VI-CuRL consistently matched or outperformed standard baselines across all model scales, particularly on harder benchmarks, demonstrating that curricu-lum learning accelerated convergence even when perfect rewards were available. The benefits were even more critical in the Verifier-Free setting, where standard methods succumbed to high variance and often suffered from model collapse. In contrast, VI-CuRL effectively stabilized training, recovering performance comparable to the Oracle topline. This confirmed that managing gradient variance via a high-confidence curriculum was essential for learning from noisy, intrinsic signals. Additional results for Pass@8 and analysis verifications of the curriculum effectively sorts problems by difficulty were detailed in Appendix B. 
+
+5.3. Learning Curve Analysis: with/without Verifiers 
+
+We performed a comprehensive comparison of learning curves across three distinct reward settings: 
+
+Oracle (Ground Truth), Majority Vote , and Entropy . Figure 2 presented a 6 × 6 grid of results. 11 Oracle Setting (Rows 1-2): Even with a perfect verifier, VI-CuRL (blue) often matched or exceeded standard RL (orange) in stability and final performance. 
+
+Majority Vote (Rows 3-4): This verifier-independent baseline (purple) was notoriously unstable, as seen in the fluctuating curves. VI-CuRL significantly stabilized training, yielding smooth, monotonic improvements. 
+
+Entropy (Rows 5-6): Using entropy as a proxy also benefited from VI-CuRL’s curriculum, which filtered out high-entropy (uncertain) samples early on to prevent policy collapse. VI-CuRL demonstrated effective variance reduction and robust learning across all settings, validating its utility as a general-purpose stabilizer for RLVR. 
+
+AIME2024 MATH500 AIME2025 AMC2023 Minerva Olympiad Oracle P@1 40 80 120 160 200 240 280 320 
+
+10 
+
+15 
+
+Base Model 
+
+VI-CuRL 
+
+No Curriculum 40 80 120 160 200 240 280 320 
+
+60.0 
+
+62.5 
+
+65.0 
+
+67.5 
+
+70.0 40 80 120 160 200 240 280 320 
+
+2.5 
+
+5.0 
+
+7.5 
+
+10.0 40 80 120 160 200 240 280 320 
+
+40 
+
+50 40 80 120 160 200 240 280 320 
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+25 
+
+30 
+
+35 Oracle P@8 40 80 120 160 200 240 280 320 
+
+25 
+
+30 
+
+35 40 80 120 160 200 240 280 320 
+
+65 
+
+70 40 80 120 160 200 240 280 320 
+
+15 
+
+20 
+
+25 40 80 120 160 200 240 280 320 
+
+75.0 
+
+77.5 
+
+80.0 
+
+82.5 
+
+85.0 40 80 120 160 200 240 280 320 
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+30 
+
+35 
+
+40 MajVote P@1 40 80 120 160 200 240 280 320 
+
+0
+
+5
+
+10 
+
+15 40 80 120 160 200 240 280 320 
+
+0
+
+20 
+
+40 
+
+60 40 80 120 160 200 240 280 320 
+
+0.0 
+
+2.5 
+
+5.0 
+
+7.5 
+
+10.0 40 80 120 160 200 240 280 320 
+
+0
+
+20 
+
+40 40 80 120 160 200 240 280 320 
+
+0
+
+5
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 
+
+30 MajVote P@8 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 
+
+30 40 80 120 160 200 240 280 320 
+
+0
+
+20 
+
+40 
+
+60 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 40 80 120 160 200 240 280 320 
+
+0
+
+20 
+
+40 
+
+60 
+
+80 40 80 120 160 200 240 280 320 
+
+0
+
+5
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 
+
+30 Entropy P@1 40 80 120 160 200 240 280 320 
+
+0
+
+5
+
+10 
+
+15 40 80 120 160 200 240 280 320 
+
+20 
+
+40 
+
+60 40 80 120 160 200 240 280 320 
+
+0
+
+2
+
+4
+
+6
+
+840 80 120 160 200 240 280 320 
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 40 80 120 160 200 240 280 320 
+
+5
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+10 
+
+20 
+
+30 Entropy P@8 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 
+
+30 40 80 120 160 200 240 280 320 
+
+20 
+
+40 
+
+60 40 80 120 160 200 240 280 320 
+
+0
+
+10 
+
+20 40 80 120 160 200 240 280 320 
+
+20 
+
+40 
+
+60 
+
+80 40 80 120 160 200 240 280 320 
+
+5
+
+10 
+
+15 
+
+20 40 80 120 160 200 240 280 320 
+
+10 
+
+20 
+
+30 
+
+Steps Steps Steps Steps Steps Steps 
+
+Figure 2: The learning curves comparing VI-CuRL against the baseline No Curriculum across verifier-based (Oracle) and verifier-free (Majority Vote and Entropy) settings. Rows alternate between Pass@1 and Pass@8 for each setting. 12 5.4. Does VI-CuRL Really Reduce Variance? 
+
+A key theoretical advantage of VI-CuRL is variance reduction through curriculum selection. According to Theorem 4.3, the variance of the curriculum-selected estimator depends on: 
+
+Action Variance: σ2 
+
+> g,t
+
+:= Ex|wt=1 [Var y|x(g)]: the expected gradient variance due to sampling different rollouts for the same prompt within the selected set. 
+
+Problem Variance: Vprob ,t := Var x|wt=1 ( ¯g): the variance of mean gradients across different prompts within the selected set. To empirically validate this, we estimated these variance components at each training step t using Monte-Carlo approximations. For K independent rollouts per-prompt, ˆσ2 
+
+> g,t
+
+= 1
+
+|S t|
+
+X
+
+> x∈S t
+
+dVar y|x(g(x, y )) , ˆVprob ,t = dVar x∈S t (¯ g(x)) ,
+
+where St denotes either the curriculum-selected subset (“kept”) or the full dataset (“full”). 
+
+Validating Theorem 4.3. The theorem predicted that the curriculum-selected subset Skept 
+
+> t
+
+should have lower variance than the full dataset Sfull  
+
+> t
+
+when βt < 1. To test this, we computed the variance ratio: Ratio σ,t = ˆσ2
+
+> g,t
+
+(kept) ˆσ2
+
+> g,t
+
+(full) , Ratio Vt = ˆVprob ,t (kept) ˆVprob ,t (full) .
+
+If the curriculum effectively reduces variance, we expected Ratio σ,t , Ratio Vt < 1 when βt < 1, and Ratio σ,t , Ratio Vt ≈ 1 when βt → 1. Figure 3 presented the variance ratios for both Qwen2.5-Math-1.5B and DeepSeek-R1-Distill-Qwen-1.5B under the Oracle (ground-truth verifier) setting. We can oberve that when βt ≈ 0.2(early training), the variance ratios ranged from 0 .55 to 0 .80, indicating a 20–45% reduction in variance compared to using the full dataset. Meanwhile, as βt increased towards 1, the variance ratios monotonically increased toward 1, as predicted by the theorem. Besides, action Variance and Problem Variance exhibited similar reduction patterns, confirming that the curriculum simultane-ously reduced sampling variance (within prompts) and heterogeneity (across prompts). Therefore, the curriculum selection strategy successfully reduced variance as predicted by Theorem 4.3. Additional analysis of the absolute variance values is provided in Appendix B. 13 50 100 150 200 250 300              
+
+> Training Steps
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Variance Ratio (kept / full)  σ2
+> g,tratio (kept/full)
+> Vprob, tratio (kept/full)
+> ratio = 1
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> βt (retention rate)
+> βt50 100 150 200 250 300
+> Training Steps
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Variance Ratio (kept / full)  σ2
+> g,tratio (kept/full)
+> Vprob, tratio (kept/full)
+> ratio = 1
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> βt (retention rate)
+> βt
+
+(a) Qwen2.5-Math-1.5B (b) DeepSeek-R1-Distill-Qwen-1.5B Figure 3: Variance Ratio Analysis. Variance ratio (kept/full) for Action Variance ( σ2
+
+g,t ) and Problem Variance ( Vprob ,t ) alongside the retention rate ( βt, right axis). When βt < 1, both ratios are consistently below 1, confirming that curriculum selection reduces variance as predicted by Theorem 4.3. As βt → 1, the ratios approach 1 since the selected set converges to the full dataset. 
+
+6. Conclusion 
+
+In this work, we presented Verifier-Independent Curriculum Reinforcement Learning (VI-CuRL) , a theoretically grounded framework designed to stabilize Reinforcement Learning with Verifiable Rewards (RLVR) especially when reliable verifiers are absent. Recognizing that the primary bottleneck in RL is the extreme problem-level variance, VI-CuRL introduces a dynamic, confidence-based curriculum that allows the policy to “start easy” by prioritizing high-confidence generations. We formalized this strategy as a principled bias-variance trade-off, proving that our curriculum estimator significantly reduces variance bounds during early training while guaranteeing asymptotic convergence to the true objective. Empirically, VI-CuRL acts as a robust stabilizer for Group Relative Policy Optimization (GRPO), consistently outperforming standard baselines across six challenging math benchmarks, such as AIME and OlympiadBench, with and without external verifiers. By effectively filtering out high-variance gradients through intrinsic confidence, VI-CuRL paves the way for scalable, self-improving reasoning models in open-ended domains where ground-truth supervision is scarce. So far VI-CuRL has been verified successfully on reasoning benchmarks, and we plan to extend it to other RL domains in the future. 
+
+References 
+
+[1] Bengio, Y., Louradour, J., Collobert, R., and Weston, J. Curriculum learning. In Proceedings of the 26th International Conference on Machine Learning , pp. 41–48, 2009. 14 [2] Cai, X.-Q., Wang, W., Liu, F., Liu, T., Niu, G., and Sugiyama, M. Reinforcement learning with verifiable yet noisy rewards under imperfect verifiers. arXiv preprint arXiv:2510.00915 ,2025. [3] Chen, H., Feng, Y., Liu, Z., Yao, W., Prabhakar, A., Heinecke, S., Ho, R., M` ui, P. T., Savarese, S., Xiong, C., and Wang, H. Language models are hidden reasoners: Unlocking latent reasoning capabilities via self-rewarding. arXiv preprint arXiv:2411.04282 , 2024. [4] Cui, G., Zhang, Y., Chen, J., Yuan, L., Wang, Z., Zuo, Y., Li, H.-S., Fan, Y., Chen, H., Chen, W., Liu, Z., Peng, H., Bai, L., Ouyang, W., Cheng, Y., Zhou, B., and Ding, N. The entropy mechanism of reinforcement learning for reasoning language models. arXiv preprint arXiv:2505.22617 , 2025. [5] Geman, S., Bienenstock, E., and Doursat, R. Neural networks and the bias/variance dilemma. 
+
+Neural computation , 4(1):1–58, 1992. [6] Guo, D., Yang, D., Zhang, H., Song, J., Wang, P., Zhu, Q., Xu, R., Zhang, R., Ma, S., Bi, X., Zhang, X., Yu, X., Wu, Y., Wu, Z. F., Gou, Z., Shao, Z., Li, Z., Gao, Z., Liu, A., Xue, B., Wang, B., Wu, B., Feng, B., Lu, C., Zhao, C., Deng, C., Ruan, C., Dai, D., Chen, D., Ji, D., Li, E., Lin, F., Dai, F., Luo, F., Hao, G., Chen, G., Li, G., Zhang, H., Xu, H., Ding, H., Gao, H., Qu, H., Li, H., Guo, J., Li, J., Chen, J., Yuan, J., Tu, J., Qiu, J., Li, J., Cai, J. L., Ni, J., Liang, J., Chen, J., Dong, K., Hu, K., You, K., Gao, K., Guan, K., Huang, K., Yu, K., Wang, L., Zhang, L., Zhao, L., Wang, L., Zhang, L., Xu, L., Xia, L., Zhang, M., Zhang, M., Tang, M., Zhou, M., Li, M., Wang, M., Li, M., Tian, N., Huang, P., Zhang, P., Wang, Q., Chen, Q., Du, Q., Ge, R., Zhang, R., Pan, R., Wang, R., Chen, R. J., Jin, R. L., Chen, R., Lu, S., Zhou, S., Chen, S., Ye, S., Wang, S., Yu, S., Zhou, S., Pan, S., Li, S. S., Zhou, S., Wu, S., Yun, T., Pei, T., Sun, T., Wang, T., Zeng, W., Liu, W., Liang, W., Gao, W., Yu, W., Zhang, W., Xiao, W. L., An, W., Liu, X., Wang, X., Chen, X., Nie, X., Cheng, X., Liu, X., Xie, X., Liu, X., Yang, X., Li, X., Su, X., Lin, X., Li, X. Q., Jin, X., Shen, X., Chen, X., Sun, X., Wang, X., Song, X., Zhou, X., Wang, X., Shan, X., Li, Y. K., Wang, Y. Q., Wei, Y. X., Zhang, Y., Xu, Y., Li, Y., Zhao, Y., Sun, Y., Wang, Y., Yu, Y., Zhang, Y., Shi, Y., Xiong, Y., He, Y., Piao, Y., Wang, Y., Tan, Y., Ma, Y., Liu, Y., Guo, Y., Ou, Y., Wang, Y., Gong, Y., Zou, Y., He, Y., Xiong, Y., Luo, Y., You, Y., Liu, Y., Zhou, Y., Zhu, Y. X., Huang, Y., Li, Y., Zheng, Y., Zhu, Y., Ma, Y., Tang, Y., Zha, Y., Yan, Y., Ren, Z. Z., Ren, 15 Z., Sha, Z., Fu, Z., Xu, Z., Xie, Z., Zhang, Z., Hao, Z., Ma, Z., Yan, Z., Wu, Z., Gu, Z., Zhu, Z., Liu, Z., Li, Z., Xie, Z., Song, Z., Pan, Z., Huang, Z., Xu, Z., Zhang, Z., and Zhang, Z. Deepseek-r1 incentivizes reasoning in llms through reinforcement learning. Nature , 645 (8081):633–638, September 2025. ISSN 1476-4687. doi: 10.1038/s41586-025-09422-z. URL 
+
+http://dx.doi.org/10.1038/s41586-025-09422-z .[7] He, C., Luo, R., Bai, Y., Hu, S., Thai, Z. L., Shen, J., Hu, J., Han, X., Huang, Y., Zhang, Y., Liu, J., Qi, L., Liu, Z., and Sun, M. Olympiadbench: A challenging benchmark for promoting AGI with olympiad-level bilingual multimodal scientific problems. In Ku, L., Martins, A., and Srikumar, V. (eds.), Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), ACL 2024, Bangkok, Thailand, August 11-16, 2024 , pp. 3828–3850. Association for Computational Linguistics, 2024. [8] Huang, J., Chen, X., Mishra, S., Zheng, H. S., Yu, A. W., Song, X., and Zhou, D. Large language models cannot self-correct reasoning yet. In The Twelfth International Conference on Learning Representations , 2024. [9] HuggingFaceH4. Aime 2024 (dataset card). Hugging Face, 2024. URL https://huggingfac e.co/datasets/HuggingFaceH4/aime_2024 .[10] Jiang, G., Feng, W., Quan, G., Hao, C., Zhang, Y., Liu, G., and Wang, H. Vcrl: Variance-based curriculum reinforcement learning for large language models. arXiv preprint arXiv:2509.19803 , 2025. [11] Jiang, L., Meng, D., Zhao, Q., Shan, S., and Hauptmann, A. G. Self-paced curriculum learning. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 29, 2015. [12] Kadavath, S., Conerly, T., Askell, A., Henighan, T. J., Drain, D., Perez, E., Schiefer, N., Dodds, Z., Dassarma, N., Tran-Johnson, E., Johnston, S., El-Showk, S., Jones, A., Elhage, N., Hume, T., Chen, A., Bai, Y., Bowman, S., Fort, S., Ganguli, D., Hernandez, D., Jacobson, J., Kernion, J., Kravec, S., Lovitt, L., Ndousse, K., Olsson, C., Ringer, S., Amodei, D., Brown, T. B., Clark, J., Joseph, N., Mann, B., McCandlish, S., Olah, C., and Kaplan, J. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. [13] Kumar, M. P., Packer, B., and Koller, D. Self-paced learning for latent variable models. In 
+
+Advances in Neural Information Processing Systems , volume 23, 2010. 16 [14] Lewkowycz, A., Andreassen, A., Dohan, D., Dyer, E., Michalewski, H., Ramasesh, V. V., Slone, A., Anil, C., Schlag, I., Gutman-Solo, T., Wu, Y., Neyshabur, B., Gur-Ari, G., and Misra, V. Solving quantitative reasoning problems with language models. In Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., and Oh, A. (eds.), Advances in Neural Information Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022 ,2022. [15] Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let’s verify step by step. In The Twelfth International Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 .OpenReview.net, 2024. [16] Liu, W., Qi, S., Wang, X., Qian, C., Du, Y., and He, Y. Nover: Incentive training for language models via verifier-free reinforcement learning. arXiv preprint arXiv:2505.16022 ,2025. [17] Luo, M., Tan, S., Wong, J., Shi, X., Tang, W. Y., Roongta, M., Cai, C., Luo, J., Li, L. E., Popa, R. A., and Stoica, I. Deepscaler: Surpassing o1-preview with a 1.5b model by scaling rl. https://pretty-radio-b75.notion.site/DeepScaleR-Surpassing-O1-Preview-w ith-a-1-5B-Model-by-Scaling-RL-19681902c1468005bed8ca303013a4e2 , 2025. Notion Blog. [18] math-ai. Amc 2023 (dataset card). Hugging Face, 2025. URL https://huggingface.co/d atasets/math-ai/amc23 .[19] OpenCompass. Aime 2025 (dataset card). Hugging Face, 2025. URL https://huggingface. co/datasets/opencompass/AIME2025 .[20] Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C. L., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., Schulman, J., Hilton, J., Kelton, F., Miller, L. E., Simens, M., Askell, A., Welinder, P., Christiano, P. F., Leike, J., and Lowe, R. J. Training language models to follow instructions with human feedback. Advances in neural information processing systems , 35:27730–27744, 2022. 17 [21] Prabhudesai, M., Chen, L., Ippoliti, A., Fragkiadaki, K., Liu, H., and Pathak, D. Maximizing confidence alone improves reasoning. arXiv preprint arXiv:2505.22660 , 2025. [22] Ren, J., Zhao, Y., Vu, T., Liu, P. J., and Lakshminarayanan, B. Self-evaluation improves selective generation in large language models. In Proceedings on ”I Can’t Believe It’s Not Better: Failure Modes in the Age of Foundation Models” at NeurIPS 2023 Workshops , pp. 49–64, 2023. [23] Schulman, J., Moritz, P., Levine, S., Jordan, M., and Abbeel, P. High-dimensional continuous control using generalized advantage estimation. International Conference on Learning Representations , 2016. [24] Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Zhang, M., Li, Y., Wu, Y., and Guo, D. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 , 2024. [25] Sheng, G., Zhang, C., Ye, Z., Wu, X., Zhang, W., Zhang, R., Peng, Y., Lin, H., and Wu, C. Hybridflow: A flexible and efficient rlhf framework. arXiv preprint arXiv: 2409.19256 , 2024. [26] Shi, H., Xu, Z., Wang, H., Qin, W., Wang, W., Wang, Y., Wang, Z., Ebrahimi, S., and Wang, H. Continual learning of large language models: A comprehensive survey. ACM Computing Surveys , 58(5):1–42, 2025. [27] Shi, T., Wu, Y., Song, L., Zhou, T., and Zhao, J. Efficient reinforcement finetuning via adaptive curriculum learning. arXiv preprint arXiv:2504.05520 , 2025. [28] Sutton, R. S., McAllester, D., Singh, S., and Mansour, Y. Policy gradient methods for rein-forcement learning with function approximation. Advances in neural information processing systems , 12, 1999. [29] Wang, X., Wei, J., Schuurmans, D., Le, Q., Chi, E., Narang, S., Chowdhery, A., and Zhou, D. Self-consistency improves chain of thought reasoning in language models. In International Conference on Learning Representations , 2023. [30] Wei, J., Wang, X., Schuurmans, D., Bosma, M., Chi, E. H., Xia, F., Le, Q., and Zhou, D. Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems , 35:24824–24837, 2022. 18 [31] Wen, X., Liu, Z., Zheng, S., Xu, Z., Ye, S., Wu, Z., Liang, X., Wang, Y., Li, J., Miao, Z., Bian, J., and Yang, M. Reinforcement learning with verifiable rewards implicitly incentivizes correct reasoning in base llms. arXiv preprint arXiv:2506.14245 , 2025. [32] Williams, R. J. Simple statistical gradient-following algorithms for connectionist reinforcement learning. Machine learning , 8(3):229–256, 1992. [33] Yao, J., Hao, Y., Zhang, H., Dong, H., Xiong, W., Jiang, N., and Zhang, T. Optimizing chain-of-thought reasoners via gradient variance minimization in rejection sampling and rl. 
+
+arXiv preprint arXiv:2505.02391 , 2025. [34] Ye, K., Zhou, H., Zhu, J., Quinzan, F., and Shi, C. Robust reinforcement learning from human feedback for large language models fine-tuning. arXiv preprint arXiv:2504.03784 ,2025. [35] Zelikman, E., Wu, Y., Mu, J., and Goodman, N. Star: Bootstrapping reasoning with reasoning. Advances in Neural Information Processing Systems , 35:15476–15488, 2022. [36] Zhang, Q., Wu, H., Zhang, C., Zhao, P., and Bian, Y. Right question is already half the answer: Fully unsupervised llm reasoning incentivization. arXiv preprint arXiv:2504.05812 ,2025. [37] Zhang, Y., Zhang, Z., Guan, H., Cheng, Y., Duan, Y., Wang, C., Wang, Y., Zheng, S., and He, J. No free lunch: Rethinking internal feedback for llm reasoning. arXiv preprint arXiv:2506.17219 , 2025. [38] Zhou, X., Liu, Z., Sims, A., Wang, H., Pang, T., Li, C., Wang, L., Lin, M., and Du, C. Reinforcing general reasoning without verifiers. arXiv preprint arXiv:2505.21493 , 2025. [39] Zuo, Y., Zhang, K., Qu, S., Sheng, L., Zhu, X., Zhang, Y., Qi, B., Sun, Y., Cui, G., Ding, N., and Zhou, B. Ttrl: Test-time reinforcement learning. ArXiv , abs/2504.16084, 2025. 19 A. Related Work 
+
+LLM Reasoning and RLVR.. Recent advances in LLM reasoning have been significantly propelled by RL. Chain-of-thought prompting [ 30 ] and self-consistency [ 29 ] established reasoning as a multi-step process amenable to RL optimization. Early iterative approaches like Self-Taught Reasoner (STaR) [35] demonstrated that models could self-improve by bootstrapping from their own verified correct solutions. Shao et al. [24] introduced GRPO to achieve strong mathematical reasoning with improved sample efficiency, while DeepSeek-R1 [ 6 ] demonstrated that sophisticated behaviors can emerge purely from RL without supervised fine-tuning. The RLVR paradigm [ 31 ]formalized this approach. Parallel work on Process Reward Models (PRMs) [ 15 ] has explored dense, step-level supervision to guide reasoning, though this often requires expensive human annotation. Recent verifier-free approaches have also gained traction: Reinforcement Learning via Entropy Minimization (RENT) [ 21 ] and Entropy Minimization Policy Optimization (EMPO) [36 ] leverage entropy minimization as a fully unsupervised reward signal, while the Entropy Mechanism [ 4 ] stabilizes training by managing policy collapse. Test-Time Reinforcement Learning (TTRL) [ 39 ] further explores converting test-time compute (e.g., majority voting) into training signals. However, most of these methods fundamentally rely on access to ground-truth verifiers or correctness labels, while verifier-free methods tend to be unstable and fragile during training. Our VI-CuRL addresses the complementary challenge: enabling stable RL training stable and independent from verifiers, using only the model’s intrinsic confidence as a learning signal. 
+
+Bias-Variance Trade-off in Policy Gradients.. The high variance of policy gradient estimators has long been recognized as a central challenge in RL [ 32 ]. Sutton et al. [28] established the theoretical foundations for variance reduction through baselines. Modern LLM reasoning pipelines typically employ Group Relative Policy Optimization (GRPO) [ 24 ], which estimates a baseline from the mean reward of a group of sampled outputs. While GRPO effectively reduces action-level variance (stochasticity from sampling actions), it does not address problem-level variance. In verifier-independent settings, the problem-level variance can be extreme due to the lack of accurate reward signals, necessitating a curriculum approach like VI-CuRL to curate the training distribution itself. 20 Curriculum Learning.. Curriculum learning, first formalized by Bengio et al. [1] , proposes training models on progressively harder examples to improve convergence and generalization. Self-paced learning [ 13 ] extends this by allowing the model itself to determine example difficulty based on training loss, with self-paced curriculum learning [ 11 ] unifying both paradigms. In the context of RL for LLMs, AdaRFT [ 27 ] dynamically adjusts problem difficulty based on recent reward signals, while VCRL [ 10 ] uses reward variance to identify moderately difficult samples for training. However, both AdaRFT and VCRL fundamentally require ground-truth reward signals from external verifiers to compute their curriculum metrics. Our VI-CuRL is verifier-independent: it uses the model’s confidence as an intrinsic proxy for difficulty, enabling curriculum-based training in domains where verifiers are unavailable. Furthermore, we provide rigorous theoretical guarantees—including asymptotic unbiasedness and novel variance decomposition bounds—to justify the bias-variance control during VI-CuRL training. 
+
+B. Additional Experimental Results 
+
+B.1. Pass@8 Performance 
+
+While Pass@1 roughly measures the mode of the policy distribution (the ability to generate the best answer), Pass@8 evaluates the breadth and coverage of the model’s reasoning capabilities, measuring the probability that at least one solution is correct across 8 independent samples. Table 3, Table 4, and Table 5 present the detailed Pass@8 results for the Oracle and Verifier-Free settings, respectively. The results closely mirror the trends observed in the Pass@1 analysis: VI-CuRL consistently improves coverage across all benchmarks. Crucially, in the verifier-independent setting, where baselines often collapse to repetitive, incorrect outputs (leading to low Pass@8), VI-CuRL maintains high diversity and solvability. This consistency between Pass@1 and Pass@8 confirms that our method improves the fundamental quality of the policy without trading off diversity or overfitting to narrow solution paths. 
+
+B.2. Does VI-CuRL Sort Problems by Difficulty? 
+
+To verify that the curriculum effectively sorts problems by difficulty, we analyzed the “pass@k” of kept versus dropped samples (Figure 4). We expected kept samples (easier) to have higher pass 21 rates than dropped samples (harder). We presented these dynamics for both Pass@1 and Pass@8 metrics across both models and algorithms. 
+
+Qwen2.5 (Pass@1) Qwen2.5 (Pass@8) DeepSeek (Pass@1) DeepSeek (Pass@8) Oracle 50 100 150 200 250 300                                    
+
+> Training Steps
+> 20
+> 30
+> 40
+> 50
+> Pass@1 (%)
+> Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 50
+> 60
+> 70
+> Pass@8 (%)
+> Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 20
+> 30
+> 40
+> 50
+> Pass@1 (%)
+> Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 40
+> 60
+> 80
+> Pass@8 (%)
+> Kept
+> Dropped Entropy 50 100 150 200 250 300
+> Training Steps
+> 0
+> 20
+> 40
+> Pass@1 (%)  Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 0
+> 20
+> 40
+> 60
+> 80
+> Pass@8 (%)  Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 20
+> 40
+> Pass@1 (%)
+> Kept
+> Dropped 50 100 150 200 250 300
+> Training Steps
+> 20
+> 40
+> 60
+> 80
+> Pass@8 (%)
+> Kept
+> Dropped
+
+Figure 4: Curriculum Difficulty Analysis on two 1.5B models. Rows represent algorithms (Oracle vs. Entropy). Columns show Pass@1 and Pass@8 for kept vs. dropped samples. The distinct separation validates that the curriculum filters harder problems (lower pass rate) effectively. 
+
+B.3. Absolute Variance Analysis 
+
+Figure 5 showed the absolute variance values for the kept and full subsets. The kept subset (blue) maintained consistently lower variance than the full dataset (red), with the gap most pronounced during early training when aggressive curriculum selection was applied. This directly validated the mechanism underlying Theorem 4.3: by selecting high-confidence prompts, VI-CuRL created a more homogeneous training distribution with reduced gradient variance. 50 100 150 200 250 300 
+
+Training Steps          
+
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> Action Variance  σ2
+> g, t
+> 1e−5
+> σ2
+> g,t(kept)
+> σ2
+> g,t(full) 50 100 150 200 250 300
+
+Training Steps          
+
+> 0.8
+> 1.0
+> 1.2
+> 1.4
+> Problem Variance  Vprob,  t 1e−5
+> Vprob, t(kept)
+> Vprob, t(full) 50 100 150 200 250 300
+
+Training Steps          
+
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> Action Variance  σ2
+> g, t
+> 1e−4
+> σ2
+> g,t(kept)
+> σ2
+> g,t(full) 50 100 150 200 250 300
+
+Training Steps     
+
+> 0.8
+> 1.0
+> 1.2
+> 1.4
+> 1.6
+> 1.8
+> Problem Variance  Vprob,  t 1e−5
+> Vprob, t(kept)
+> Vprob, t(full)
+
+(a) Qwen: σ2
+
+g,t (b) Qwen: Vprob ,t (c) DeepSeek: σ2
+
+g,t (d) DeepSeek: Vprob ,t 
+
+Figure 5: Absolute Variance Values. The curriculum-selected subset (“kept”, blue) consistently exhibits lower absolute variance than the full dataset (“full”, red) during early training when βt is small. The gap narrows as training progresses and βt → 1. 22 C. Proofs and Additional Analysis 
+
+C.1. Proof of Theorem 4.1 Proof. The goal is to bound the difference between the true surrogate objective L(θ) and the VI-CuRL surrogate Lt(θ). Recall the definitions: 
+
+L(θ) = Ex∼p(x)Ey1: G∼πθold (·| x)[ℓ(θ; x, y 1: G)] 
+
+Lt(θ) = Ex∼p(x)Ey1: G∼πθold (·| x)
+
+ wt(x)
+
+βt
+
+ℓ(θ; x, y 1: G)
+
+
+
+We partitions the objective using the law of total expectation conditioned on the mask wt(x). Let 
+
+St = {x | wt(x) = 1 } be the selected subspace. 
+
+L(θ) = 
+
+Z
+
+ℓ(θ; x, y 1: G)p(x)πθold (y1: G|x)dy 1: Gdx 
+
+= βtLt(θ) + (1 − βt)Ldiscard (θ).
+
+Thus, we have the exact decomposition: 
+
+L(θ) = βtLt(θ) + (1 − βt)Ldiscard (θ).
+
+Now, we examine the difference: 
+
+L(θ) − L t(θ) = (1 − βt)( Ldiscard (θ) − L t(θ)) .
+
+Assuming the surrogate loss is bounded |ℓ(θ; x, y 1: G)| ≤ Lmax , then: 
+
+|L (θ) − L t(θ)| ≤ (1 − βt)( Lmax + Lmax )= 2 Lmax (1 − βt).
+
+This completes the proof. 
+
+C.2. Proof of Theorem 4.3 Proof. Let ˆ gt be the VI-CuRL gradient estimator: ˆgt = wt(x)
+
+βt
+
+g(x, y 1: G; θ),
+
+23 where g(x, y 1: G; θ) = ∇θℓ(θ; x, y 1: G) is the gradient of the surrogate loss. We use the Law of Total Variance, conditioning on the prompt x:Var(ˆ gt) = Ex[Var y(ˆ gt|x)] + Var x(Ey[ˆ gt|x]) .
+
+We analyze these two terms separately. 
+
+1. The Expected Action Variance Term: Conditioned on a specific prompt x, the mask 
+
+wt(x) and scalar βt are constants. Thus: Var y1: G (ˆ gt|x) = Var y1: G
+
+ wt(x)
+
+βt
+
+g(x, y 1: G; θ) x
+
+
+
+=
+
+ wt(x)
+
+βt
+
+2
+
+Var y1: G (g(x, y 1: G; θ)|x), (by quadratic scaling of scalar variance, applied to trace) Taking the expectation over x:
+
+Ex[Var y1: G (ˆ gt|x)] = Ex
+
+ wt(x)2
+
+β2
+
+> t
+
+Var y1: G (g(x, y 1: G; θ)|x)
+
+
+
+.
+
+Since wt(x) is an indicator, wt(x)2 = wt(x). 
+
+Ex[Var y1: G (ˆ gt|x)] = 1
+
+β2
+
+> t
+
+Ex [wt(x) Var y1: G (g(x, y 1: G; θ)|x)] = 1
+
+βt
+
+· Ex[wt(x) Var y1: G (g(x, y 1: G; θ)|x)] 
+
+βt
+
+= 1
+
+βt
+
+Ex|wt(x)=1 [Var y1: G (g(x, y 1: G; θ)|x)] .
+
+We define σ2 
+
+> g,t
+
+≜ Ex|wt(x)=1 [ Var y1: G (g|x)] as the average Action Variance . Thus, the first term is σ2 
+
+> g,t
+> βt
+
+.
+
+2. The Problem Variance Term: First, consider the inner expectation Ey1: G [ ˆgt|x]. Let ¯g(x) = Ey1: G|πθold [g|x] be the expected gradient for prompt x. Then: 
+
+Ey1: G [ˆ gt|x] = wt(x)
+
+βt
+
+¯g(x).
+
+The variance of this quantity over x is: Var x
+
+ wt(x)
+
+βt
+
+¯g(x)
+
+
+
+= Ex
+
+"
+
+wt(x)
+
+βt
+
+¯g(x)
+
+> 2
+
+#
+
+− Ex
+
+ wt(x)
+
+βt
+
+¯g(x)
+
+ 2
+
+.
+
+The second part is simply the squared norm of the true gradient of the surrogate objective ∇θLt(θ). Expanding the first part and using the definition of Vprob ,t = Var x|wt(x)=1 (¯ g(x)): Var x(Ey1: G [ˆ gt|x]) = Vprob ,t 
+
+βt
+
++ 1 − βt
+
+βt
+
+∥∇ θLt(θ)∥2.
+
+24 Combining the Action Variance term and the Problem Variance term yields the final decomposition: Var(ˆ gt) = σ2
+
+> g,t
+
+βt
+
++ Vprob ,t 
+
+βt
+
++ 1 − βt
+
+βt
+
+∥∇ θLt(θ)∥2.
+
+C.3. Proof of Lemma 4.4 Proof. We derive a bound for the second moment E[∥ˆgt∥2] under the confidence assumption. ˆgt = wt(x)
+
+βt
+
+∇θℓ(θ; x, y 1: G).
+
+Taking the squared norm and expectation: 
+
+E[∥ˆgt∥2] = Ex,y 1: G
+
+"
+
+wt(x)
+
+βt
+
+∇θℓ
+
+> 2
+
+#
+
+= 1
+
+β2
+
+> t
+
+Ex
+
+wt(x)Ey1: G|x[∥∇ θℓ(θ; x, y 1: G)∥2] .
+
+Using the assumption ∥∇ θℓ∥ ≤ Gconf (c(x)) applied to the prompt x:
+
+Ey1: G|x[∥∇ θℓ∥2] ≤ Gconf (c(x)) 2.
+
+Since wt(x) = 1 = ⇒ c(x) ≥ τt, and Gconf is non-increasing, we have Gconf (c(x)) ≤ Gconf (τt). 
+
+E[∥ˆgt∥2] ≤ 1
+
+β2
+
+> t
+
+Ex[wt(x)Gconf (τt)2]= Gconf (τt)2
+
+β2
+
+> t
+
+Ex[wt(x)] = Gconf (τt)2
+
+βt
+
+.
+
+Finally, using Var(ˆ gt) = E[∥ˆgt∥2] − ∥ E[ˆ gt]∥2, we obtain: Var(ˆ gt) ≤ Gconf (τt)2
+
+βt
+
+− ∥∇ θLt(θ)∥2.
+
+25 C.4. Proof of Theorem 4.5 Proof. This proof follows directly from substituting the assumption bounds into the exact decom-position derived in Theorem 4.3. Recall: Var(ˆ gt) = σ2
+
+> g,t
+
+βt
+
++ Vprob ,t 
+
+βt
+
++ 1 − βt
+
+βt
+
+∥∇ θLt(θ)∥2.
+
+Assumption (14) posits that the curriculum effectively selects easier samples such that: 
+
+σ2 
+
+> g,t
+
+≤ a1β1+ αt and Vprob ,t ≤ a2β1+ αt ,
+
+for some α > 0. Substituting these inequalities: 
+
+σ2
+
+> g,t
+
+βt
+
+≤ a1β1+ αt
+
+βt
+
+= a1βαt
+
+Vprob ,t 
+
+βt
+
+≤ a2β1+ αt
+
+βt
+
+= a2βαt .
+
+Summing these terms: Var(ˆ gt) ≤ (a1 + a2)βαt + 1 − βt
+
+βt
+
+∥∇ θLt(θ)∥2.
+
+As βt → 0 (early curriculum), the term βαt vanishes, ensuring the variance remains bounded despite the 1 /β t factor in the exact decomposition. 
+
+D. Implementation Details 
+
+This section details the prompt configurations, hyperparameters, and datasets used to ensure the reproducibility of our experiments. We adopt a structured presentation to distinguish experimental components clearly. 
+
+D.1. Prompt Templates Training & Generation.. We employ a consistent prompt structure for both training rollouts and evaluation, designed to elicit step-by-step reasoning (Chain-of-Thought) and strictly enforce the output format required for rule-based verification. 26 Standard Prompt Template 
+
+User: 
+
+{QUESTION }
+
+Let’s think step by step and enclose the reasoning process within <think> and </think> 
+
+tags. The final result in the answer MUST BE within \boxed {} .
+
+During preprocessing, this is formatted as a single-turn conversation. The ground-truth answer is attached separately for reward computation. 
+
+Verification Logic.. The rule-based verifier parses the model’s output to extract the content inside the last \boxed {... } tag. It then performs robust equality checking (handling fractions, decimals, and algebraic equivalents) against the ground truth to assign a binary reward ˜R ∈ { 0, 1}.
+
+D.2. Configuration and Hyperparameters 
+
+We utilize Group Relative Policy Optimization (GRPO) as the underlying reinforcement learning algorithm. In the VI-CuRL setting, we introduce curriculum-specific parameters. 
+
+D.3. Dataset Composition 
+
+Our experiments leverage a combination of established benchmarks for training and comprehensive evaluation. 
+
+Training Source.. 
+
+DeepScaleR [17 ]: A large-scale math reasoning corpus used for all outcome-supervised training runs. 
+
+Evaluation Suite.. We evaluate on six distinct datasets to assess robustness and generalization. 
+
+MATH500 [15]: A subset of the MATH benchmark containing 500 representative problems. 27 AIME (2024 & 2025) [ 9, 19 ]: Recent sets from the American Invitational Mathematics Exam-ination, testing high-difficulty competition math. 
+
+AMC 2023 [ 18 ]: Problems from the American Mathematics Competitions, varying in difficulty. 
+
+Minerva Math [14]: A comprehensive suite evaluating quantitative reasoning capabilities. 
+
+OlympiadBench [7 ]: An advanced benchmark specifically designing to test olympiad-level problem solving. 28 Table 1: Main Results (Part I): Pass@1 performance for 1.5B parameter models . We compare VI-CuRL against standard baselines. Blue rows highlight our method. 
+
+Dataset AIME AIME AMC Math500 Minerva Olympiad Average 2024 2025 2023 MATH Bench Qwen2.5-Math-1.5B 
+
+Base (No RL) 6.0 ± 1.9 4.0 ± 0.6 34.2 ± 0.2 47.5 ± 0.3 5.1 ± 0.4 25.1 ± 0.4 20.3 ± 0.6 
+
+Oracle Reward (w. Verifier) 
+
+No Curriculum 15.5 ± 1.7 8.5 ± 0.7 51.8 ± 3.0 70.2 ± 0.2 15.4 ± 0.5 31.4 ± 0.3 32.1 ± 1.1 VCRL 12.9 ± 2.0 5.5 ± 1.0 48.8 ± 2.0 69.2 ± 0.2 18.7 ± 0.0 31.3 ± 0.2 31.1 ± 0.9 AdaRFT 13.2 ± 1.5 6.2 ± 1.4 48.6 ± 2.0 68.7 ± 0.4 20.1 ± 0.5 29.0 ± 0.3 31.0 ± 1.0 VI-CuRL 15.9 ± 1.2 8.3 ± 0.9 52.9 ± 1.3 70.1 ± 1.5 16.1 ± 2.8 34.8 ± 3.9 33.0 ± 1.9 
+
+Verifier-Free: Majority Vote 
+
+No Curriculum 0.0 ± 0.0 0.0 ± 0.0 0.0 ± 0.0 0.2 ± 0.0 0.4 ± 0.0 0.0 ± 0.0 0.1 ± 0.0 VI-CuRL 15.9 ± 1.1 8.7 ± 1.1 53.1 ± 1.3 72.3 ± 0.6 21.6 ± 4.0 33.5 ± 4.5 34.2 ± 2.1 
+
+Verifier-Free: Entropy 
+
+No Curriculum 0.0 ± 0.0 0.0 ± 0.0 10.8 ± 0.5 9.4 ± 0.1 4.6 ± 0.1 3.7 ± 0.2 4.8 ± 0.1 VI-CuRL 13.8 ± 0.8 6.0 ± 0.7 48.6 ± 0.9 69.9 ± 1.9 19.7 ± 4.0 32.0 ± 0.3 31.7 ± 1.4 DeepSeek-R1-Distill-Qwen-1.5B 
+
+Base (No RL) 9.0 ± 0.6 9.4 ± 0.6 41.4 ± 1.4 61.1 ± 0.1 10.5 ± 0.6 22.9 ± 0.4 25.7 ± 0.6 
+
+Oracle Reward (w. Verifier) 
+
+No Curriculum 11.0 ± 0.5 10.3 ± 0.4 50.7 ± 2.0 66.2 ± 0.3 10.9 ± 0.2 26.5 ± 0.3 29.3 ± 0.6 VCRL 13.1 ± 0.9 10.8 ± 0.8 52.3 ± 0.9 71.2 ± 2.2 10.8 ± 1.9 33.8 ± 5.3 32.0 ± 2.0 AdaRFT 15.1 ± 1.0 14.5 ± 1.6 57.0 ± 2.5 71.9 ± 0.4 14.5 ± 0.5 34.9 ± 0.7 34.6 ± 1.1 VI-CuRL 18.0 ± 1.4 14.0 ± 1.1 58.5 ± 1.4 74.4 ± 3.0 16.3 ± 3.9 38.4 ± 3.6 36.6 ± 2.4 
+
+Verifier-Free: Majority Vote 
+
+No Curriculum 1.2 ± 0.8 3.6 ± 1.2 14.6 ± 2.4 26.2 ± 0.2 2.8 ± 0.2 10.2 ± 0.1 9.8 ± 0.8 VI-CuRL 22.8 ± 1.4 19.1 ± 2.0 68.2 ± 1.7 78.8 ± 0.4 17.8 ± 0.1 42.0 ± 0.5 41.5 ± 1.0 
+
+Verifier-Free: Entropy 
+
+No Curriculum 3.0 ± 0.5 5.3 ± 0.3 31.1 ± 1.3 55.3 ± 1.3 12.3 ± 2.4 22.2 ± 1.7 21.5 ± 1.3 VI-CuRL 19.2 ± 1.5 15.6 ± 0.8 61.3 ± 0.6 77.6 ± 0.6 14.6 ± 0.2 37.0 ± 0.7 37.5 ± 0.7 
+
+29 Table 2: Main Results (Part II): Pass@1 performance for Llama 3.2 3B and Qwen 2.5 7B .Blue rows highlight our method. 
+
+Dataset AIME AIME AMC Math500 Minerva Olympiad Average 2024 2025 2023 MATH Bench Llama3.2-3B-Instruct 
+
+Base (No RL) 5.7 ± 1.2 0.6 ± 0.4 17.2 ± 1.5 34.8 ± 0.7 4.8 ± 0.0 12.7 ± 0.2 12.6 ± 0.7 
+
+Oracle Reward (w. Verifier) 
+
+No Curriculum 6.0 ± 1.0 0.7 ± 0.5 24.3 ± 1.7 40.4 ± 0.4 8.2 ± 0.2 14.3 ± 0.3 15.7 ± 0.7 
+
+VCRL 3.0 ± 1.1 0.4 ± 0.5 17.0 ± 1.9 37.0 ± 0.3 7.8 ± 0.2 13.2 ± 0.6 13.1 ± 0.8 AdaRFT 4.5 ± 1.6 0.7 ± 0.4 15.7 ± 0.9 44.0 ± 0.3 8.5 ± 0.1 12.8 ± 0.2 14.4 ± 0.6 VI-CuRL 5.1 ± 0.7 0.8 ± 0.6 19.8 ± 1.9 43.0 ± 0.7 9.4 ± 1.1 13.6 ± 0.3 15.3 ± 0.9 
+
+Verifier-Free: Majority Vote 
+
+No Curriculum 5.7 ± 1.3 0.6 ± 0.6 18.5 ± 2.3 41.9 ± 1.0 8.8 ± 0.3 15.4 ± 0.6 15.2 ± 1.0 VI-CuRL 5.2 ± 1.1 0.8 ± 0.5 19.6 ± 2.3 46.2 ± 1.5 10.8 ± 0.2 15.1 ± 0.6 16.3 ± 1.0 
+
+Verifier-Free: Entropy 
+
+No Curriculum 0.6 ± 0.6 0.0 ± 0.0 3.0 ± 1.1 3.2 ± 0.0 2.1 ± 0.2 1.2 ± 0.1 1.7 ± 0.3 VI-CuRL 6.2 ± 1.4 0.8 ± 0.5 21.6 ± 1.4 42.6 ± 0.9 9.7 ± 0.4 14.7 ± 0.5 15.9 ± 0.9 Qwen2.5-Math-7B 
+
+Base (No RL) 12.7 ± 0.9 5.8 ± 0.7 44.4 ± 2.2 52.0 ± 0.4 9.8 ± 0.7 26.4 ± 0.4 25.2 ± 0.9 
+
+Oracle Reward (w. Verifier) 
+
+No Curriculum 29.2 ± 2.5 13.5 ± 1.2 62.8 ± 1.9 78.9 ± 0.5 24.0 ± 0.9 37.8 ± 0.5 41.0 ± 1.2 VCRL 22.0 ± 1.5 11.1 ± 0.7 57.0 ± 1.6 75.1 ± 0.5 22.1 ± 0.7 35.6 ± 0.5 37.1 ± 0.9 AdaRFT 26.9 ± 0.6 12.9 ± 0.7 63.0 ± 0.8 76.6 ± 1.9 22.5 ± 6.9 39.1 ± 2.6 40.1 ± 2.3 VI-CuRL 29.9 ± 0.9 13.9 ± 1.4 63.8 ± 0.5 78.8 ± 0.6 26.3 ± 5.5 45.0 ± 3.0 42.9 ± 2.0 
+
+Verifier-Free: Majority Vote 
+
+No Curriculum 29.0 ± 1.5 14.0 ± 1.0 64.8 ± 1.4 80.5 ± 0.4 22.8 ± 0.3 39.5 ± 0.4 41.8 ± 0.8 VI-CuRL 33.9 ± 0.7 14.4 ± 0.9 65.4 ± 0.4 79.8 ± 0.5 25.9 ± 0.6 41.2 ± 0.4 43.4 ± 0.6 
+
+Verifier-Free: Entropy 
+
+No Curriculum 13.7 ± 0.6 7.2 ± 0.4 55.7 ± 1.1 74.4 ± 2.1 24.8 ± 4.5 32.9 ± 4.4 34.8 ± 2.2 VI-CuRL 25.0 ± 1.8 13.1 ± 1.1 63.0 ± 2.8 76.8 ± 0.6 19.1 ± 5.0 37.0 ± 0.7 39.0 ± 2.0 
+
+30 Table 3: Comparison with Oracle (w. Verifier) reward. Mean and standard deviation (pass@8) 
+
+with 16 samples and 5 random seeds. We compare VI-CuRL against Curriculum baselines (VCRL, AdaRFT) and No Curriculum. Blue rows highlight our method. 
+
+Dataset AIME AIME AMC Math500 Minerva Olympiad Average 2024 2025 2023 MATH Bench Qwen2.5-Math-1.5B 
+
+Base (No RL) 32.4 ± 0.5 16.7 ± 0.7 79.3 ± 1.4 62.8 ± 1.3 15.5 ± 1.1 31.3 ± 0.8 39.7 ± 1.0 
+
+Oracle (w. Verifier) 
+
+No Curriculum 33.3 ± 0.4 25.0 ± 1.0 79.2 ± 0.9 70.9 ± 1.4 16.2 ± 0.9 34.3 ± 0.7 43.1 ± 0.9 VCRL 32.2 ± 0.5 19.8 ± 1.0 79.0 ± 0.9 70.2 ± 1.1 18.7 ± 1.0 34.0 ± 1.1 42.3 ± 0.9 AdaRFT 32.1 ± 0.4 17.9 ± 1.5 77.5 ± 1.0 72.4 ± 0.9 21.7 ± 0.9 34.4 ± 0.5 42.7 ± 0.9 VI-CuRL 35.2 ± 1.4 24.6 ± 0.2 82.5 ± 1.2 71.3 ± 1.8 17.1 ± 2.8 37.9 ± 4.0 44.8 ± 1.9 DeepSeek-R1-Distill-Qwen-1.5B 
+
+Base (No RL) 28.7 ± 1.0 23.3 ± 0.8 77.5 ± 0.2 67.6 ± 1.3 14.0 ± 0.3 29.8 ± 0.4 40.1 ± 0.7 
+
+Oracle (w. Verifier) 
+
+No Curriculum 32.9 ± 0.3 25.7 ± 1.2 79.3 ± 0.7 71.2 ± 1.3 15.5 ± 0.3 34.7 ± 1.4 43.2 ± 0.9 VCRL 31.9 ± 0.6 28.1 ± 0.5 79.4 ± 1.3 72.9 ± 2.4 10.8 ± 2.3 38.0 ± 5.4 43.5 ± 2.1 AdaRFT 35.4 ± 1.4 29.2 ± 1.3 84.7 ± 0.3 78.6 ± 0.7 17.6 ± 1.4 43.3 ± 1.5 48.1 ± 1.1 VI-CuRL 41.0 ± 2.3 31.3 ± 2.1 85.3 ± 1.5 75.7 ± 2.8 16.6 ± 4.2 41.9 ± 3.6 48.6 ± 2.8 Llama3.2-3B-Instruct 
+
+Base (No RL) 18.8 ± 1.1 3.3 ± 0.2 54.7 ± 1.4 40.8 ± 0.8 4.8 ± 1.0 16.4 ± 0.5 23.1 ± 0.8 
+
+Oracle (w. Verifier) 
+
+No Curriculum 22.4 ± 1.0 4.8 ± 1.4 57.5 ± 1.5 42.5 ± 1.1 8.4 ± 0.5 17.8 ± 1.1 25.6 ± 1.1 VCRL 16.1 ± 0.7 3.2 ± 0.2 51.5 ± 1.2 40.8 ± 0.5 8.1 ± 0.8 17.5 ± 0.5 22.8 ± 0.7 AdaRFT 18.8 ± 1.1 5.0 ± 0.8 47.5 ± 1.5 45.6 ± 0.2 8.8 ± 1.0 15.3 ± 1.4 23.5 ± 1.0 VI-CuRL 21.7 ± 0.3 5.4 ± 0.5 56.6 ± 1.5 49.6 ± 1.4 14.0 ± 0.6 19.4 ± 0.5 27.8 ± 0.8 Qwen2.5-Math-7B 
+
+Base (No RL) 36.2 ± 1.2 23.3 ± 1.0 81.9 ± 1.3 66.6 ± 0.5 11.8 ± 0.6 33.9 ± 0.7 42.3 ± 0.9 
+
+Oracle (w. Verifier) 
+
+No Curriculum 50.0 ± 0.1 28.7 ± 0.8 83.4 ± 0.6 82.4 ± 1.2 28.3 ± 1.0 45.8 ± 1.3 53.1 ± 0.8 VCRL 48.3 ± 1.4 23.3 ± 0.5 84.7 ± 0.6 79.8 ± 1.5 24.3 ± 0.4 41.0 ± 0.2 50.2 ± 0.8 AdaRFT 50.0 ± 3.1 27.9 ± 3.0 85.0 ± 1.5 78.0 ± 2.0 22.8 ± 6.6 44.5 ± 1.1 51.4 ± 2.9 VI-CuRL 52.5 ± 1.2 30.8 ± 0.2 88.8 ± 0.7 82.6 ± 0.4 28.3 ± 0.7 48.5 ± 1.9 55.3 ± 0.8 
+
+31 Table 4: Comparison in Verifier-Free settings (Part I). Mean and standard deviation (pass@8) 
+
+for 1.5B parameter models with 16 samples and 5 random seeds. We compare VI-CuRL against baselines using Majority Vote and Entropy as intrinsic reward signals. Note that VCRL and AdaRFT are excluded as they require ground-truth verifiers. Blue rows highlight our method. 
+
+Dataset AIME AIME AMC Math500 Minerva Olympiad Average 2024 2025 2023 MATH Bench Qwen2.5-Math-1.5B 
+
+Base (No RL) 32.4 ± 0.5 16.7 ± 0.7 79.3 ± 1.4 62.8 ± 1.3 15.5 ± 1.1 31.3 ± 0.8 39.7 ± 1.0 
+
+Majority Vote (w/o. Verifier) 
+
+No Curriculum 0.0 ± 1.1 0.0 ± 1.5 0.0 ± 1.5 0.2 ± 1.3 0.4 ± 1.2 0.0 ± 0.5 0.1 ± 1.2 VI-CuRL 35.0 ± 0.2 26.1 ± 2.0 81.2 ± 0.6 73.9 ± 1.3 22.1 ± 4.6 37.1 ± 1.0 45.9 ± 1.6 
+
+Entropy (w/o. Verifier) 
+
+No Curriculum 0.0 ± 0.7 0.0 ± 0.6 12.9 ± 0.7 9.6 ± 0.9 4.8 ± 1.1 3.9 ± 1.1 5.2 ± 0.8 VI-CuRL 33.1 ± 0.1 21.4 ± 1.7 81.7 ± 0.5 71.7 ± 0.4 20.2 ± 1.0 35.5 ± 0.8 44.0 ± 0.8 DeepSeek-R1-Distill-Qwen-1.5B 
+
+Base (No RL) 28.7 ± 1.0 23.3 ± 0.8 77.5 ± 0.2 67.6 ± 1.3 14.0 ± 0.3 29.8 ± 0.4 40.1 ± 0.7 
+
+Majority Vote (w/o. Verifier) 
+
+No Curriculum 7.6 ± 0.2 13.8 ± 0.4 49.6 ± 0.4 27.4 ± 1.1 2.9 ± 0.2 10.3 ± 1.3 18.6 ± 0.6 VI-CuRL 43.8 ± 0.9 37.5 ± 0.8 91.9 ± 1.2 82.0 ± 1.2 19.6 ± 0.9 47.0 ± 1.1 53.6 ± 1.0 
+
+Entropy (w/o. Verifier) 
+
+No Curriculum 6.6 ± 0.7 6.7 ± 0.1 48.6 ± 2.1 56.8 ± 1.6 13.2 ± 2.6 25.1 ± 1.9 26.2 ± 1.5 VI-CuRL 42.5 ± 0.5 33.5 ± 1.0 86.9 ± 0.7 82.0 ± 0.1 16.5 ± 0.2 43.6 ± 0.2 50.9 ± 0.5 
+
+32 Table 5: Comparison in Verifier-Free settings (Part II). Mean and standard deviation (pass@8) 
+
+for Llama 3.2 3B and Qwen 2.5 7B . Blue rows highlight our method. 
+
+Dataset AIME AIME AMC Math500 Minerva Olympiad Average 2024 2025 2023 MATH Bench Llama3.2-3B-Instruct 
+
+Base (No RL) 18.8 ± 1.1 3.3 ± 0.2 54.7 ± 1.4 40.8 ± 0.8 4.8 ± 1.0 16.4 ± 0.5 23.1 ± 0.8 
+
+Majority Vote (w/o. Verifier) 
+
+No Curriculum 23.3 ± 0.3 4.6 ± 0.5 53.8 ± 0.5 50.6 ± 0.8 10.7 ± 1.0 24.0 ± 1.3 27.8 ± 0.7 VI-CuRL 20.4 ± 0.8 4.6 ± 0.6 58.1 ± 0.9 54.2 ± 0.7 14.0 ± 0.8 23.3 ± 1.4 29.1 ± 0.9 
+
+Entropy (w/o. Verifier) 
+
+No Curriculum 5.0 ± 1.3 0.0 ± 0.8 15.9 ± 1.2 3.2 ± 1.1 2.2 ± 1.3 1.5 ± 0.6 4.6 ± 1.1 VI-CuRL 20.8 ± 0.9 5.8 ± 1.1 56.9 ± 1.3 50.2 ± 0.1 12.9 ± 0.7 21.8 ± 0.7 28.1 ± 0.8 Qwen2.5-Math-7B 
+
+Base (No RL) 36.2 ± 1.2 23.3 ± 1.0 81.9 ± 1.3 66.6 ± 0.5 11.8 ± 0.6 33.9 ± 0.7 42.3 ± 0.9 
+
+Majority Vote (w/o. Verifier) 
+
+No Curriculum 53.8 ± 0.7 28.7 ± 0.9 82.8 ± 1.3 81.4 ± 0.1 23.2 ± 0.6 41.9 ± 0.7 52.0 ± 0.7 VI-CuRL 55.5 ± 2.1 31.7 ± 0.1 88.2 ± 1.0 81.6 ± 0.8 27.9 ± 0.6 49.1 ± 3.7 55.7 ± 2.9 
+
+Entropy (w/o. Verifier) 
+
+No Curriculum 28.8 ± 1.4 17.9 ± 2.5 71.5 ± 3.2 74.6 ± 2.3 25.4 ± 5.0 35.2 ± 4.2 42.2 ± 3.1 VI-CuRL 48.4 ± 3.9 30.0 ± 1.4 85.0 ± 0.3 80.6 ± 0.3 19.5 ± 0.8 43.4 ± 0.8 51.1 ± 1.3 
+
+33 Table 6: Detailed hyperparameters for GRPO training and VI-CuRL curriculum. 
+
+Hyperparameter Value 
+
+Optimization & Model 
+
+Algorithm GRPO Training Strategy Fully Sharded Data Parallel 2 (FSDP2) + Zero Redundancy Optimizer Stage 3 (ZeRO-3) Optimizer AdamW Learning Rate 3 × 10 −6
+
+Total Epochs 1Global Batch Size 128 Gradient Accumulation 1
+
+Rollout & GRPO 
+
+Rollout Engine vLLM Context Window 512 (Input) + 3072 (Output) Group Size ( G) 8Sampling Temperature 1.0 Advantage Group-Normalized ( Ai = Ri− ¯Rσ+ϵ )KL Coefficient ( βKL ) 0.001 Entropy Coefficient 0.0 Reference Model Frozen Initial Policy 
+
+VI-CuRL Curriculum 
+
+Initial Retention ( βstart ) 0.2 Curriculum Duration ( Tcurr ) 100% of Training Steps Confidence Metric Negative Entropy ( c(x) = E[−H]) Retention Schedule Linear Annealing 34

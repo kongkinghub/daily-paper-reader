@@ -1,0 +1,579 @@
+Title: GenSeg-R1: RL-Driven Vision-Language Grounding for Fine-Grained Referring Segmentation
+
+URL Source: https://arxiv.org/pdf/2602.09701v1
+
+Published Time: Wed, 11 Feb 2026 02:01:03 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+GenSeg-R1 1
+
+# GenSeg-R1: RL-Driven Vision–Language Grounding for Fine-Grained Referring Segmentation 
+
+Sandesh Hegde ∗ Jaison Saji Chacko ∗ Debarshi Banerjee Uma Mahesh 
+
+sandesh.hegde@camcom.ai jaison.saji@camcom.ai debarshi.banerjee@camcom.ai umesh@camcom.ai 
+
+Camcom Technologies Pvt. Ltd. 
+
+Abstract 
+
+We study fine-grained referring image segmentation via a decoupled reason-then-segment pipeline. A vision–language model (VLM) receives an image and a natural-language query, reasons about the scene, and emits structured spatial prompts—a bounding box plus two interior keypoints— for every referred instance. A frozen promptable segmenter (SAM 2) converts these prompts into high-quality masks. Within our GenSeg-R1 framework we finetune Qwen3-VL models (4 B and 8 B parameters) using Group Relative Policy Optimization (GRPO), requiring no supervised reasoning-chain annotations. On RefCOCOg validation our best model ( GenSeg-R1 -8B) achieves 0.7127 cIoU and 0.7382 mIoU, substantially outperforming the corresponding Qwen3-VL Instruct baselines ( +15.3 and +21.9 points, respectively) and surpassing Seg-Zero-7B [3] by +3.3 cIoU under identical evaluation. We further introduce GenSeg-R1 -G, a variant trained on GRefCOCO [9] with a SAM 2-in-the-loop reward that directly optimizes mask quality. On GRefCOCO validation GenSeg-R1 -G achieves 76.69% target mIoU with 82.40% accuracy on negative (no-target) prompts, substantially outperforming Seg-R1-7B and Seg-Zero-7B which entirely lack no-target detection capability. On ReasonSeg test, GenSeg-R1 -4B reaches 68.40% mIoU, surpassing Seg-Zero-7B by +7.0 and Seg-R1-7B by +10.7 points. 
+
+## 1 Introduction 
+
+Fine-grained segmentation from natural language is a core capability for interactive vision systems, robotics, and assistive tools. A predominant paradigm is to first ground a textual query in the image—typically as a bounding box, point(s), or region proposal—and then pass this spatial prompt to a strong promptable segmentation model [2] to obtain a precise mask. Despite rapid progress, many existing grounding models exhibit a critical reliability issue: they often fail to respect negative queries. For example, given an image of a person wearing a red shirt and the prompt “person with blue shirt,” prior models may still localize the visible person even though the query is inconsistent with the image. In downstream segmentation this produces confident but incorrect masks—a worse outcome than returning nothing. This paper presents GenSeg-R1 , an improved grounding model tailored to fine-grained segmen-tation pipelines. Our approach combines three ingredients: (i) stronger VLM backbones (Qwen3-VL), (ii) GRPO training that directly optimizes grounding actions via a SAM 2-in-the-loop reward, and (iii) explicit handling of negative and empty-target prompts through GRefCOCO [9].  
+
+> ∗Equal contribution.
+> arXiv:2602.09701v1 [cs.CV] 10 Feb 2026 GenSeg-R1 2
+
+Contributions. 
+
+• An improved grounding model based on Qwen3-VL, replacing Qwen2.5-VL used in prior recipes, yielding stronger spatial reasoning out of the box. 
+
+• A GRPO training procedure whose reward is computed by running SAM 2 on the model’s predicted box + keypoints, measuring mask IoU against ground truth. This closes the loop between the VLM’s textual output and the final segmentation quality. 
+
+• GenSeg-R1 -G: a variant trained on GRefCOCO with explicit negative-prompt handling and a SAM 2-in-the-loop reward, achieving 82.40% no-target accuracy with only 0.5% false-negative rate. 
+
+• State-of-the-art results on RefCOCOg validation under identical evaluation protocol, outper-forming Seg-Zero-7B (+3.3 cIoU) and Seg-R1-7B (+5.2 cIoU), with consistent gains on GRef-COCO validation and the reasoning-heavy ReasonSeg benchmark. 
+
+## 2 Related Work 
+
+Promptable segmentation. The Segment Anything Model (SAM) [2] and its successor SAM 2 establish the paradigm of high-quality mask prediction conditioned on spatial prompts such as boxes, points, and coarse masks. Because SAM-family models are trained on massive data and generalize across domains, they serve as an effective frozen segmentation back-end that can be paired with upstream localization modules. 
+
+Grounding for segmentation. Several recent works translate textual queries into spatial prompts consumable by SAM-like models. Seg-Zero [3] uses GRPO-trained VLM prompting with Qwen2.5-VL-7B; Seg-R1 [4] and SAM-R1 [5] explore reinforcement-style training recipes for improved ground-ing. Our GenSeg-R1 framework shares this reason-then-segment philosophy but introduces a SAM 2-in-the-loop reward and explicit negative-prompt handling. 
+
+Referring expression benchmarks. RefCOCO, RefCOCO+, and RefCOCOg [7] are classic single-object referring expression datasets. GRefCOCO [9] extends the setting with multi-target references and negative prompts with empty targets, making it better suited for evaluating robust-ness to non-matching queries. 
+
+Instruction data for grounding. LISA [6] provides instruction-following data that aligns lan-guage with segmentation-relevant outputs. Our data recipe draws on VisionReasoner multi-object annotations combined with GRefCOCO negative examples. 
+
+## 3 Method 
+
+3.1 Pipeline Overview 
+
+Figure 1 illustrates the full GenSeg-R1 pipeline. Given an input image I and a text query q, the system operates in two stages: 
+
+Stage 1. Reasoning & Grounding. A finetuned Qwen3-VL model processes (I, q ) and emits structured spatial prompts inside <answer> tags, optionally preceded by free-form rea-soning in <think> tags. GenSeg-R1 3Image           
+
+> I
+> Text Query
+> q
+> Qwen3-VL
+> GRPO-finetuned
+> <think> reasoning
+> <answer> prompts
+> Spatial Prompts
+> {(bi, p (1)
+> i, p (2)
+> i)}
+> or no_target
+> SAM 2
+> hiera-large
+> Mask decoder
+> Output Mask
+> ˆM
+> Reward Function
+> IoU ( ˆM , M gt )+ fmt + no-target
+> Ground Truth
+> Mgt
+> JSON box + pts
+> ˆM
+> Mgt
+> GRPO policy update
+> Legend
+> →inference
+> 99K training only
+> trainable frozen
+
+Figure 1: GenSeg-R1 architecture. Stage 1: Qwen3-VL (trainable) processes the image and query, reasons in <think> tags, and outputs structured spatial prompts (bounding box + two keypoints) or a 
+
+no_target flag. Stage 2: SAM 2 (frozen) converts prompts into masks. During GRPO training (dashed arrows), the SAM 2 mask IoU feeds back as a reward signal to update the VLM policy. 
+
+Stage 2. Promptable Segmentation. A frozen SAM 2 model consumes the predicted box and keypoints for each instance and outputs a binary mask. Crucially, no supervised chain-of-thought annotations are required: reasoning emerges naturally through GRPO training, and we observe coherent test-time <think> traces in the majority of outputs. 
+
+3.2 Base Models and Coordinate System 
+
+We finetune Qwen3-VL Instruct models at two scales: 4 B and 8 B parameters. Qwen3-VL natively supports a normalized [0 , 1000] coordinate system; we rescale all training annotations accordingly (e.g., an 840 × 840 image maps linearly to [0 , 1000] 2). 
+
+3.3 Output Format: Box + Two Keypoints 
+
+For each predicted instance the model emits a bounding box and two interior keypoints: 
+
+P = {(bi, p (1) 
+
+i , p (2) 
+
+i )}Ni=1 , (1) where bi = [ x1, y 1, x 2, y 2] and p(1) 
+
+i , p (2) 
+
+i ∈ [0 , 1000] 2. Two interior points provide SAM 2 with richer localization cues than a single centroid, reducing ambiguity for elongated or multi-part objects. For negative (no-target) queries the model instead outputs {"no_target": true} , signalling that no mask should be produced. 
+
+3.4 SAM 2 Integration 
+
+We use a frozen SAM 2 checkpoint ( facebook/sam2-hiera-large ). For each instance i we invoke SAM 2 with the predicted box bi as a box prompt and p(1) 
+
+i as a positive-point prompt (optionally both points), then select the highest-confidence mask. For multi-object queries we take the pixel-wise union of instance masks. 
+
+3.5 Reinforcement Learning with GRPO 
+
+We train the VLM with Group Relative Policy Optimization (GRPO) [12]. For each training example (I, q ) we sample n=8 candidate responses from the current policy, score each with a composite reward (Section 3.6), and update the policy toward higher-reward samples. GRPO GenSeg-R1 4
+
+avoids the cost of training a separate value network by normalizing rewards within each group, making it practical even on moderate hardware. 
+
+3.6 Reward Design 
+
+We use two reward configurations corresponding to the two model variants. 
+
+GenSeg-R1-4B/8B reward (distance-based). A lightweight reward combining: (i) format validation of <think> and <answer> tags with valid JSON, (ii) bounding-box accuracy (IoU > 0.5
+
+and L1 distance thresholds), (iii) point accuracy (minimum distance < 119 in [0 , 1000] space, point inside predicted box), and (iv) a non-repetition penalty. This reward requires no model inference, enabling fast training. 
+
+GenSeg-R1-G reward (SAM 2-in-the-loop). An outcome-based reward that extends the distance-based reward with three additional components: 
+
+R1. SAM 2 IoU reward (riou , weight 5.0): We generate a mask with SAM 2 using the predicted box and points, then compute IoU( ˆM , M gt ). This is the primary signal that directly ties the VLM output to segmentation quality. 
+
+R2. Negative-point validity (rneg , weight 10.0): Validates that predicted negative points lie inside the bounding box but outside the ground-truth mask, at sufficient distance from the mask boundary. This is the highest-weighted component, driving boundary refinement. 
+
+R3. No-target reward (rnt , reward 10.0): For negative queries with empty ground-truth masks, the model is rewarded for predicting no_target and penalized for hallucinating boxes. The SAM 2-in-the-loop reward is more expensive (SAM 2 inference per rollout sample) but directly optimizes for final mask quality rather than proxy coordinate metrics. 
+
+3.7 Training Data 
+
+GenSeg-R1-4B/8B. Trained on VisionReasoner-MultiObjects-7K (7 099 samples with bounding-box and single-point annotations). Images are resized to 840 × 840 with coordinate rescaling to 
+
+[0 , 1000] .
+
+GenSeg-R1-G. Trained on GRefCOCO with negative points (15 285 samples), which in-cludes both positive referring expressions and negative (no-target) queries. Each sample provides two positive interior points, two negative (background) points, and ground-truth polygon masks for computing the SAM 2-in-the-loop reward. The roughly 2 × larger dataset and richer annotations enable the model to learn both precise boundary prompting and reliable no-target rejection. 
+
+3.8 Implementation Details 
+
+• Position encoding: Qwen3-VL uses mRoPE; we handle position continuity via model-provided RoPE deltas when computing position IDs. 
+
+• Parallelism: Distributed training with FSDP (ZeRO-3 sharding). 
+
+• Rollout: vLLM for efficient batched sampling of n=8 completions per prompt. 
+
+• Hyperparameters: See Table 1. GenSeg-R1 5                      
+
+> Table 1: Training hyperparameters.
+> Parameter Value
+> Learning rate 1×10 −6
+> Weight decay 1×10 −2
+> Max gradient norm 1.0 KL coefficient 5×10 −3(low-variance KL) Global batch size 8 (micro-batch 2/device) Rollout batch size 8Samples per prompt ( n)8Max prompt length 2 048 tokens Max response length 1 500 tokens
+> Hardware
+> GenSeg-R1 -8B 4×H200 (141 GB)
+> GenSeg-R1 -4B / -G 2×H200 (141 GB)
+
+## 4 Experiments 
+
+4.1 Setup 
+
+Benchmarks. We evaluate on three benchmarks: RefCOCOg validation (2 573 referring ex-pressions over 1 300 images), GRefCOCO validation [9] (1 000 samples: 642 with targets, 358 with no target), and ReasonSeg test [6] (779 samples requiring compositional reasoning). All benchmarks use the same evaluation protocol: the VLM predicts spatial prompts, SAM 2 generates masks, and metrics are computed against ground-truth masks. 
+
+Models. We compare GenSeg-R1 -8B, GenSeg-R1 -4B, and GenSeg-R1 -G against un-finetuned Instruct baselines (Qwen3-VL 4B/8B and Qwen2.5-VL-7B) and recent RL-based segmentation models: Seg-Zero-7B [3] (GRPO on Qwen2.5-VL-7B), VisionReasoner-7B (SFT on Qwen2.5-VL-7B), and Seg-R1-7B/3B [4] (GRPO on Qwen2.5-VL, trained on DIS5K+COD10K). All models are evaluated under the same protocol with the same SAM 2 checkpoint and evaluation code. 
+
+4.2 Metrics 
+
+Cumulative IoU (cIoU). Defined as cIoU = ∑ 
+
+> i
+
+|Pi ∩ Gi| / ∑ 
+
+> i
+
+|Pi ∪ Gi|, which weights each sample by object area. 
+
+Mean IoU (mIoU). The unweighted average of per-sample IoU values. 
+
+Precision at threshold. P@ τ is the fraction of samples with IoU ≥ τ . We report P@0 .5, P@0 .7,and P@0 .9.
+
+Detection metrics. For bounding boxes we additionally report AP, AP @0 .5, and AP @0 .75 .
+
+No-Target Accuracy. For GRefCOCO, which includes queries with no matching object, we report the fraction of no-target samples for which the model correctly predicts no_target instead of hallucinating a bounding box. GenSeg-R1 6                                                                                                               
+
+> Table 2: RefCOCOg validation — segmentation (SAM 2 mask metrics). All RL-based models evaluated under identical protocol.
+> Model Base VLM cIoU ↑mIoU ↑P@0.5 ↑P@0.7 ↑P@0.9 ↑
+> GenSeg-R1 -8B (ours) Qwen3-VL-8B 0.7127 0.7382 0.8232 0.7314 0.3545
+> GenSeg-R1 -4B (ours) Qwen3-VL-4B 0.7062 0.7318 0.8166 0.7120 0.3533 Seg-Zero-7B [3] Qwen2.5-VL-7B 0.6794 0.7155 0.7913 0.6852 0.3393 Seg-R1-7B [4] Qwen2.5-VL-7B 0.6607 0.7014 0.7824 0.6774 0.3199 VisionReasoner-7B Qwen2.5-VL-7B 0.6530 0.6966 0.7680 0.6533 0.3160 Seg-R1-3B [4] Qwen2.5-VL-3B 0.6294 0.6724 0.7470 0.6541 0.3129 Qwen3-VL-8B-Instruct —0.5596 0.5188 0.5834 0.5192 0.2604 Qwen2.5-VL-7B-Instruct —0.5099 0.5276 0.5841 0.5115 0.2534 Qwen3-VL-4B-Instruct —0.5019 0.4890 0.5453 0.4885 0.2336
+> Table 3: RefCOCOg validation — bounding box detection.
+> Model bbox mIoU ↑AP ↑AP@0.5 ↑AP@0.75 ↑
+> GenSeg-R1 -8B (ours) 0.8028 0.7277 0.8717 0.7835
+> GenSeg-R1 -4B (ours) 0.8101 0.7347 0.8780 0.7890
+> Seg-Zero-7B [3] 0.8000 0.7197 ——VisionReasoner-7B 0.7967 0.7149 0.8581 0.7602 Seg-R1-7B [4] 0.7452 0.6294 0.8216 0.7015 Qwen2.5-VL-7B-Instruct 0.5826 0.5162 0.6273 0.5515 Qwen3-VL-8B-Instruct 0.5546 0.4981 0.5993 0.5325 Qwen3-VL-4B-Instruct 0.5301 0.4745 0.5702 0.5049
+
+4.3 RefCOCOg Validation Results 
+
+Tables 2 and 3 present mask and box results, respectively. All RL-based models are evaluated under the same protocol: same RefCOCOg val split (2 573 samples), same SAM 2 (sam2-hiera-large), same evaluation code. Color coding: best and second best . 
+
+Key observations. GenSeg-R1 -8B improves over the Qwen3-VL-8B Instruct baseline by +15.3 
+
+cIoU and +21.9 mIoU points on RefCOCOg validation masks. The 4B variant achieves compara-ble improvements ( +20.4 cIoU, +24.3 mIoU) over its smaller baseline, demonstrating that GRPO is effective even at moderate model scale. Under identical evaluation, GenSeg-R1 -8B outperforms Seg-Zero-7B [3] by +3.3 cIoU and 
+
++2.3 mIoU, and Seg-R1-7B [4] by +5.2 cIoU and +3.7 mIoU. Notably, GenSeg-R1 -4B (4 B pa-rameters) outperforms Seg-Zero-7B (7 B) by +2.7 cIoU despite being nearly half the size, suggesting that the Qwen3-VL backbone provides stronger spatial reasoning capabilities than Qwen2.5-VL. On bounding-box metrics the 4B model slightly exceeds the 8B model (0.8101 vs. 0.8028 bbox mIoU). We attribute this to the 8B model occasionally predicting tighter boxes that sacrifice box IoU for better interior-point placement, ultimately yielding superior mask quality. 
+
+4.4 SAM 2 Prompt Ablation 
+
+Table 4 isolates the contribution of interior keypoints by varying the SAM 2 prompt mode at inference time while keeping the same GenSeg-R1 -4B model. GenSeg-R1 7                                                  
+
+> Table 4: SAM 2 prompt ablation on RefCOCOg validation using GenSeg-R1 -4B. Interior keypoints provide monotonic improvement, especially at the strictest threshold.
+> SAM 2 Prompt Mode cIoU ↑mIoU ↑P@0.5 ↑P@0.7 ↑P@0.9 ↑
+> Box only 0.6929 0.7223 0.8072 0.7035 0.3385 Box + 1 interior point 0.7013 0.7268 0.8138 0.7108 0.3498
+> Box + 2 interior points 0.7062 0.7318 0.8166 0.7120 0.3533 Table 5: GRefCOCO validation results (1 000 samples: 642 target, 358 no-target). GenSeg-R1 -G is trained on GRefCOCO with the SAM 2-in-the-loop reward. Seg-R1 and Seg-Zero lack no-target training and hallucinate masks on all negative queries.
+> Model Target mIoU (%) ↑Target cIoU (%) ↑No-Target Acc (%) ↑
+> GenSeg-R1 -G (ours) 76.69 76.83 82.40
+> GenSeg-R1 -4B (ours) 75.58 75.54 79.05 Seg-R1-7B [4] 69.51 69.02 0.00 Seg-Zero-7B [3] 66.11 65.90 0.00
+
+Interior keypoints provide consistent, monotonic improvements across all metrics. The gain is most pronounced at the strictest threshold (P@0.9: +0.0148 from box-only to box+2pt), indicating that keypoints primarily improve fine-grained mask quality. Even a single interior point provides meaningful improvement (+0.0084 cIoU), with the second point contributing an additional +0.0049 cIoU. 
+
+4.5 GRefCOCO: Negative Prompt Results 
+
+Table 5 evaluates models on GRefCOCO validation, which includes both positive (target-present) and negative (no-target) queries. 
+
+Key findings. GenSeg-R1 -G achieves the highest target mIoU (76.69%) and no-target accuracy (82.40%), surpassing Seg-R1-7B by +7.2 mIoU points and Seg-Zero-7B by +10.6 points on target queries. More strikingly, Seg-R1 and Seg-Zero achieve 0% no-target accuracy—they hallucinate masks for every negative query—while GenSeg-R1 -G correctly abstains on 295/358 no-target prompts. GenSeg-R1 -4B, trained on VisionReasoner data without explicit GRefCOCO no-target examples, still achieves 79.05% no-target accuracy, indicating that the GRPO format reward alone provides some no-target capability. The false-negative rate (predicting no-target when the object exists) is very low: only 3/642 (0.5%) for GenSeg-R1 -G and 12/642 (1.9%) for GenSeg-R1 -4B, compared to 0/642 for Seg-R1 and Seg-Zero (which never predict no-target). 
+
+4.6 ReasonSeg Test Results 
+
+ReasonSeg requires compositional and implicit reasoning (e.g., “the object that can be used to cut paper” ). Table 6 shows that GenSeg-R1 -4B reaches 68.40% mIoU, outperforming Seg-Zero-7B by +7.0 points and Seg-R1-7B by +10.7 points, confirming that the emergent <think> traces support non-trivial reasoning. The GRefCOCO-trained GenSeg-R1 -G variant also surpasses both baselines despite being trained on a different data distribution, achieving 65.93% mIoU. Figure 4 shows qualitative examples of both successes and failures on reasoning-heavy queries. GenSeg-R1 8Image     
+
+> "left guy and white t shirt in
+> back" Ground Truth
+> GenSeg-R1-G
+> IoU: 0.90
+> GenSeg-R1-4B
+> IoU: 0.42
+> Seg-R1-7B
+> IoU: 0.03
+> Seg-Zero-7B
+> IoU: 0.10
+> "the botth brush held by the
+> girl in the middle and the
+> left person with elbow bent" Ground Truth
+> GenSeg-R1-G
+> IoU: 0.74
+> GenSeg-R1-4B
+> IoU: 0.26
+> Seg-R1-7B
+> IoU: 0.02
+> Seg-Zero-7B
+> IoU: 0.04
+> "a guy with long hair with side
+> facing us and the middle
+> umbrella" Ground Truth
+> GenSeg-R1-G
+> IoU: 0.86
+> GenSeg-R1-4B
+> IoU: 0.06
+> Seg-R1-7B
+> IoU: 0.08
+> Seg-Zero-7B
+> IoU: 0.08
+> "person with blue shirt and
+> yellow shirt, right, leaning" Ground Truth
+> GenSeg-R1-G
+> IoU: 0.91
+> GenSeg-R1-4B
+> IoU: 0.20
+> Seg-R1-7B
+> IoU: 0.20
+> Seg-Zero-7B
+> IoU: 0.20
+
+Figure 2: Qualitative segmentation comparison. Each row shows a different query. GenSeg-R1 -G and GenSeg-R1 -4B produce accurate masks (green overlay) closely matching ground truth, while Seg-R1-7B and Seg-Zero-7B produce poor or misaligned masks. 
+
+4.7 Ablation: Gain Attribution 
+
+Table 7 summarizes the absolute improvement brought by GRPO finetuning for each model variant. 
+
+4.8 Data Overlap Analysis 
+
+GenSeg-R1 -4B and -8B are trained on VisionReasoner-MultiObjects-7K, which derives from COCO-family images. GenSeg-R1 -G is trained on GRefCOCO, which shares underlying COCO images with RefCOCOg. We quantify this overlap and verify that it does not inflate RefCOCOg results. GRefCOCO train contains 16 994 unique images, of which 634 (48.8% of RefCOCOg val’s 1 300 images) overlap. However, only 10 out of 2 573 RefCOCOg val referring expressions (0.4%) appear verbatim in GRefCOCO train—the referring expressions themselves are almost entirely distinct. To verify the overlap does not inflate scores, we evaluate on both the clean (non-overlapping, 1 067 refs) and overlap (1 506 refs) subsets separately: GenSeg-R1 9                                
+
+> Table 6: ReasonSeg test results (779 samples).
+> Model mIoU (%) ↑cIoU (%) ↑
+> GenSeg-R1 -4B (ours) 68.40 62.73
+> GenSeg-R1 -G (ours) 65.93 57.83 Seg-Zero-7B [3] 61.41 55.63 Seg-R1-7B [4] 57.75 48.93
+> Table 7: Absolute improvement ( ∆) from GRPO finetuning on RefCOCOg validation (mask IoU).
+> cIoU mIoU Model pair Base Ours ( ∆)Base Ours ( ∆)8B Instruct →GenSeg-R1 -8B 0.5596 0.7127 (+0.153) 0.5188 0.7382 (+0.219) 4B Instruct →GenSeg-R1 -4B 0.5019 0.7062 (+0.204) 0.4890 0.7318 (+0.243)
+
+cIoU on the clean subset is equal or higher than on the full val set for both models. The GenSeg-R1 -4B advantage over Seg-R1-7B holds on the clean subset: 0.707 vs. 0.661 (+4.6 cIoU), con-firming that our gains are not attributable to data leakage. We note that Seg-R1 [4] trains on DIS5K and COD10K, which share no images with COCO, making their RefCOCOg evaluation fully zero-shot with respect to training images. 
+
+## 5 Discussion 
+
+Why SAM 2-in-the-loop matters. Training with the actual downstream segmenter in the reward loop ensures that the VLM learns prompt formats that SAM 2 can effectively convert into masks. A model optimized purely on box IoU may produce boxes that are metrically close but positionally sub-optimal for SAM 2’s decoder, leading to a train–test mismatch that our approach avoids. The GenSeg-R1 -G variant demonstrates this directly: by training with SAM 2-in-the-loop reward, it achieves 76.69% target mIoU on GRefCOCO, substantially exceeding the baselines. 
+
+Distance-based vs. outcome-based reward. GenSeg-R1 -4B/8B use a lightweight distance-based reward (no SAM inference during training), while GenSeg-R1 -G uses the full SAM 2-in-the-loop reward. Both are effective—the distance-based reward achieves strong RefCOCOg results with faster training, while the outcome-based reward additionally enables negative-prompt handling and boundary refinement. This suggests a practical two-stage recipe: pre-train with the fast reward, then specialize with SAM-in-the-loop for tasks requiring mask-level precision or no-target robustness. 
+
+Why negative prompts matter. In interactive settings users frequently issue underspecified or incorrect queries. A model that returns a confident mask for a non-existent target can be worse than returning nothing. Our explicit no-target reward and GRefCOCO training address this gap: 
+
+GenSeg-R1 -G achieves 82.40% no-target accuracy while maintaining a false-negative rate of only 0.5%, compared to Seg-R1 and Seg-Zero which hallucinate masks on 100% of negative queries. 
+
+Emergent reasoning. Despite receiving no supervised chain-of-thought data, both the 4B and 8B models produce coherent <think> traces in >95% of outputs. These traces typically describe GenSeg-R1 10              
+
+> Table 8: Data overlap analysis: RefCOCOg cIoU on clean (non-overlapping) vs. overlap subsets. Clean-subset cIoU is equal or higher, confirming no score inflation.
+> Model Full Val (2573) Clean (1067) Overlap (1506)
+> GenSeg-R1 -4B cIoU 0.7062 0.7069 0.6959
+> GenSeg-R1 -8B cIoU 0.7127 0.7200 0.6927
+
+spatial relationships, attribute matching, and disambiguation—capabilities that are reinforced by GRPO through the thinking bonus but not directly supervised. 
+
+Limitations. 
+
+• Domain shift: The current training set is drawn from COCO-family images; performance on out-of-domain scenes (e.g., medical, satellite, industrial) has not been characterized. 
+
+• Long-tail attributes: Queries involving rare attribute compositions (“translucent green vase behind the curtain”) may still cause errors. 
+
+• SAM 2 sensitivity: Mask quality depends on the prompt format; minor coordinate noise can shift SAM 2’s output discontinuously. 
+
+• Data overlap: While we demonstrate no score inflation from the GRefCOCO–RefCOCOg image overlap (Section 4.8), training on fully disjoint data would strengthen the zero-shot claim. 
+
+## 6 Conclusion 
+
+We introduced GenSeg-R1 , a reason-then-segment framework that pairs a GRPO-finetuned Qwen3-VL model with a frozen SAM 2 segmenter. On RefCOCOg validation, GenSeg-R1 -8B achieves 
+
+0.7127 cIoU and 0.7382 mIoU, outperforming Seg-Zero-7B (+3.3 cIoU) and Seg-R1-7B (+5.2 cIoU) under identical evaluation. The GenSeg-R1 -G variant extends the framework with a SAM 2-in-the-loop reward and GRe-fCOCO training, achieving 76.69% target mIoU on GRefCOCO validation and 82.40% no-target accuracy, while maintaining a false-negative rate of only 0.5%. On ReasonSeg test, GenSeg-R1 -4B reaches 68.40% mIoU, surpassing both Seg-Zero-7B (+7.0) and Seg-R1-7B (+10.7) by large margins. Data overlap analysis confirms that the RefCOCOg results are not inflated by shared COCO images. Future work will extend evaluation to additional reasoning-heavy datasets, explore the two-stage reward recipe (distance pre-training followed by SAM-in-the-loop specialization), and scale to larger model sizes. 
+
+## References 
+
+[1] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, and Ross Girshick. Segment Anything. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) , 2023. https://openaccess.thecvf.com/content/ICCV2023/ papers/Kirillov_Segment_Anything_ICCV_2023_paper.html .GenSeg-R1 11 
+
+[2] Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chaitanya Ryali, Tengyu Ma, Haitham Khedr, Roman Rädle, Chloe Rolland, Laura Gustafson, Eric Mintun, Junt-ing Pan, Kalyan Vasudev Alwala, Nicolas Carion, Chao-Yuan Wu, Ross Girshick, Piotr Dol-lár, and Christoph Feichtenhofer. SAM 2: Segment Anything in Images and Videos. In 
+
+The Thirteenth International Conference on Learning Representations (ICLR) , 2025. (Oral) 
+
+https://openreview.net/forum?id=Ha6RTeWMd0 .[3] Yuqi Liu, Bohao Peng, Zhisheng Zhong, Zihao Yue, Fanbin Lu, Bei Yu, and Jiaya Jia. Seg-Zero: Reasoning-Chain Guided Segmentation via Cognitive Reinforcement. arXiv preprint arXiv:2503.06520 , 2025. https://arxiv.org/abs/2503.06520 .[4] Zuyao You and Zuxuan Wu. Seg-R1: Segmentation Can Be Surprisingly Simple with Rein-forcement Learning. arXiv preprint arXiv:2506.22624 , 2025. https://arxiv.org/abs/2506. 22624 .[5] Jiaqi Huang, Zunnan Xu, Jun Zhou, Ting Liu, Yicheng Xiao, Mingwen Ou, Bowen Ji, Xiu Li, and Kehong Yuan. SAM-R1: Leveraging SAM for Reward Feedback in Multi-modal Segmentation via Reinforcement Learning. arXiv preprint arXiv:2505.22596 , 2025. 
+
+https://arxiv.org/abs/2505.22596 .[6] Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, and Ji-aya Jia. LISA: Reasoning Segmentation via Large Language Model. In Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024. https://openaccess.thecvf.com/content/CVPR2024/papers/Lai_LISA_ Reasoning_Segmentation_via_Large_Language_Model_CVPR_2024_paper.pdf .[7] Licheng Yu, Patrick Poirson, Shan Yang, Alexander C. Berg, and Tamara L. Berg. Modeling Context in Referring Expressions. In European Conference on Computer Vision (ECCV) , 2016. 
+
+https://arxiv.org/abs/1608.00272 .[8] Chang Liu, Henghui Ding, and Xudong Jiang. GRES: Generalized Referring Expression Segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2023. (Highlight) https://openaccess.thecvf.com/content/ CVPR2023/papers/Liu_GRES_Generalized_Referring_Expression_Segmentation_CVPR_ 2023_paper.pdf .[9] Chang Liu, Henghui Ding, and Xudong Jiang. GRES: Generalized Referring Expression Segmentation (gRefCOCO dataset). In CVPR , 2023. (Highlight) Project page: https: //henghuiding.com/GRES/ .[10] Shuai Bai et al. Qwen3-VL Technical Report. arXiv preprint arXiv:2511.21631 , 2025. https: //arxiv.org/abs/2511.21631 .[11] Shuai Bai et al. Qwen2.5-VL Technical Report. arXiv preprint arXiv:2502.13923 , 2025. https: //arxiv.org/abs/2502.13923 .[12] Daya Guo et al. DeepSeek-R1 incentivizes reasoning in LLMs through reinforcement learn-ing. Nature , 645:633–638, 2025. https://www.nature.com/articles/s41586-025-09422-z .(Preprint: https://arxiv.org/abs/2501.12948 .) GenSeg-R1 12 "the lady is wearing pink coat 
+
+who is holding a kid" 
+
+(no target in image) 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-G 
+
+Correct 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-4B 
+
+Correct 
+
+Seg-R1-7B 
+
+Hallucinated! 
+
+Seg-Zero-7B 
+
+Hallucinated! 
+
+"the little boy wearing glasses" 
+
+(no target in image) 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-G 
+
+Correct 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-4B 
+
+Correct 
+
+Seg-R1-7B 
+
+Hallucinated! 
+
+Seg-Zero-7B 
+
+Hallucinated! 
+
+"blue frisbee on grass" 
+
+(no target in image) 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-G 
+
+Correct 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-4B 
+
+Correct 
+
+Seg-R1-7B 
+
+Hallucinated! 
+
+Seg-Zero-7B 
+
+Hallucinated! 
+
+"the black teddy bear sitting 
+
+on the top with part of its 
+
+body inside the image" 
+
+(no target in image) 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-G 
+
+Correct 
+
+NO TARGET 
+
+(correct!) 
+
+GenSeg-R1-4B 
+
+Correct 
+
+Seg-R1-7B 
+
+Hallucinated! 
+
+Seg-Zero-7B 
+
+Hallucinated! 
+
+Figure 3: No-target detection comparison. For queries with no matching object, GenSeg-R1 -G and 
+
+GenSeg-R1 -4B correctly predict no_target , while Seg-R1-7B and Seg-Zero-7B hallucinate masks for non-existent objects. GenSeg-R1 13 Image 
+
+"Flying in the air can avoid 
+
+many obstacles and greatly 
+
+improve commuting efficiency. 
+
+What form of transportation in 
+
+the picture can accomplish 
+
+this?" Ground Truth 
+
+NO TARGET 
+
+(predicted) 
+
+GenSeg-R1-G 
+
+IoU: 0.00 
+
+NO TARGET 
+
+(predicted) 
+
+GenSeg-R1-4B 
+
+IoU: 0.00 
+
+Seg-R1-7B 
+
+IoU: 0.00 
+
+Seg-Zero-7B 
+
+IoU: 0.00 
+
+" " Ground Truth 
+
+NO TARGET 
+
+(predicted) 
+
+GenSeg-R1-G 
+
+IoU: 0.00 
+
+NO TARGET 
+
+(predicted) 
+
+GenSeg-R1-4B 
+
+IoU: 0.00 
+
+Seg-R1-7B 
+
+IoU: 0.00 
+
+Seg-Zero-7B 
+
+IoU: 0.00 
+
+"When we step out of the 
+
+shower, what object can be 
+
+used to dry ourselves?" Ground Truth 
+
+GenSeg-R1-G 
+
+IoU: 0.98 
+
+GenSeg-R1-4B 
+
+IoU: 0.99 
+
+Seg-R1-7B 
+
+IoU: 0.00 
+
+Seg-Zero-7B 
+
+IoU: 0.00 
+
+"When an aircraft is ready to 
+
+depart from the airport, where 
+
+does it usually begin its 
+
+takeoff?" Ground Truth 
+
+GenSeg-R1-G 
+
+IoU: 0.96 
+
+GenSeg-R1-4B 
+
+IoU: 0.00 
+
+Seg-R1-7B 
+
+IoU: 0.00 
+
+Seg-Zero-7B 
+
+IoU: 0.00 
+
+Figure 4: Qualitative ReasonSeg comparison. Each row shows a reasoning-heavy query from the ReasonSeg test set. The first three rows illustrate successful cases where GenSeg-R1 -G and GenSeg-R1 -4B correctly reason about implicit queries, while baselines struggle. The last two rows show failure cases where all models fail to identify the target object.

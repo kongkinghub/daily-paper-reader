@@ -9,51 +9,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-02-27 ~ 2026-03-07
-- 运行时间：2026-03-07 19:02:15 UTC
+- 最新运行日期：2026-02-28 ~ 2026-03-08
+- 运行时间：2026-03-08 19:03:25 UTC
 - 运行状态：成功
-- 本次总论文数：15
-- 精读区：4
-- 速读区：11
+- 本次总论文数：10
+- 精读区：1
+- 速读区：9
 
 ### 今日简报（AI）
-本期精选 15 篇前沿论文，深度探索强化学习在多轮交互智能体与生成式推荐中的核心突破。
-重点推荐通过自进化合成数据构建可验证奖励的工具智能体，以及利用分布稳健策略优化解决推荐系统中的排斥难题。
-建议开发者关注小模型推理的忠实度优化及 F-GRPO 算法，以提升模型在复杂及罕见场景下的泛化表现。
-- 详情：[/20260227-20260307/README](/20260227-20260307/README)
+本期聚焦强化学习在工具集成与复杂推理中的前沿应用，深度解析了 ToolRLA 等 10 篇高质量论文。
+重点关注 ToolRLA 提出的乘法奖励分解技术，以及 RL 在提升智能体搜索可靠性与视觉分割精度上的跨界突破。
+建议深入研究如何通过精细化奖励设计与方差削减，解决智能体在长链条决策与多模态理解中的稳定性难题。
+- 详情：[/20260228-20260308/README](/20260228-20260308/README)
 
 ### 精读区论文标签
-1. [From Self-Evolving Synthetic Data to Verifiable-Reward RL: Post-Training Multi-turn Interactive Tool-Using Agents](/20260227-20260307/2601.22607v2-from-self-evolving-synthetic-data-to-verifiable-reward-rl-post-training-multi-turn-interactive-tool-using-agents)  
-   标签：评分：8.0/10、query:rl-ts
-2. [Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation](/20260227-20260307/2602.10430v1-breaking-the-curse-of-repulsion-optimistic-distributionally-robust-policy-optimization-for-off-policy-generative-recommendation)  
-   标签：评分：8.0/10、query:rl-ts
-3. [Think Longer to Explore Deeper: Learn to Explore In-Context via Length-Incentivized Reinforcement Learning](/20260227-20260307/2602.11748v1-think-longer-to-explore-deeper-learn-to-explore-in-context-via-length-incentivized-reinforcement-learning)  
-   标签：评分：8.0/10、query:rl-ts
-4. [RAPO: Expanding Exploration for LLM Agents via Retrieval-Augmented Policy Optimization](/20260227-20260307/2603.03078v1-rapo-expanding-exploration-for-llm-agents-via-retrieval-augmented-policy-optimization)  
+1. [ToolRLA: Multiplicative Reward Decomposition for Tool-Integrated Agents](/20260228-20260308/2603.01620v3-toolrla-multiplicative-reward-decomposition-for-tool-integrated-agents)  
    标签：评分：8.0/10、query:rl-ts
 
 ### 速读区论文标签
-1. [Training Multi-Turn Search Agent via Contrastive Dynamic Branch Sampling](/20260227-20260307/2602.03719v1-training-multi-turn-search-agent-via-contrastive-dynamic-branch-sampling)  
+1. [BAPO: Boundary-Aware Policy Optimization for Reliable Agentic Search](/20260228-20260308/2601.11037v1-bapo-boundary-aware-policy-optimization-for-reliable-agentic-search)  
    标签：评分：7.0/10、query:rl-ts
-2. [Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models](/20260227-20260307/2602.05897v1-stop-rewarding-hallucinated-steps-faithfulness-aware-step-level-reinforcement-learning-for-small-reasoning-models)  
+2. [GenSeg-R1: RL-Driven Vision-Language Grounding for Fine-Grained Referring Segmentation](/20260228-20260308/2602.09701v1-genseg-r1-rl-driven-vision-language-grounding-for-fine-grained-referring-segmentation)  
    标签：评分：7.0/10、query:rl-ts
-3. [F-GRPO: Don't Let Your Policy Learn the Obvious and Forget the Rare](/20260227-20260307/2602.06717v1-f-grpo-dont-let-your-policy-learn-the-obvious-and-forget-the-rare)  
+3. [VI-CuRL: Stabilizing Verifier-Independent RL Reasoning via Confidence-Guided Variance Reduction](/20260228-20260308/2602.12579v1-vi-curl-stabilizing-verifier-independent-rl-reasoning-via-confidence-guided-variance-reduction)  
    标签：评分：7.0/10、query:rl-ts
-4. [CoMI-IRL: Contrastive Multi-Intention Inverse Reinforcement Learning](/20260227-20260307/2602.07496v1-comi-irl-contrastive-multi-intention-inverse-reinforcement-learning)  
+4. [PyVision-RL: Forging Open Agentic Vision Models via RL](/20260228-20260308/2602.20739v1-pyvision-rl-forging-open-agentic-vision-models-via-rl)  
    标签：评分：7.0/10、query:rl-ts
-5. [OPE: Overcoming Information Saturation in Parallel Thinking via Outline-Guided Path Exploration](/20260227-20260307/2602.08344v1-ope-overcoming-information-saturation-in-parallel-thinking-via-outline-guided-path-exploration)  
+5. [Matching Multiple Experts: On the Exploitability of Multi-Agent Imitation Learning](/20260228-20260308/2602.21020v1-matching-multiple-experts-on-the-exploitability-of-multi-agent-imitation-learning)  
    标签：评分：7.0/10、query:rl-ts
-6. [Semi-Supervised Cross-Domain Imitation Learning](/20260227-20260307/2602.10793v1-semi-supervised-cross-domain-imitation-learning)  
+6. [Next Embedding Prediction Makes World Models Stronger](/20260228-20260308/2603.02765v1-next-embedding-prediction-makes-world-models-stronger)  
    标签：评分：7.0/10、query:rl-ts
-7. [Uncertainty-Aware Extrapolation in Bayesian Oblique Trees](/20260227-20260307/2601.22899v1-uncertainty-aware-extrapolation-in-bayesian-oblique-trees)  
+7. [Bootstrapping Exploration with Group-Level Natural Language Feedback in Reinforcement Learning](/20260228-20260308/2603.04597v1-bootstrapping-exploration-with-group-level-natural-language-feedback-in-reinforcement-learning)  
+   标签：评分：7.0/10、query:rl-ts
+8. [SIGHT: Reinforcement Learning with Self-Evidence and Information-Gain Diverse Branching for Search Agent](/20260228-20260308/2602.11551v1-sight-reinforcement-learning-with-self-evidence-and-information-gain-diverse-branching-for-search-agent)  
    标签：评分：6.0/10、query:rl-ts
-8. [Resource-Efficient Reinforcement for Reasoning Large Language Models via Dynamic One-Shot Policy Refinement](/20260227-20260307/2602.00815v1-resource-efficient-reinforcement-for-reasoning-large-language-models-via-dynamic-one-shot-policy-refinement)  
-   标签：评分：6.0/10、query:rl-ts
-9. [Efficient Adversarial Attacks on High-dimensional Offline Bandits](/20260227-20260307/2602.01658v1-efficient-adversarial-attacks-on-high-dimensional-offline-bandits)  
-   标签：评分：6.0/10、query:rl-ts
-10. [FaithRL: Learning to Reason Faithfully through Step-Level Faithfulness Maximization](/20260227-20260307/2602.03507v2-faithrl-learning-to-reason-faithfully-through-step-level-faithfulness-maximization)  
-   标签：评分：6.0/10、query:rl-ts
-11. [When RL Meets Adaptive Speculative Training: A Unified Training-Serving System](/20260227-20260307/2602.06932v1-when-rl-meets-adaptive-speculative-training-a-unified-training-serving-system)  
+9. [Avoid What You Know: Divergent Trajectory Balance for GFlowNets](/20260228-20260308/2602.17827v1-avoid-what-you-know-divergent-trajectory-balance-for-gflownets)  
    标签：评分：6.0/10、query:rl-ts
 
 

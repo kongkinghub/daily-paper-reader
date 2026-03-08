@@ -1,0 +1,395 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-08T19:01:20.538349+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 1,
+    "deep_cap": 6,
+    "deep_selected": 1,
+    "quick_candidates": 9,
+    "quick_skim_target": 11,
+    "quick_selected": 9
+  },
+  "deep_dive": [
+    {
+      "id": "2603.01620v3",
+      "title": "ToolRLA: Multiplicative Reward Decomposition for Tool-Integrated Agents",
+      "abstract": "Tool-integrated agents that interleave reasoning with API calls are promising for complex tasks, yet aligning them for high-stakes, domain-specific deployment remains challenging: existing reinforcement learning approaches rely on coarse binary rewards that cannot distinguish tool selection errors from malformed parameters. We present ToolRLA, a three-stage post-training pipeline (SFT -> GRPO -> DPO) for domain-specific tool agents. The core contribution is a fine-grained reward function with multiplicative correctness decomposition spanning four dimensions -- format validity, tool selection, parameter accuracy, and regulatory compliance -- that encodes domain priority orderings as inductive biases in the reward landscape. Deployed on a financial advisory copilot (80+ advisors, 1,200+ daily queries), ToolRLA achieves over three months: a 47% improvement in task completion rate (62%->91%), a 63% reduction in tool invocation errors (38%->14%), and a 93% reduction in regulatory violations (12%->0.8%), within sub-2-second latency. Ablation studies show the multiplicative reward design accounts for 7 percentage points of improvement over additive alternatives. Generalization is further validated on ToolBench and API-Bank.",
+      "authors": [
+        "Pengbo Liu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-03-02T08:52:14+00:00",
+      "link": "https://arxiv.org/pdf/2603.01620v3",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reinforcement learning for tool-integrated agents with reward decomposition",
+      "llm_evidence_cn": "针对工具集成智能体的强化学习及奖励分解方法",
+      "llm_evidence": "针对工具集成智能体的强化学习及奖励分解方法",
+      "llm_tldr_en": "Proposes ToolRLA, a post-training RL pipeline with fine-grained reward decomposition for tool-using agents.",
+      "llm_tldr_cn": "提出ToolRLA，一种针对工具调用智能体的细粒度奖励分解强化学习训练框架。",
+      "llm_tldr": "提出ToolRLA，一种针对工具调用智能体的细粒度奖励分解强化学习训练框架。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2601.11037v1",
+      "title": "BAPO: Boundary-Aware Policy Optimization for Reliable Agentic Search",
+      "abstract": "RL-based agentic search enables LLMs to solve complex questions via dynamic planning and external search. While this approach significantly enhances accuracy with agent policies optimized via large-scale reinforcement learning, we identify a critical gap in reliability: these agents fail to recognize their reasoning boundaries and rarely admit ``I DON'T KNOW'' (IDK) even when evidence is insufficient or reasoning reaches its limit. The lack of reliability often leads to plausible but unreliable answers, introducing significant risks in many real-world scenarios. To this end, we propose Boundary-Aware Policy Optimization (BAPO), a novel RL framework designed to cultivate reliable boundary awareness without compromising accuracy. BAPO introduces two key components: (i) a group-based boundary-aware reward that encourages an IDK response only when the reasoning reaches its limit, and (ii) an adaptive reward modulator that strategically suspends this reward during early exploration, preventing the model from exploiting IDK as a shortcut. Extensive experiments on four benchmarks demonstrate that BAPO substantially enhances the overall reliability of agentic search.",
+      "authors": [
+        "Shiyu Liu",
+        "Yongjing Yin",
+        "Jianhao Yan",
+        "Yunbo Tang",
+        "Qinggang Zhang",
+        "Bei Li",
+        "Xin Chen",
+        "Jingang Wang",
+        "Xunliang Cai",
+        "Jinsong Su"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-01-16T07:06:58+00:00",
+      "link": "https://arxiv.org/pdf/2601.11037v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "RL-based agentic search and policy optimization",
+      "llm_evidence_cn": "基于强化学习的代理搜索和策略优化",
+      "llm_evidence": "基于强化学习的代理搜索和策略优化",
+      "llm_tldr_en": "Proposes BAPO to improve reliability in RL-based LLM agents by recognizing reasoning boundaries.",
+      "llm_tldr_cn": "提出BAPO框架，通过识别推理边界来提高强化学习大模型智能体的可靠性。",
+      "llm_tldr": "提出BAPO框架，通过识别推理边界来提高强化学习大模型智能体的可靠性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.11551v1",
+      "title": "SIGHT: Reinforcement Learning with Self-Evidence and Information-Gain Diverse Branching for Search Agent",
+      "abstract": "Reinforcement Learning (RL) has empowered Large Language Models (LLMs) to master autonomous search for complex question answering. However, particularly within multi-turn search scenarios, this interaction introduces a critical challenge: search results often suffer from high redundancy and low signal-to-noise ratios. Consequently, agents easily fall into \"Tunnel Vision,\" where the forced interpretation of early noisy retrievals leads to irreversible error accumulation. To address these challenges, we propose SIGHT, a framework that enhances search-based reasoning through Self-Evidence Support (SES) and Information-Gain Driven Diverse Branching. SIGHT distills search results into high-fidelity evidence via SES and calculates an Information Gain score to pinpoint pivotal states where observations maximally reduce uncertainty. This score guides Dynamic Prompting Interventions - including de-duplication, reflection, or adaptive branching - to spawn new branches with SES. Finally, by integrating SES and correctness rewards via Group Relative Policy Optimization, SIGHT internalizes robust exploration strategies without external verifiers. Experiments on single-hop and multi-hop QA benchmarks demonstrate that SIGHT significantly outperforms existing approaches, particularly in complex reasoning scenarios, using fewer search steps.",
+      "authors": [
+        "Wenlin Zhong",
+        "Jinluan Yang",
+        "Yiquan Wu",
+        "Yi Liu",
+        "Jianhang Yao",
+        "Kun Kuang"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-12T04:16:55+00:00",
+      "link": "https://arxiv.org/pdf/2602.11551v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Distilling search results into high-fidelity evidence in RL framework",
+      "llm_evidence_cn": "在强化学习框架中将搜索结果蒸馏为高保真证据",
+      "llm_evidence": "在强化学习框架中将搜索结果蒸馏为高保真证据",
+      "llm_tldr_en": "Enhances search-based RL agents through self-evidence support and diverse branching.",
+      "llm_tldr_cn": "通过自证据支持和多样化分支增强基于搜索的强化学习智能体。",
+      "llm_tldr": "通过自证据支持和多样化分支增强基于搜索的强化学习智能体。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.09701v1",
+      "title": "GenSeg-R1: RL-Driven Vision-Language Grounding for Fine-Grained Referring Segmentation",
+      "abstract": "We study fine-grained referring image segmentation via a decoupled reason-then-segment pipeline. A vision-language model (VLM) receives an image and a natural-language query, reasons about the scene, and emits structured spatial prompts: a bounding box plus two interior keypoints for every referred instance. A frozen promptable segmenter (SAM 2) converts these prompts into high-quality masks.   Within our GenSeg-R1 framework we finetune Qwen3-VL models (4B and 8B parameters) using Group Relative Policy Optimization (GRPO), requiring no supervised reasoning-chain annotations. On RefCOCOg validation our best model (GenSeg-R1-8B) achieves 0.7127 cIoU and 0.7382 mIoU, substantially outperforming the corresponding Qwen3-VL Instruct baselines (+15.3 and +21.9 points, respectively) and surpassing Seg-Zero-7B [3] by +3.3 cIoU under identical evaluation.   We further introduce GenSeg-R1-G, a variant trained on GRefCOCO [9] with a SAM 2 in-the-loop reward that directly optimizes mask quality. On GRefCOCO validation GenSeg-R1-G achieves 76.69% target mIoU with 82.40% accuracy on negative (no-target) prompts, substantially outperforming Seg-R1-7B and Seg-Zero-7B, which lack no-target detection capability. On ReasonSeg test, GenSeg-R1-4B reaches 68.40% mIoU, surpassing Seg-Zero-7B by +7.0 and Seg-R1-7B by +10.7 points.",
+      "authors": [
+        "Sandesh Hegde",
+        "Jaison Saji Chacko",
+        "Debarshi Banerjee",
+        "Uma Mahesh"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV",
+        "cs.AI"
+      ],
+      "published": "2026-02-10T11:59:14+00:00",
+      "link": "https://arxiv.org/pdf/2602.09701v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "RL-driven vision-language grounding using Group Relative Policy Optimization",
+      "llm_evidence_cn": "使用组相对策略优化(GRPO)的强化学习驱动视觉语言接地",
+      "llm_evidence": "使用组相对策略优化(GRPO)的强化学习驱动视觉语言接地",
+      "llm_tldr_en": "Applies RL to fine-tune vision-language models for referring segmentation tasks.",
+      "llm_tldr_cn": "应用强化学习微调视觉语言模型，以实现精细的指代分割任务。",
+      "llm_tldr": "应用强化学习微调视觉语言模型，以实现精细的指代分割任务。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.17827v1",
+      "title": "Avoid What You Know: Divergent Trajectory Balance for GFlowNets",
+      "abstract": "Generative Flow Networks (GFlowNets) are a flexible family of amortized samplers trained to generate discrete and compositional objects with probability proportional to a reward function. However, learning efficiency is constrained by the model's ability to rapidly explore diverse high-probability regions during training. To mitigate this issue, recent works have focused on incentivizing the exploration of unvisited and valuable states via curiosity-driven search and self-supervised random network distillation, which tend to waste samples on already well-approximated regions of the state space. In this context, we propose Adaptive Complementary Exploration (ACE), a principled algorithm for the effective exploration of novel and high-probability regions when learning GFlowNets. To achieve this, ACE introduces an exploration GFlowNet explicitly trained to search for high-reward states in regions underexplored by the canonical GFlowNet, which learns to sample from the target distribution. Through extensive experiments, we show that ACE significantly improves upon prior work in terms of approximation accuracy to the target distribution and discovery rate of diverse high-reward states.",
+      "authors": [
+        "Pedro Dall'Antonia",
+        "Tiago da Silva",
+        "Daniel Csillag",
+        "Salem Lahlou",
+        "Diego Mesquita"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "stat.ML"
+      ],
+      "published": "2026-02-19T20:47:28+00:00",
+      "link": "https://arxiv.org/pdf/2602.17827v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "self-supervised random network distillation for exploration",
+      "llm_evidence_cn": "用于探索的自监督随机网络蒸馏",
+      "llm_evidence": "用于探索的自监督随机网络蒸馏",
+      "llm_tldr_en": "Proposes ACE to improve exploration in GFlowNets by focusing on novel and high-probability regions.",
+      "llm_tldr_cn": "提出ACE算法，通过关注新颖且高概率区域来改进GFlowNets的探索效率。",
+      "llm_tldr": "提出ACE算法，通过关注新颖且高概率区域来改进GFlowNets的探索效率。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "knowledge distillation for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.12579v1",
+      "title": "VI-CuRL: Stabilizing Verifier-Independent RL Reasoning via Confidence-Guided Variance Reduction",
+      "abstract": "Reinforcement Learning with Verifiable Rewards (RLVR) has emerged as a dominant paradigm for enhancing Large Language Models (LLMs) reasoning, yet its reliance on external verifiers limits its scalability. Recent findings suggest that RLVR primarily functions by eliciting latent capabilities, motivating the development of verifier-free algorithms. However, in such settings, standard methods like Group Relative Policy Optimization face a critical challenge: destructive gradient variance that often leads to training collapse. To address this issue, we introduceVerifier-Independent Curriculum Reinforcement Learning (VI-CuRL), a framework that leverages the model's intrinsic confidence to construct a curriculum independent from external verifiers. By prioritizing high-confidence samples, VI-CuRL effectively manages the bias-variance trade-off, specifically targeting the reduction of action and problem variance. We provide a rigorous theoretical analysis, proving that our estimator guarantees asymptotic unbiasedness. Empirically, VI-CuRL promotes stability and consistently outperforms verifier-independent baselines across six challenging benchmarks with/without verifiers.",
+      "authors": [
+        "Xin-Qiang Cai",
+        "Masashi Sugiyama"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-02-13T03:40:52+00:00",
+      "link": "https://arxiv.org/pdf/2602.12579v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement Learning with Verifiable Rewards and curriculum learning",
+      "llm_evidence_cn": "具有可验证奖励的强化学习和课程学习",
+      "llm_evidence": "具有可验证奖励的强化学习和课程学习",
+      "llm_tldr_en": "Stabilizes RL reasoning in LLMs using a confidence-guided curriculum to reduce gradient variance.",
+      "llm_tldr_cn": "通过置信度引导的课程学习稳定大语言模型的强化学习推理，减少梯度方差。",
+      "llm_tldr": "通过置信度引导的课程学习稳定大语言模型的强化学习推理，减少梯度方差。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.20739v1",
+      "title": "PyVision-RL: Forging Open Agentic Vision Models via RL",
+      "abstract": "Reinforcement learning for agentic multimodal models often suffers from interaction collapse, where models learn to reduce tool usage and multi-turn reasoning, limiting the benefits of agentic behavior. We introduce PyVision-RL, a reinforcement learning framework for open-weight multimodal models that stabilizes training and sustains interaction. Our approach combines an oversampling-filtering-ranking rollout strategy with an accumulative tool reward to prevent collapse and encourage multi-turn tool use. Using a unified training pipeline, we develop PyVision-Image and PyVision-Video for image and video understanding. For video reasoning, PyVision-Video employs on-demand context construction, selectively sampling task-relevant frames during reasoning to significantly reduce visual token usage. Experiments show strong performance and improved efficiency, demonstrating that sustained interaction and on-demand visual processing are critical for scalable multimodal agents.",
+      "authors": [
+        "Shitian Zhao",
+        "Shaoheng Lin",
+        "Ming Li",
+        "Haoquan Zhang",
+        "Wenshuo Peng",
+        "Kaipeng Zhang",
+        "Chen Wei"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CV"
+      ],
+      "published": "2026-02-24T10:08:33+00:00",
+      "link": "https://arxiv.org/pdf/2602.20739v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "reinforcement learning framework for multimodal models",
+      "llm_evidence_cn": "多模态模型的强化学习框架",
+      "llm_evidence": "多模态模型的强化学习框架",
+      "llm_tldr_en": "Introduces PyVision-RL to stabilize training and prevent interaction collapse in agentic multimodal models.",
+      "llm_tldr_cn": "推出PyVision-RL框架，旨在稳定多模态大模型在强化学习训练中的交互表现。",
+      "llm_tldr": "推出PyVision-RL框架，旨在稳定多模态大模型在强化学习训练中的交互表现。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.21020v1",
+      "title": "Matching Multiple Experts: On the Exploitability of Multi-Agent Imitation Learning",
+      "abstract": "Multi-agent imitation learning (MA-IL) aims to learn optimal policies from expert demonstrations of interactions in multi-agent interactive domains. Despite existing guarantees on the performance of the resulting learned policies, characterizations of how far the learned polices are from a Nash equilibrium are missing for offline MA-IL. In this paper, we demonstrate impossibility and hardness results of learning low-exploitable policies in general $n$-player Markov Games. We do so by providing examples where even exact measure matching fails, and demonstrating a new hardness result on characterizing the Nash gap given a fixed measure matching error. We then show how these challenges can be overcome using strategic dominance assumptions on the expert equilibrium. Specifically, for the case of dominant strategy expert equilibria, assuming Behavioral Cloning error $ε_{\\text{BC}}$, this provides a Nash imitation gap of $\\mathcal{O}\\left(nε_{\\text{BC}}/(1-γ)^2\\right)$ for a discount factor $γ$. We generalize this result with a new notion of best-response continuity, and argue that this is implicitly encouraged by standard regularization techniques.",
+      "authors": [
+        "Antoine Bergerault",
+        "Volkan Cevher",
+        "Negar Mehr"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.GT",
+        "cs.MA"
+      ],
+      "published": "2026-02-24T15:38:11+00:00",
+      "link": "https://arxiv.org/pdf/2602.21020v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "offline multi-agent imitation learning and measure matching error",
+      "llm_evidence_cn": "离线多智能体模仿学习与度量匹配误差",
+      "llm_evidence": "离线多智能体模仿学习与度量匹配误差",
+      "llm_tldr_en": "Analyzes the exploitability and hardness of learning Nash equilibria in offline multi-agent imitation learning.",
+      "llm_tldr_cn": "分析了离线多智能体模仿学习中学习纳什均衡的可利用性与硬度问题。",
+      "llm_tldr": "分析了离线多智能体模仿学习中学习纳什均衡的可利用性与硬度问题。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.02765v1",
+      "title": "Next Embedding Prediction Makes World Models Stronger",
+      "abstract": "Capturing temporal dependencies is critical for model-based reinforcement learning (MBRL) in partially observable, high-dimensional domains. We introduce NE-Dreamer, a decoder-free MBRL agent that leverages a temporal transformer to predict next-step encoder embeddings from latent state sequences, directly optimizing temporal predictive alignment in representation space. This approach enables NE-Dreamer to learn coherent, predictive state representations without reconstruction losses or auxiliary supervision. On the DeepMind Control Suite, NE-Dreamer matches or exceeds the performance of DreamerV3 and leading decoder-free agents. On a challenging subset of DMLab tasks involving memory and spatial reasoning, NE-Dreamer achieves substantial gains. These results establish next-embedding prediction with temporal transformers as an effective, scalable framework for MBRL in complex, partially observable environments.",
+      "authors": [
+        "George Bredis",
+        "Nikita Balagansky",
+        "Daniil Gavrilov",
+        "Ruslan Rakhimov"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-03-03T09:04:28+00:00",
+      "link": "https://arxiv.org/pdf/2603.02765v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Model-based reinforcement learning agent for high-dimensional domains",
+      "llm_evidence_cn": "用于高维领域的模型强化学习智能体",
+      "llm_evidence": "用于高维领域的模型强化学习智能体",
+      "llm_tldr_en": "Introduces NE-Dreamer, a decoder-free MBRL agent using temporal transformers for embedding prediction.",
+      "llm_tldr_cn": "引入NE-Dreamer，一种利用时间Transformer预测嵌入的无解码器模型强化学习智能体。",
+      "llm_tldr": "引入NE-Dreamer，一种利用时间Transformer预测嵌入的无解码器模型强化学习智能体。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.04597v1",
+      "title": "Bootstrapping Exploration with Group-Level Natural Language Feedback in Reinforcement Learning",
+      "abstract": "Large language models (LLMs) typically receive diverse natural language (NL) feedback through interaction with the environment. However, current reinforcement learning (RL) algorithms rely solely on scalar rewards, leaving the rich information in NL feedback underutilized and leading to inefficient exploration. In this work, we propose GOLF, an RL framework that explicitly exploits group-level language feedback to guide targeted exploration through actionable refinements. GOLF aggregates two complementary feedback sources: (i) external critiques that pinpoint errors or propose targeted fixes, and (ii) intra-group attempts that supply alternative partial ideas and diverse failure patterns. These group-level feedbacks are aggregated to produce high-quality refinements, which are adaptively injected into training as off-policy scaffolds to provide targeted guidance in sparse-reward regions. Meanwhile, GOLF jointly optimizes generation and refinement within a unified RL loop, creating a virtuous cycle that continuously improves both capabilities. Experiments on both verifiable and non-verifiable benchmarks show that GOLF achieves superior performance and exploration efficiency, achieving 2.2$\\times$ improvements in sample efficiency compared to RL methods trained solely on scalar rewards. Code is available at https://github.com/LuckyyySTA/GOLF.",
+      "authors": [
+        "Lei Huang",
+        "Xiang Cheng",
+        "Chenxiao Zhao",
+        "Guobin Shen",
+        "Junjie Yang",
+        "Xiaocheng Feng",
+        "Yuxuan Gu",
+        "Xing Yu",
+        "Bing Qin"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI"
+      ],
+      "published": "2026-03-04T20:53:17+00:00",
+      "link": "https://arxiv.org/pdf/2603.04597v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement learning algorithms and exploration methods",
+      "llm_evidence_cn": "强化学习算法与探索方法",
+      "llm_evidence": "强化学习算法与探索方法",
+      "llm_tldr_en": "Introduces GOLF, an RL framework using natural language feedback to guide exploration and improve efficiency.",
+      "llm_tldr_cn": "引入了GOLF框架，利用自然语言反馈指导强化学习中的探索并提高效率。",
+      "llm_tldr": "引入了GOLF框架，利用自然语言反馈指导强化学习中的探索并提高效率。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}
