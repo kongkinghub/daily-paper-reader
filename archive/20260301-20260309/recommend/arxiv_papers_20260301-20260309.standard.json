@@ -1,0 +1,203 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-09T19:25:58.002071+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 1,
+    "deep_cap": 6,
+    "deep_selected": 1,
+    "quick_candidates": 4,
+    "quick_skim_target": 11,
+    "quick_selected": 4
+  },
+  "deep_dive": [
+    {
+      "id": "2602.19526v1",
+      "title": "How to Train Your Deep Research Agent? Prompt, Reward, and Policy Optimization in Search-R1",
+      "abstract": "Deep Research agents tackle knowledge-intensive tasks through multi-round retrieval and decision-oriented generation. While reinforcement learning (RL) has been shown to improve performance in this paradigm, its contributions remain underexplored. To fully understand the role of RL, we conduct a systematic study along three decoupled dimensions: prompt template, reward function, and policy optimization. Our study reveals that: 1) the Fast Thinking template yields greater stability and better performance than the Slow Thinking template used in prior work; 2) the F1-based reward underperforms the EM due to training collapse driven by answer avoidance; this can be mitigated by incorporating action-level penalties, ultimately surpassing EM; 3) REINFORCE outperforms PPO while requiring fewer search actions, whereas GRPO shows the poorest stability among policy optimization methods. Building on these insights, we then introduce Search-R1++, a strong baseline that improves the performance of Search-R1 from 0.403 to 0.442 (Qwen2.5-7B) and 0.289 to 0.331 (Qwen2.5-3B). We hope that our findings can pave the way for more principled and reliable RL training strategies in Deep Research systems.",
+      "authors": [
+        "Yinuo Xu",
+        "Shuo Lu",
+        "Jianjie Cheng",
+        "Meng Wang",
+        "Qianlong Xie",
+        "Xingxing Wang",
+        "Ran He",
+        "Jian Liang"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-02-23T05:33:17+00:00",
+      "link": "https://arxiv.org/pdf/2602.19526v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "reinforcement learning policy optimization for research agents",
+      "llm_evidence_cn": "研究智能体的强化学习策略优化",
+      "llm_evidence": "研究智能体的强化学习策略优化",
+      "llm_tldr_en": "Systematically studies RL dimensions like reward functions and policy optimization for training research agents.",
+      "llm_tldr_cn": "系统研究了用于训练研究型智能体的强化学习奖励函数和策略优化维度。",
+      "llm_tldr": "系统研究了用于训练研究型智能体的强化学习奖励函数和策略优化维度。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2602.10608v1",
+      "title": "Bayesian Inference of Contextual Bandit Policies via Empirical Likelihood",
+      "abstract": "Policy inference plays an essential role in the contextual bandit problem. In this paper, we use empirical likelihood to develop a Bayesian inference method for the joint analysis of multiple contextual bandit policies in finite sample regimes. The proposed inference method is robust to small sample sizes and is able to provide accurate uncertainty measurements for policy value evaluation. In addition, it allows for flexible inferences on policy comparison with full uncertainty quantification. We demonstrate the effectiveness of the proposed inference method using Monte Carlo simulations and its application to an adolescent body mass index data set.",
+      "authors": [
+        "Jiangrong Ouyang",
+        "Mingming Gong",
+        "Howard Bondell"
+      ],
+      "primary_category": "stat.ML",
+      "categories": [
+        "stat.ML",
+        "cs.LG"
+      ],
+      "published": "2026-02-11T07:57:40+00:00",
+      "link": "https://arxiv.org/pdf/2602.10608v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Bayesian inference for contextual bandit policies",
+      "llm_evidence_cn": "上下文老虎机策略的贝叶斯推理",
+      "llm_evidence": "上下文老虎机策略的贝叶斯推理",
+      "llm_tldr_en": "Develops a Bayesian method for policy inference in contextual bandits to improve uncertainty quantification.",
+      "llm_tldr_cn": "开发了一种用于上下文老虎机策略推理的贝叶斯方法，以改进不确定性量化。",
+      "llm_tldr": "开发了一种用于上下文老虎机策略推理的贝叶斯方法，以改进不确定性量化。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2602.24022v1",
+      "title": "Comparison of symbolic regression algorithms in Star/galaxy/quasar separation",
+      "abstract": "This work investigates symbolic regression (SR) as an interpretable alternative to black-box machine learning for the classification of stars, galaxies, and quasars in the Sloan Digital Sky Survey Data Release 17 (SDSS DR17). We conduct a systematic comparative study of four state-of-the-art SR frameworks: {\\tt PySR}, Exhaustive Symbolic Regression ({\\tt ESR}) with MDL-based selection, Physical Symbolic Optimization ({\\tt PhySO}) using deep reinforcement learning, and Multi-View Symbolic Regression ({\\tt MvSR}). By deriving compact analytic functions (complexity $\\leq 10$) on a representative training subset and subsequently evaluating them via a 5-fold stratified cross-validation protocol on 100,000 spectroscopically confirmed objects, we map spectroscopic redshift ($z$) to continuous classification scores. Our results demonstrate that these low-complexity expressions achieve high predictive reliability, with {\\tt MvSR} reaching a Cohen's Kappa of 0.8948 and {\\tt PhySO} achieving exceptional parametric stability ($σ< 0.002$). We show that these models not only match the performance of traditional baselines but also provide a transparent, mathematically concise characterization of the astrophysical boundaries separating galactic and extragalactic populations.",
+      "authors": [
+        "Rachit Deshpande",
+        "Shantanu Desai"
+      ],
+      "primary_category": "astro-ph.IM",
+      "categories": [
+        "astro-ph.IM",
+        "astro-ph.GA"
+      ],
+      "published": "2026-02-27T13:49:10+00:00",
+      "link": "https://arxiv.org/pdf/2602.24022v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Symbolic optimization using deep reinforcement learning",
+      "llm_evidence_cn": "使用深度强化学习进行符号优化",
+      "llm_evidence": "使用深度强化学习进行符号优化",
+      "llm_tldr_en": "Compares symbolic regression algorithms, including one powered by deep reinforcement learning.",
+      "llm_tldr_cn": "比较了符号回归算法，其中包括一种由深度强化学习驱动的方法。",
+      "llm_tldr": "比较了符号回归算法，其中包括一种由深度强化学习驱动的方法。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2602.11220v1",
+      "title": "Patch the Distribution Mismatch: RL Rewriting Agent for Stable Off-Policy SFT",
+      "abstract": "Large language models (LLMs) have made rapid progress, yet adapting them to downstream scenarios still commonly relies on supervised fine-tuning (SFT). When downstream data exhibit a substantial distribution shift from the model's prior training distribution, SFT can induce catastrophic forgetting. To narrow this gap, data rewriting has been proposed as a data-centric approach that rewrites downstream training data prior to SFT. However, existing methods typically sample rewrites from a prompt-induced conditional distribution, so the resulting targets are not necessarily aligned with the model's natural QA-style generation distribution. Moreover, reliance on fixed templates can lead to diversity collapse. To address these issues, we cast data rewriting as a policy learning problem and learn a rewriting policy that better matches the backbone's QA-style generation distribution while preserving diversity. Since distributional alignment, diversity and task consistency are automatically evaluable but difficult to optimize end-to-end with differentiable objectives, we leverage reinforcement learning to optimize the rewrite distribution under reward feedback and propose an RL-based data-rewriting agent. The agent jointly optimizes QA-style distributional alignment and diversity under a hard task-consistency gate, thereby constructing a higher-quality rewritten dataset for downstream SFT. Extensive experiments show that our method achieves downstream gains comparable to standard SFT while reducing forgetting on non-downstream benchmarks by 12.34% on average. Our code is available at https://anonymous.4open.science/r/Patch-the-Prompt-Gap-4112 .",
+      "authors": [
+        "Jiacheng Wang",
+        "Ping Jian",
+        "Zhen Yang",
+        "Zirong Chen",
+        "Keren Liao",
+        "Zhongbin Guo"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-02-11T11:51:37+00:00",
+      "link": "https://arxiv.org/pdf/2602.11220v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "RL rewriting agent for stable off-policy SFT",
+      "llm_evidence_cn": "用于稳定离策SFT的强化学习重写代理",
+      "llm_evidence": "用于稳定离策SFT的强化学习重写代理",
+      "llm_tldr_en": "Uses an RL agent to rewrite data to match model distributions and prevent catastrophic forgetting.",
+      "llm_tldr_cn": "使用强化学习代理重写数据以匹配模型分布，防止灾难性遗忘。",
+      "llm_tldr": "使用强化学习代理重写数据以匹配模型分布，防止灾难性遗忘。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.01301v1",
+      "title": "When Does RL Help Medical VLMs? Disentangling Vision, SFT, and RL Gains",
+      "abstract": "Reinforcement learning (RL) is increasingly used to post-train medical Vision-Language Models (VLMs), yet it remains unclear whether RL improves medical visual reasoning or mainly sharpens behaviors already induced by supervised fine-tuning (SFT). We present a controlled study that disentangles these effects along three axes: vision, SFT, and RL. Using MedMNIST as a multi-modality testbed, we probe visual perception by benchmarking VLM vision towers against vision-only baselines, quantify reasoning support and sampling efficiency via Accuracy@1 versus Pass@K, and evaluate when RL closes the support gap and how gains transfer across modalities. We find that RL is most effective when the model already has non-trivial support (high Pass@K): it primarily sharpens the output distribution, improving Acc@1 and sampling efficiency, while SFT expands support and makes RL effective. Based on these findings, we propose a boundary-aware recipe and instantiate it by RL post-training an OctoMed-initialized model on a small, balanced subset of PMC multiple-choice VQA, achieving strong average performance across six medical VQA benchmarks.",
+      "authors": [
+        "Ahmadreza Jeddi",
+        "Kimia Shaban",
+        "Negin Baghbanzadeh",
+        "Natasha Sharan",
+        "Abhishek Moturu",
+        "Elham Dolatabadi",
+        "Babak Taati"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-03-01T22:16:19+00:00",
+      "link": "https://arxiv.org/pdf/2603.01301v1",
+      "tags": [
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "reinforcement learning post-training for medical VLMs",
+      "llm_evidence_cn": "医疗视觉语言模型的强化学习后训练",
+      "llm_evidence": "医疗视觉语言模型的强化学习后训练",
+      "llm_tldr_en": "Analyzes the effectiveness of RL in medical VLMs compared to supervised fine-tuning and visual perception.",
+      "llm_tldr_cn": "分析了强化学习在医疗视觉语言模型中相对于监督微调和视觉感知的有效性。",
+      "llm_tldr": "分析了强化学习在医疗视觉语言模型中相对于监督微调和视觉感知的有效性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "reinforcement learning algorithms and methods",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}

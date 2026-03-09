@@ -1,0 +1,2224 @@
+Title: Bayesian Inference of Contextual Bandit Policies via Empirical Likelihood
+
+URL Source: https://arxiv.org/pdf/2602.10608v1
+
+Published Time: Thu, 12 Feb 2026 01:36:52 GMT
+
+Number of Pages: 28
+
+Markdown Content:
+> Journal of Machine Learning Research 27 (2026) 1-28 Submitted 7/23; Revised 11/25; Published 2/26
+
+# Bayesian Inference of Contextual Bandit Policies via Empirical Likelihood 
+
+Jiangrong Ouyang jiangrong.ouyang@unimelb.edu.au 
+
+Mingming Gong mingming.gong@unimelb.edu.au 
+
+Howard Bondell howard.bondell@unimelb.edu.au 
+
+School of Mathematics and Statistics University of Melbourne Victoria, Australia 
+
+Editor: Aur´ elien Garivier 
+
+Abstract 
+
+Policy inference plays an essential role in the contextual bandit problem. In this paper, we use empirical likelihood to develop a Bayesian inference method for the joint analysis of multiple contextual bandit policies in finite sample regimes. The proposed inference method is robust to small sample sizes and is able to provide accurate uncertainty measurements for policy value evaluation. In addition, it allows for flexible inferences on policy comparison with full uncertainty quantification. We demonstrate the effectiveness of the proposed inference method using Monte Carlo simulations and its application to an adolescent body mass index data set. 
+
+Keywords: empirical likelihood, contextual bandit, off-policy evaluation, Bayesian infer-ence 
+
+1 Introduction 
+
+The contextual bandit problem is an extension of the standard multi-armed bandit problem, in which the rewards of arms depend on some context information (Auer et al., 2002; Langford and Zhang, 2007). A contextual bandit policy is a function that guides the player to select more profitable arms based on the given context information. The inference of contextual bandit policies is essential, since it can be used to improve the current policy or to experiment with hypothetical policies of interest. Hence, there is no need to actually run the hypothetical policies in the real world, since we are able to reconstruct the information just as what we would have observed if the desired policies had been applied. To perform a reliable inference, one should first be able to evaluate policies accurately. However, the evaluation of a bandit policy is not straightforward, since only partial feedback is observed, and the available data is not necessarily collected using the policy we want to evaluate. Hence, we need to resort to off-policy evaluation (Sutton and Barto, 2018). Off-policy evaluation is a problem of evaluating a given target policy using the data collected with another policy, called behavior policy. There are three types of off-policy evaluation methods: direct method, importance sam-pling method, and doubly robust method. For the direct method, the expected reward given the arm and context is learned using regression, and then it is used to estimate the   
+
+> ©2026 Jiangrong Ouyang, Mingming Gong, and Howard Bondell. License: CC-BY 4.0, see https://creativecommons.org/licenses/by/4.0/ . Attribution requirements are provided at http://jmlr.org/papers/v27/23-0958.html .
+> arXiv:2602.10608v1 [stat.ML] 11 Feb 2026 Ouyang, Gong, and Bondell
+
+target policy directly. The direct method estimator relies heavily on the accuracy of the regression for the reward. If the regression model is misspecified, then the estimator can be biased and inconsistent. The main idea of the importance sampling method is to correct the weights of data points collected by the behavior policy so that they align with the target policy (Horvitz and Thompson, 1952). For example, the importance sampling (IS) estimator takes the weighted average of the rewards, where the weights are given by the ratios of the probabilities from the target policy to that from the behavior policy. The IS estimator is unbiased and consistent, yet its variance is often large, especially when the target policy differs significantly from the behavior policy. The self-normalized IS (SNIS) estimator is a scaled IS estimator, normalized by the average of the importance weights, which decreases the mean squared error at the cost of being biased (Swaminathan and Joachims, 2015). Furthermore, the SNIS estimator is bounded within the support of rewards, whereas the IS estimator is not. The doubly robust estimator combines the direct method and importance sampling method, in which the direct method estimator acts as a baseline and is corrected by the IS estimator (Dudik et al., 2011; Jiang and Li, 2016). If the regression model for the reward is specified correctly, then the mean squared error of the doubly robust estimator achieves the semiparametric lower bound asymptotically. Otherwise, it can be worse than that of the IS and SNIS estimators (Kang and Schafer, 2007; Kallus and Uehara, 2019). While many policy learning algorithms and evaluation methods are well-developed, pol-icy inference remains difficult, since the distribution of the embedded importance weights is unknown. In this paper, we focus on the inference of contextual bandit policies. Empirical likelihood is a nonparametric inference method, which relies only on a set of estimating equations for the data (Owen, 1988, 1990; Qin and Lawless, 1994). Hence, with appro-priate estimating equations, inferences on the target policy can be drawn based on the empirical likelihood. It has been shown that the point estimator based on empirical like-lihood generally has a lower mean squared error than the IS, SNIS, and DR estimators (Kallus and Uehara, 2019). In addition, hypothesis tests and confidence intervals can be constructed using the empirical likelihood ratio with a chi-squared approximation (Karam-patziakis et al., 2020). However, the empirical likelihood ratio in this setting only behaves like the chi-squared distribution when the sample size is large. For small or medium sample sizes, the confidence intervals are poorly calibrated and suffer from mismatched coverage probabilities. In addition, all the aforementioned methods focus on single policy evaluation, so comparison among potentially correlated policies is infeasible. Given the poor chi-squared calibration in the frequentist setting, we propose using em-pirical likelihood in the Bayesian paradigm to conduct proper inference, either with an uninformative prior or by accommodating any prior information about the policy value. Due to the fact that empirical likelihood is not an ordinary likelihood, the Bayesian in-ference with empirical likelihood does not follow automatically. Lazar (2003) explored the validity of the resultant posterior when the data density is replaced by empirical likelihood. Grend´ ar and Judge (2009) further justified the use of empirical likelihood in the Bayesian paradigm. Later, Bayesian empirical likelihood was adapted in several fields: survey sam-pling (Rao and Wu, 2010), small area estimation (Chaudhuri and Ghosh, 2011), and quantile regression (Yang and He, 2012). Algorithms for more efficient Bayesian computation have also been developed (Mengersen et al., 2013; Chaudhuri et al., 2017; Yu and Bondell, 2024). 
+
+> 2Bayesian Inference of Contextual Bandit Policies
+
+In this paper, we employ empirical likelihood to develop a Bayesian inference method for jointly analyzing multiple contextual bandit policies in finite sample regimes. Our proposed inference method is robust with respect to small sample sizes and is able to provide accurate uncertainty measurements for policy value evaluation. Additionally, flexible inferences can be drawn on policy comparison with full uncertainty quantification. The remainder of this paper is organized as follows. Section 2 provides the background information and defines the notation used throughout this paper. Section 3 describes the proposed Bayesian empirical likelihood method for policy inference. Section 4 presents two experiments demonstrating the proposed method. Section 5 gives the application to an adolescent body mass index data set. Section 6 contains some discussions. 
+
+2 Background and Notation 
+
+Bandit Problem. The multi-armed bandit problem is a repeated game proposed by Robbins (1952). In each round, the player makes a choice from K different arms and receives the associated random reward. The goal is to develop a strategy to maximize the total rewards. This game is a paradigmatic example of the exploration–exploitation trade-off dilemma. As the player has no knowledge of the reward distribution associated with each arm initially, exploration is needed. Then the player can exploit the information acquired in the past to gain rewards at the moment or keep exploring for better rewards in the future. The contextual bandit problem is an extension of the standard multi-armed bandit prob-lem. It further assumes that the reward distributions depend on some context information, and the context information is given to the player for decision making. This setting is more practical, since bandit problems in reality often come with context information. Due to the introduction of context information, contextual bandits have been adopted widely in various areas, such as news article recommendation (Li et al., 2010), personalized medicine (Tewari and Murphy, 2017), design of clinical trials (Villar and Rosenberger, 2018), and advertisement optimization (Narita et al., 2019). Consider the contextual bandit problem with K arms. In each round, a context x ∈X is generated from some distribution D. Given this context x, the reward vector r =(r1, r 2, . . . , r K )⊤ is drawn from the conditional distribution Dx. Based on the context x,the player selects an arm a ∈ { 1, 2, . . . , K }, and receives the reward ra. Note that only ra
+
+is revealed. Without loss of generality, we assume ra ∈ [0 , 1]. Let π : X → P be a contextual bandit policy, where P is the set of all probability mass functions over the arms. For a given context x, the policy π guides the player to select an arm based on the probability mass function, πx = π(x); that is, πx(a) indicates the probability of choosing arm a under the context x. The value of the policy π is defined as the expected reward, i.e., vπ = Ex∼D,a ∼πx [ra].
+
+Off-Policy Evaluation. Consider the off-policy evaluation, where the offline data is collected with some behavior policy p rather than the target policy π. That is, in each round, the arm is chosen according to the probability mass function px. We assume that 
+
+px is known or can be well estimated. 
+
+> 3Ouyang, Gong, and Bondell
+
+Since the arms are chosen by the behavior policy p, for the associated rewards r, the target policy π will have different probabilities of receiving them. To leverage these rewards, define the importance weight as the probability ratio, 
+
+wa = πx(a)
+
+px(a) .
+
+It follows that the value of policy π can be calculated by vπ = Ex∼D,a ∼px [wara].
+
+This is the main estimating equation we use to construct the empirical likelihood function. Note that the estimation and inference of policy π depend on the offline data only through the importance weights and the received rewards, 
+
+{(wi, r i)}ni=1 ,
+
+where wi = πxi (ai)  
+
+> pxi(ai)
+
+denotes the observed value of the importance weight in round i in a data set of size n.
+
+Empirical Likelihood. Empirical likelihood is a nonparametric inference method proposed by Owen (1988). It does not require a specification of distributional assumptions for the data, but relies only on a set of estimating equations. Assume that X1, . . . , X n ∈ R
+
+are independent random variables with a common distribution function F . If the population mean, μ = μ(F ), is the parameter of interest, then one can use the first moment condition, 
+
+EF (X − μ) = 0, as the estimating equation, and define the log-empirical likelihood for μ as the solution to the following optimization problem, log L(μ) = sup 
+
+> Q⪰0
+
+( nX
+
+> i=1
+
+log( Qi)
+
+> n
+
+X
+
+> i=1
+
+Qi = 1 ,
+
+> n
+
+X
+
+> i=1
+
+Qi(Xi − μ) = 0 
+
+)
+
+,
+
+where Q = ( Q1, Q 2, . . . , Q n)⊤.More flexible data structures or restrictions on the parameters can be incorporated into the empirical likelihood function by adding extra estimating equations (Qin and Lawless, 1994). Continue with the example above. If we know that the data is Poisson-like, then the second moment condition, EF (X2 − μ − μ2) = 0, can be included to ensure the property of 
+
+Var F (X) = EF (X); that is, log L(μ) = sup 
+
+> Q⪰0
+
+( nX
+
+> i=1
+
+log( Qi)
+
+> n
+
+X
+
+> i=1
+
+Qi = 1 ,
+
+> n
+
+X
+
+> i=1
+
+Qi(Xi − μ) = 0 ,
+
+> n
+
+X
+
+> i=1
+
+Qi
+
+ X2 
+
+> i
+
+− μ − μ2 = 0 
+
+)
+
+,
+
+where Q = ( Q1, Q 2, . . . , Q n)⊤.Note that the probabilities are optimized and assigned only to the observed data points. For some parameter values, it is possible that none of the probability allocations satisfies the constraints specified in the optimization problem. In such cases, the log-empirical likelihoods are defined as −∞ .
+
+> 4Bayesian Inference of Contextual Bandit Policies
+
+3 Methodology 
+
+In this section, we define the empirical likelihood for contextual bandit policies and demon-strate the proposed method for policy inference in the Bayesian paradigm. Additionally, we present a practical method for performing the computations required for the Bayesian inference. 
+
+3.1 Joint Empirical Likelihood for Multiple Policies 
+
+Let v ∈ [0 , 1] ℓ be the values of a set of ℓ policies, π1, π 2, . . . , π ℓ. We define the empirical likelihood jointly for these values, v, with the estimating equation, 
+
+v = Ex∼D,a ∼px [wara],
+
+where 
+
+wa =
+
+ π1,x(a)
+
+px(a) , π2,x(a)
+
+px(a) , . . . , πℓ, x(a)
+
+px(a)
+
+⊤
+
+is the importance weight vector for the ℓ policies, π1, π 2, . . . , π ℓ, with respect to the behavior policy p. Alongside the estimating equation for v, we also include a constraint for the importance weight vector, 
+
+Ex∼D,a ∼px [wa] = 1.
+
+The reason for including this additional constraint is two-fold. While the theoretical ex-pectation of w is always equal to 1, the empirical version with respect to ( w, r ) in the data space does not necessarily hold. By including this constraint in the formulation of the empirical likelihood, the average of w over the data space is restricted to 1. As a consequence, the support of the empirical likelihood function is bounded and is equal to the true support, v ∈ [0 , 1] ℓ. In addition, this constraint guarantees that the empirical likelihood function is invariant to the metric used to measure the policies. Specifically, an equivalent way to assess policies is from the regret , u = 1 − v, with the estimating equa-tion, u = Ex∼D,a ∼px [wa(1 − ra)]. The estimating equations for the value and regret yield equivalent results if and only if the constraint, Ex∼D,a ∼px [wa] = 1, holds. The inclusion or non-inclusion of this constraint corresponds to the analogs of two well-known importance sampling approaches. If it is not included, then the maximum empirical likelihood estimator corresponds to the pure importance sampling estimator, which takes the weighted average of the rewards directly (Horvitz and Thompson, 1952). If it is in-cluded, then the maximum empirical likelihood estimator corresponds to the self-normalized importance sampling estimator, where the empirical average of the importance weights is restricted to 1 (Swaminathan and Joachims, 2015). Unlike the conventional empirical likelihood, we consider not only distributions with mass at the data points, {(wi, r i)}ni=1 , but all possible distributions defined over arbitrary points ( w, r ) within the hyperrectangular support, 
+
+S =
+
+
+
+> ℓ
+
+Y
+
+> j=1
+
+[wj, min , w j, max ]
+
+ × [0 , 1] ,
+
+> 5Ouyang, Gong, and Bondell
+
+where [ wj, min , w j, max ] is the range of importance weights inferred from policy πj and the behavior policy p. The use of all possible points in the support S ensures that the empirical likelihood is well-defined for all v ∈ [0 , 1] ℓ.Formally, we start from first principles and consider all probability measures Q on (S, B(S)). Let Qw,r = Q({(w, r )}). We define the log-empirical likelihood for the policy values as the solution to the following optimization problem, log L(v) = sup 
+
+> Q
+
+( nX
+
+> i=1
+
+log ( Qwi,r i )
+
+Z
+
+> S
+
+w dQ(w, r ) = 1,
+
+Z
+
+> S
+
+wr dQ(w, r ) = v
+
+)
+
+. (1) As a nonparametric maximum likelihood estimation problem, it suffices to consider only discrete Q (Lindsay, 1995). Note that the optimization variable is the entire probability measure Q on ( S, B(S)) rather than a probability vector over some fixed points. Hence, the set of the points ( w, r ) ∈ S that receive positive probability mass is not known a priori ,and identifying this set constitutes part of the optimization problem. By solving the Lagrange dual problem (see Appendix A for details), we get log L(v) = − sup  
+
+> (β,τ)∈V
+> n
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + β⊤(wi − 1) + τ ⊤(wiri − v)
+
+
+
++ C, 
+
+where C is an immaterial constant, β and τ are the dual variables, and 
+
+V =
+
+n
+
+(β, τ ) ∈ Rℓ × Rℓ 1 + β⊤(w − 1) + τ ⊤(wr − v) ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.
+
+While the inequality needs to hold for all ( w, r ) ∈ S , it suffices to only consider the vertices of the hyperrectangular support S, due to the linearity with respect to β and τ .As a consequence of considering all probability measures Q on ( S, B(S)), the resulting empirical likelihood function may be flat over some region, implying that the maximum empirical likelihood estimator may not be unique (see Appendix B for details). However, this non-uniqueness does not affect the Bayesian inference that follows. Using this joint empirical likelihood, we can derive the joint posterior distribution for v
+
+in the Bayesian paradigm, and subsequently construct a credible region for v from this distri-bution. Flexible inferences can be drawn with full uncertainty quantification. For example, we can compare a new policy against a baseline policy by computing P(v new > vbaseline + δ)or P(v new > (1 + δ)v baseline ) for a desired margin δ, or even P(g(v new , vbaseline ) ≥ 0) for an arbitrary function g.For inference on a single policy, the empirical likelihood defined above is equivalent to the dual likelihood proposed by Karampatziakis et al. (2020). They used chi-squared approximation for the log-empirical likelihood ratio to construct confidence intervals for the policy value. In Section 4.1, we design an experiment to compare their confidence intervals in the frequentist framework to our credible intervals in the Bayesian paradigm. 
+
+3.2 Empirical Likelihood for Policy Value Difference 
+
+Suppose we have a baseline policy and a new policy. We are interested in evaluating the potential improvement of the new policy compared to the baseline policy. Then, we can 
+
+> 6Bayesian Inference of Contextual Bandit Policies
+
+construct the empirical likelihood for the policy value difference, d = v new − vbaseline . Let 
+
+t = ( −1, 1) ⊤ and v = (v baseline , vnew )⊤ ∈ [0 , 1] 2. We define the log-empirical likelihood for the difference as the solution to the following optimization problem, log L(d) = sup 
+
+> Q
+
+( nX
+
+> i=1
+
+log ( Qwi,r i )
+
+Z
+
+> S
+
+w dQ(w, r ) = 1,
+
+Z
+
+> S
+
+t⊤wr dQ(w, r ) = d
+
+)
+
+. (2) From the definitions (1) and (2), it is clear that log L(d) = sup v: d=t⊤v log L(v). Note that rather than work with the vector v ∈ [0 , 1] 2, we directly project v onto a one-dimensional interval when formulating the empirical likelihood for d. This approach is more aligned with our interest and more computationally efficient. By solving the Lagrange dual problem (see Appendix C for details), we get log L(d) = − sup 
+
+> (β,δ )∈D
+> n
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + β⊤(wi − 1) + δ(t⊤wiri − d)
+
+
+
++ C, 
+
+where C is an immaterial constant, β and δ are the dual variables, and 
+
+D =
+
+n
+
+(β, δ ) ∈ R2 × R 1 + β⊤(w − 1) + δ(t⊤wr − d) ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.
+
+Similar to the joint empirical likelihood for v, the inequality in the set D only needs to hold for the vertices of the hyperrectangular support S. The maximum empirical likelihood estimator also may not be unique, though, as before, this does not affect the subsequent Bayesian inference. With this empirical likelihood, we can derive the posterior distribution for the difference 
+
+d in the Bayesian paradigm. Policy comparison is now more straightforward, since d is the quantity of interest. For example, we can determine P(v new > vbaseline + δ) by computing 
+
+P(d > δ ) from a one-dimensional posterior distribution. Note that this probability is not strictly identical to the one computed from the joint posterior distribution for v, since they are derived from different empirical likelihoods. However, they share similar values. See Section 4.2 for an illustration. If the only interest is the policy value difference, we suggest using the univariate posterior distribution for d to reduce the computational cost. 
+
+3.3 Computational Method for Bayesian Inference 
+
+For computing posterior probabilities, such as P(v new > vbaseline + δ), we need to integrate the posterior distribution over a specific region. Here, we present a practical method for performing the computations required for the Bayesian inference. Since v is bounded and typically in a low-dimensional space, we approximate the pos-terior on a fine grid, by evaluating the joint density and normalizing via summing over the grid. In high-dimensional cases, we recommend reducing the dimension of v down to a small number of policy value comparisons. The evaluation process can be computationally intensive as each empirical likelihood value itself involves solving an optimization problem. Nevertheless, this can be done directly in parallel, which can avoid significant computational burden. However, as the sample size increases, the empirical likelihood concentrates on an ar-bitrarily small region, which renders any pre-defined grid not fine enough. Hence, the key 
+
+> 7Ouyang, Gong, and Bondell
+
+is to define an adaptive sub-support for v in which the empirical likelihood is larger than some small threshold. We define the sub-support for each dimension v j as follows: 
+
+{vj | L(v) ≥ c−1L∗}, (3) where L∗ is the maximum empirical likelihood over the full support, and c is a large positive number. An adaptive sub-support for v is formed by taking the Cartesian product of the sub-supports for all dimensions defined above. Although this sub-support may contain v
+
+such that L(v) < c −1L∗, it is the smallest hyperrectangular region in which L(v) ≥ c−1L∗.With this adaptive sub-support, we can define a fine grid, then compute posterior prob-abilities and credible intervals with high accuracy. Additionally, using such an adaptive sub-support avoids wasting time on the region in which the empirical likelihood is practi-cally zero. For the policy value difference d, the same method is applied to determine its adaptive sub-support. See Appendix D for more details on the connection between the adaptive support and Wilks’ confidence region (or interval), how we choose c, and the computation of the sub-support for each dimension v j via an optimization problem. See also Section 4.1 for a brief derivation of Wilks’ confidence interval. 
+
+4 Experiments 
+
+In this section, we design two experiments to demonstrate the proposed Bayesian empirical likelihood inference method. 
+
+Assumptions. Consider a contextual bandit problem with K = 10 arms. Let x =(xc, x1, . . . , xK ) be the context information, where xc is a common context vector for all arms and xa is an arm-specific context vector for a ∈ { 1, 2, . . . , K }. Assume that xc ∈ Rd
+
+and xa ∈ Rd, where d = 12 and 
+
+xc ∼ Dirichlet(1 , . . . , 1) 
+
+xa ∼ N (0, I d).
+
+Given a context x, the reward ra for each arm follows a Bernoulli distribution specified as follows: 
+
+ηa = β0 + β1x⊤ 
+
+> c
+
+xa
+
+pa = exp( ηa)1 + exp( ηa)
+
+ra ∼ Ber( pa),
+
+where β0 = 0 and β1 = 3. Note that the rewards ra are correlated, since they all depend on the common context vector xc.We use a completely randomized behavior policy to generate the offline data. That is, in each round, the arm is chosen uniformly at random, regardless of the context given. 
+
+Policy Learning. We design a heuristic method for policy learning. For each arm, fit a logistic regression, using the reward ra as the response variable and x⊤ 
+
+> c
+
+xa as the covariate. 
+
+> 8Bayesian Inference of Contextual Bandit Policies
+
+Then estimate an upper bound ub a for each arm as follows: 
+
+ηa = b0a + b1ax⊤ 
+
+> c
+
+xa
+
+s.e.(ηa) = 
+
+q
+
+[1 , x⊤ 
+
+> c
+
+xa] I−1 
+
+> a
+
+[1 , x⊤ 
+
+> c
+
+xa]⊤
+
+ub a = exp( ηa + m × s.e.(ηa)) 1 + exp( ηa + m × s.e.(ηa)) ,
+
+where ( b0a, b 1a) are the coefficient estimates of the logistic regression, Ia is the Fisher information matrix, and m ≥ 0 controls the confidence level for the upper bound estimate. A randomized policy π is derived based on the collection of upper bound estimates for all arms. The probability of choosing arm a is given by 
+
+πx(a) = ub sa
+
+ KX
+
+> k=1
+
+ub sk,
+
+where s ≥ 0 is a hyperparameter of the probability mass function. If s = 0, then π is a completely randomized policy. For larger s, more probabilities are allocated on the arms with larger upper bound estimates. As s → ∞ , π converges to a deterministic policy that chooses the arm with the highest upper bound estimate. We can further restrict the arms to be chosen to the best K′ arms by setting ub a to zero if their values are ranked below K′.The three hyperparameters together, ( m, s, K ′), control the trade-off between exploration and exploitation. For inference purposes, we learn a baseline policy and a new policy by this heuristic method. For the baseline policy, we use a smaller sample size and set the hyperparameters for more exploration. In contrast, for the new policy, we use a larger sample size and set the hyperparameters for more exploitation. We compute the true policy values using Monte Carlo integration with one million random points. For reference, we also include the oracle policy that always chooses the best arm. See Table 1 for a detailed summary. Policy Size m s K′ True Value Baseline 256 1 2 3 0.75 New 1024 1 1 1 0.83 Oracle 0.84 Table 1: Policy learning information. 
+
+Bayesian Inference. Using the proposed Bayesian inference method, we first evaluate the baseline policy and the new policy separately, and then compare these two policies jointly. A flat prior is used throughout the experiments. All posterior computations are performed with a fine grid over the adaptive sub-support defined in Section 3.3. We use a grid with 10 4 points for one-dimensional posterior distributions, and a grid with 10 6 points for the two-dimensional posterior distributions. 
+
+4.1 Single Policy Inference 
+
+In the frequentist framework, confidence intervals can be used to quantify the uncertainty of a point estimate. Karampatziakis et al. (2020) constructed confidence intervals based on 
+
+> 9Ouyang, Gong, and Bondell
+
+Wilks’ theorem. Let v 0 be the true policy value and ˆ v be its maximum likelihood estimator. Then 
+
+−2 log 
+
+ L(v 0)
+
+L(ˆ v) 
+
+ d
+
+→ χ21 as n → ∞ ,
+
+under mild regularity conditions. From this theorem, if L(v) is much smaller than L(ˆ v), then the hypothesis that v 0 = v is rejected. Equivalently, if L(v) is larger than a certain threshold, then v is included in a confidence interval. Specifically, a 100(1 − α)% Wilks’ interval is defined as 
+
+
+
+v L(v) ≥ L(ˆ v) exp 
+
+
+
+− 12 F −1
+
+> χ21
+
+(1 − α)
+
+ 
+
+,
+
+where F −1
+
+> χ21
+
+(1 − α) denotes the (1 − α)-th quantile of the χ21 distribution. A credible interval in the Bayesian paradigm is an analog of a confidence interval. Let 
+
+ppost (v) be the posterior distribution of the policy value. A 100(1 − α)% highest posterior density (HPD) interval, the narrowest type of credible interval, is defined as 
+
+{v | ppost (v) ≥ c},
+
+where c is the largest number such that 
+
+Z 
+
+> v: ppost (v) ≥c
+
+ppost (v) dv = 1 − α. 
+
+Note that the HPD and the Wilks’ intervals share the same form, both being defined as an interval in which a certain threshold is exceeded. However, the HPD interval is determined by the posterior probability, while the Wilks’ interval relies on a chi-squared approximation for the log-empirical likelihood ratio. A good interval estimate should have a coverage probability that closely matches the nominal level. An interval with an overcoverage probability may provide trivial information, often because it is too wide, while an interval with an undercoverage probability can provide misleading information. In this experiment, we compute the Wilks’ and the HPD intervals at the nominal levels of 90% and 95%, and then compare their coverage probabilities and widths. Both the baseline policy and the new policy derived above are considered. Figure 1a shows the coverage probabilities aggregated from 10 , 000 replicates. As the sample size increases, the coverage probabilities of all intervals converge to the nominal levels. For the baseline policy, both the Wilks’ and the HPD intervals exhibit overcoverage when the sample size is small, with the Wilks’ intervals showing a stronger degree of overcoverage than the HPD intervals. For the new policy, it is evident that the coverage probabilities of the Wilks’ intervals deviate significantly from the nominal levels when the sample size is small. In terms of the width, the Wilks’ intervals are approximately 10% wider than the HPD intervals on average when the sample size is small, but this margin quickly drops to zero as the sample size increases. Figure 1b demonstrates the distributions of the interval widths for the case where the Wilks’ intervals suffer from undercoverage. We observe that the widths of the Wilks’ intervals spread over a larger range, with some intervals being quite wide 
+
+> 10
+
+Bayesian Inference of Contextual Bandit Policies 10 1 10 2 10 3
+
+> Sample Size
+> 90%
+> 92%
+> 94%
+> 96%
+> 98%
+> Coverage
+
+Baseline Policy   
+
+> 10 110 210 3
+> Sample Size
+> 85%
+> 90%
+> 95%
+> 100%
+> Coverage
+
+New Policy 
+
+> Type
+> Wilks
+> HPD
+> Level
+> 95%
+> 90%
+
+(a) Coverage probabilities for the Wilks’ and the HPD intervals. 0.2 0.4 0.6 0.8 
+
+> Width
+> 0
+> 1
+> 2
+> 3
+> 4
+> Density
+
+Level = 95%   
+
+> 0.2 0.4 0.6
+> Width
+> 0
+> 1
+> 2
+> 3
+> 4
+> Density
+
+Level = 90% 
+
+> Type
+> Wilks
+> HPD
+
+(b) Interval widths for the case where the Wilks’ intervals suffer from undercoverage. 
+
+Figure 1: Comparison between the Wilks’ and the HPD intervals. and a significant proportion of intervals being too narrow. This explains the undercoverage problem. While both the Wilks’ and the HPD intervals demonstrate good asymptotic properties, the HPD intervals are clearly more robust in finite sample regimes. The mismatched cover-age probabilities and the variability in the widths of the Wilks’ intervals can be explained by the poor chi-squared calibration when the sample size is small. For single policy infer-ence, we recommend using the HPD intervals in the Bayesian paradigm for more accurate uncertainty quantification. 
+
+4.2 Policy Comparison 
+
+In this experiment, we compare the new policy against the baseline policy using both the joint posterior distribution for v = (v baseline , vnew )⊤ and the univariate posterior dis-tribution for d = vnew − vbaseline . Specifically, we compute the probabilities of abso-lute improvement, P(v new > vbaseline + δ), and the probabilities of relative improvement, 
+
+P(v new > (1 + δ)v baseline ), for various margins δ = 0 , 0.05 , 0.10. 
+
+11 Ouyang, Gong, and Bondell 
+
+Figure 2 demonstrates the comparison results using both methods. On the left, the colored regions illustrate the probabilities P(v new > vbaseline ) within the joint and univariate posterior distributions when the sample size is 100. From the joint posterior distribution, it is clear that v baseline and v new are not independent, which suggests the necessity of the joint inference, either using the policy value vector v or the policy value difference d.On the right of Figure 2, the curves show the probabilities of improvements for vari-ous margins, and the shaded areas represent the 95% confidence bands based on the re-sults aggregated from 500 replicates. Since the joint posterior distribution for v encom-passes all information about the policy value vector, it supports arbitrary comparisons. We present the probabilities of both absolute and relative improvements; however, more flexible comparisons are possible. For example, we can compute the conditional probability 
+
+P(v new > vbaseline |vnew , vbaseline > 0.5). While the joint posterior distribution for v allows for arbitrary comparisons, the univariate posterior distribution for d provides a more direct method for comparing policies at lower computational cost. Depending on the interest, both methods offer effective policy comparisons with full quantification of uncertainty. 0.5 0.6 0.7 0.8 0.9                              
+
+> vnew
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> vbaseline
+> P(v new > v baseline )
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30 0.35
+> True Value
+> 10 110 210 3
+> Sample Size
+> 0.3
+> 0.5
+> 0.7
+> 0.9
+> Probability
+> P(v new > v baseline )
+> P(v new > v baseline × 1.05)
+> P(v new > v baseline × 1.10)
+> P(v new > v baseline + 0.10)
+> 0.3 0.2 0.1 0.0 0.1 0.2 0.3 0.4
+> d= v new vbaseline
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> Density
+> P(v new vbaseline > 0)
+> True Value
+> 10 110 210 3
+> Sample Size
+> 0.3
+> 0.5
+> 0.7
+> 0.9
+> Probability
+> P(v new vbaseline > 0)
+> P(v new vbaseline > 0.05)
+> P(v new vbaseline > 0.10)
+
+Figure 2: Policy comparison using the joint posterior distribution for v = (v baseline , vnew )⊤
+
+(top) and the univariate posterior distribution for d = v new − vbaseline (bottom). 
+
+12 Bayesian Inference of Contextual Bandit Policies 
+
+5 Application to Body Mass Index Data 
+
+Body mass index (BMI) is the ratio of human body weight (kg) to squared height (m 2). It was devised by Quetelet back to mid-19th century, and formalized by Keys et al. (1972). We demonstrate the proposed Bayesian empirical likelihood inference method with an ado-lescent BMI data set, generated by Linn et al. (2015) to mimic a two-stage randomized clinical trial of BMI reduction on adolescent obesity (Berkowitz et al., 2011). Two treat-ments were used, meal replacement (MR) and conventional diet (CD). At both stages, patients were randomized to receive either MR or CD, each with probability 0.5. Four-and twelve-month patient BMI measurements were recorded. Four covariates are included: gender, race, parent BMI, and patient BMI measured at baseline. Consider a contextual bandit problem with two treatments, MR and CD. We use the data from the first stage only, since there is little change in the BMI measurements at the second stage. The data can be considered as being collected with a completely randomized policy, since patients were randomized to receive either treatment with equal probability. The median of the BMI reduction is 2.6, so we set the reward to 1 if the BMI reduces by more than 2.6, and 0 otherwise. A question of interest is what we would have observed if an alternative assignment of treatments had been applied to achieve more positive clinical outcomes. Our goal is to use the proposed method to address this question and guide subsequent decision-making with full quantification of uncertainty. We set the current completely randomized policy as the baseline and define a new contextual bandit policy as follows. Partition data into two sets by the treatments chosen. For each treatment, fit a logistic regression with the four covariates. Then for each regression model, predict P(reward = 1) for all patients, and choose the treatment with the higher predicted estimate. Note that we expend no effort on tuning this heuristic policy, since our focus is on policy inference rather than on policy learning. We evaluate this new policy and compare it against the baseline policy using the pro-posed Bayesian empirical likelihood inference method. The point estimate of the new policy value is 0 .64, and the 95% HPD interval is (0 .55 , 0.72). From the joint posterior distribution for the policy value vector, P(v new > vbaseline × 1.20) = 0 .92. From the univariate posterior distribution for the policy value difference, P(v new > vbaseline + 0 .10) = 0 .92. Both metrics suggest a significant improvement in the policy value. These results demonstrate that the proposed method can effectively quantify uncertainty in policy comparisons and support subsequent decision-making in clinical treatment. 
+
+6 Discussion 
+
+We propose a novel Bayesian empirical likelihood inference method for the joint analysis of multiple contextual bandit policies. While most existing techniques focus on policy learning and optimization, formal and effective inference on the learned policies is also necessary to complement these approaches. Our inference method provides accurate uncertainty mea-surements for policy value evaluation and facilitates flexible policy comparisons with full uncertainty quantification. Although it does not directly perform policy optimization, the 
+
+> 13 Ouyang, Gong, and Bondell
+
+effective inference results can be used to choose among multiple candidate policies learned, and consequently aid in the search for an optimal policy. By constructing the joint empirical likelihood for the policy value vector, arbitrary com-parisons among potentially correlated policies are made possible. In addition, we construct the empirical likelihood for the policy value difference, which enables a more straightforward comparison at lower computational cost. The method for the policy value difference can be further generalized to accommodate other policy comparisons. For example, if (v 3 − v1, v3 − v2)⊤ or v 3 − (v 1 + v 2)/2 is of inter-est, then we can apply the corresponding transformation on v and construct the empirical likelihood in a lower-dimensional space. For computational efficiency, we develop an adaptive grid method for the posterior computations. However, it may still be inefficient in high dimensions. One resolve for this issue is to transform v to a lower-dimensional space as discussed above. Alternatively, one can resort to variational inference (Blei et al., 2017; Yu and Bondell, 2024). However, a loss of accuracy arising from the variational approximation is inevitable. Further investigation is required to control the loss of accuracy. 
+
+Acknowledgments and Disclosure of Funding 
+
+This research was partially funded by the Australian Government through the Australian Research Council. 
+
+Appendix A. Joint Empirical Likelihood for Multiple Policies 
+
+Let v ∈ [0 , 1] ℓ be the values of a set of ℓ policies, π1, π 2, . . . , π ℓ. As in (1) of Section 3.1, we define − log L(v) as the solution to the following optimization problem, 
+
+− log L(v) = inf 
+
+> Q
+
+(
+
+−
+
+> n
+
+X
+
+> i=1
+
+log ( Qwi,r i )
+
+Z
+
+> S
+
+w dQ(w, r ) = 1,
+
+Z
+
+> S
+
+wr dQ(w, r ) = v
+
+)
+
+,
+
+where S =
+
+Qℓj=1 [wj, min , w j, max ]
+
+
+
+× [0 , 1], Q is a probability measure on ( S, B(S)), and 
+
+Qwi,r i = Q({(wi, r i)}). As a nonparametric maximum likelihood estimation problem, it suffices to consider only discrete probability measures Q (Lindsay, 1995). Let A denote the set of points in S with positive probability mass, 
+
+A = {(w, r ) ∈ S | Q({(w, r )}) > 0}.
+
+> 14
+
+Bayesian Inference of Contextual Bandit Policies 
+
+Then − log L(v) can be rewritten as minimize  
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r )subject to X
+
+> (w,r )∈A
+
+Qw,r = 1 
+
+X
+
+> (w,r )∈A
+
+wQw,r = 1
+
+X
+
+> (w,r )∈A
+
+wrQ w,r = v,
+
+where cw,r = Pni=1 1{w=wi,r =ri}.The associated Lagrange dual function is given by 
+
+g(γ, β, τ ) = inf 
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r ) + γ
+
+ X
+
+> (w,r )∈A
+
+Qw,r − 1
+
+
+
++ β⊤
+
+ X
+
+> (w,r )∈A
+
+wQw,r − 1
+
+
+
++ τ ⊤
+
+ X
+
+> (w,r )∈A
+
+wrQ w,r − v
+
+
+
+= inf 
+
+> Q
+
+ −
+
+
+
+γ + β⊤1 + τ ⊤v
+
+
+
++ X
+
+> (w,r )∈A
+
+n 
+
+γ + β⊤w + τ ⊤wr
+
+
+
+Qw,r − cw,r log ( Qw,r )
+
+o .
+
+To ensure that the Lagrange dual function is bounded, we must have 
+
+γ + β⊤w + τ ⊤wr ≥ 0 ∀(w, r ) ∈ A ⊂ S 
+
+γ + β⊤w + τ ⊤wr > 0 if cw,r > 0.
+
+Note that A is an arbitrary subset of S. Since we require boundedness for any such A ⊂ S ,the constraints above must therefore hold for all ( w, r ) ∈ S . Now, if γ + β⊤w + τ ⊤wr = 0, then cw,r = 0, and the corresponding summand involving Qw,r vanishes from the Lagrange dual function. Hence, the only relevant allocation of Qw,r with respect to the infimum is when γ + β⊤w + τ ⊤wr > 0. Using standard calculus for minimization, we get 
+
+Q∗ 
+
+> w,r
+
+= cw,r 
+
+γ + β⊤w + τ ⊤wr .
+
+15 Ouyang, Gong, and Bondell 
+
+Hence, the Lagrange dual function becomes 
+
+g(γ, β, τ ) = −
+
+
+
+γ + β⊤1 + τ ⊤v
+
+
+
++ X
+
+> (w,r )∈A
+
+
+
+cw,r − cw,r log 
+
+ cw,r 
+
+γ + β⊤w + τ ⊤wr
+
+ 
+
+= −
+
+
+
+γ + β⊤1 + τ ⊤v
+
+
+
++ n + X
+
+> (w,r )∈A
+
+
+
+−cw,r log 
+
+ cw,r 
+
+γ + β⊤w + τ ⊤wr
+
+ 
+
+.
+
+Now consider X
+
+> (w,r )∈A
+
+(γ + β⊤w + τ ⊤wr)Q∗
+
+> w,r
+
+.
+
+From the Q∗ 
+
+> w,r
+
+obtained above, this sum equals 
+
+X
+
+> (w,r )∈A
+
+cw,r = n. 
+
+But, expanding the same sum and then applying the primal constraints yields 
+
+γ X
+
+> (w,r )∈A
+
+Q∗ 
+
+> w,r
+
++ β⊤ X
+
+> (w,r )∈A
+
+wQ∗ 
+
+> w,r
+
++ τ ⊤ X
+
+> (w,r )∈A
+
+wrQ ∗ 
+
+> w,r
+
+= γ + β⊤1 + τ ⊤v,
+
+where the equality holds when the dual variables are evaluated at their optimal values. Hence, γ + β⊤1 + τ ⊤v = n. This identity allows us to eliminate γ. We reparameterize the Lagrange dual function as ˜g(β, τ ) = g(n − β⊤1 − τ ⊤v, β, τ ),
+
+which simplifies to ˜g(β, τ ) = X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+n + β⊤(w − 1) + τ ⊤(wr − v)
+
+
+
+− X
+
+> (w,r )∈A
+
+cw,r log( cw,r ).
+
+Let β ← nβ and τ ← nτ , rescaling the dual variables to maintain numerical stability as the sample size n increases. Then by strong duality, − log L(v) can be obtained by solving the Lagrange dual problem, 
+
+− log L(v) = sup  
+
+> (β,τ)∈V
+
+˜g(β, τ )= sup  
+
+> (β,τ)∈V
+
+X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+1 + β⊤(w − 1) + τ ⊤(wr − v)
+
+
+
+− C
+
+= sup  
+
+> (β,τ)∈V
+> n
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + β⊤(wi − 1) + τ ⊤(wiri − v)
+
+
+
+− C, 
+
+where C = P 
+
+> (w,r )∈A
+
+cw,r log( cw,r ) − n log( n) is an immaterial constant, and 
+
+V =
+
+n
+
+(β, τ ) ∈ Rℓ × Rℓ 1 + β⊤(w − 1) + τ ⊤(wr − v) ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.
+
+16 Bayesian Inference of Contextual Bandit Policies 
+
+Appendix B. Maximum Empirical Likelihood Estimator 
+
+Let ˆ v be the maximum empirical likelihood estimator, i.e., ˆv = argmax 
+
+> v
+
+log L(v).
+
+Recall that log L(v) itself is defined as the maximum of an optimization problem, where the parameter v is incorporated through the estimating equation, v = R 
+
+> S
+
+wr dQ(w, r ), and the probability measure Q is the optimization variable. For a fixed value v, this equation results in a constraint on the set of feasible Q to be considered in the optimization. This is what creates the likelihood surface as v varies. To compute the maximum empirical likelihood estimator, the problem becomes optimizing over all possible values of this surface, which occurs when the set of feasible Q is unconstrained with respect to v. Then the maximum empirical likelihood estimator can be obtained by plugging the overall optimal Q∗ into the estimating equation, i.e., ˆ v = R 
+
+> S
+
+wr dQ∗(w, r ). Consider the optimization problem for the negative of the maximum log-empirical like-lihood, 
+
+− log L∗ = inf 
+
+> Q
+
+(
+
+−
+
+> n
+
+X
+
+> i=1
+
+log ( Qwi,r i )
+
+Z
+
+> S
+
+w dQ(w, r ) = 1
+
+)
+
+,
+
+where S =
+
+Qℓj=1 [wj, min , w j, max ]
+
+
+
+× [0 , 1], Q is a probability measure on ( S, B(S)), and 
+
+Qwi,r i = Q({(wi, r i)}). As a nonparametric maximum likelihood estimation problem, it suffices to consider only discrete probability measures Q (Lindsay, 1995). Let A denote the set of points in S with positive probability mass, 
+
+A = {(w, r ) ∈ S | Q({(w, r )}) > 0}.
+
+Then − log L∗ can be rewritten as minimize  
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r )subject to X
+
+> (w,r )∈A
+
+Qw,r = 1 
+
+X
+
+> (w,r )∈A
+
+wQw,r = 1,
+
+where cw,r = Pni=1 1{w=wi,r =ri}.
+
+17 Ouyang, Gong, and Bondell 
+
+The associated Lagrange dual function is given by 
+
+g(γ, β) = inf 
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r ) + γ
+
+ X
+
+> (w,r )∈A
+
+Qw,r − 1
+
+
+
++ β⊤
+
+ X
+
+> (w,r )∈A
+
+wQw,r − 1
+
+
+
+= inf 
+
+> Q
+
+−
+
+
+
+γ + β⊤1
+
+
+
++ X
+
+> (w,r )∈A
+
+n
+
+(γ + β⊤w)Qw,r − cw,r log ( Qw,r )
+
+o .
+
+To ensure that the Lagrange dual function is bounded, we must have 
+
+γ + β⊤w ≥ 0 ∀(w, r ) ∈ A ⊂ S 
+
+γ + β⊤w > 0 if cw,r > 0.
+
+Note that A is an arbitrary subset of S. Since we require boundedness for any such A ⊂ S ,the constraints above must therefore hold for all ( w, r ) ∈ S . Now, if γ + β⊤w = 0, then 
+
+cw,r = 0, and the corresponding summand involving Qw,r vanishes from the Lagrange dual function. Hence, the only relevant allocation of Qw,r with respect to the infimum is when 
+
+γ + β⊤w > 0. Using standard calculus for minimization, we get 
+
+Q∗ 
+
+> w,r
+
+= cw,r 
+
+γ + β⊤w .
+
+Hence, the Lagrange dual function becomes 
+
+g(γ, β) = −
+
+
+
+γ + β⊤1
+
+
+
++ X
+
+> (w,r )∈A
+
+
+
+cw,r − cw,r log 
+
+ cw,r 
+
+γ + β⊤w
+
+ 
+
+= −
+
+
+
+γ + β⊤1
+
+
+
++ n + X
+
+> (w,r )∈A
+
+
+
+−cw,r log 
+
+ cw,r 
+
+γ + β⊤w
+
+ 
+
+.
+
+Now consider X
+
+> (w,r )∈A
+
+(γ + β⊤w)Q∗
+
+> w,r
+
+.
+
+From the Q∗ 
+
+> w,r
+
+obtained above, this sum equals 
+
+X
+
+> (w,r )∈A
+
+cw,r = n. 
+
+But, expanding the same sum and then applying the primal constraints yields 
+
+γ X
+
+> (w,r )∈A
+
+Q∗ 
+
+> w,r
+
++ β⊤ X
+
+> (w,r )∈A
+
+wQ∗ 
+
+> w,r
+
+= γ + β⊤1,
+
+18 Bayesian Inference of Contextual Bandit Policies 
+
+where the equality holds when the dual variables are evaluated at their optimal values. Hence, γ + β⊤1 = n. This identity allows us to eliminate γ. We reparameterize the Lagrange dual function as ˜g(β) = g(n − β⊤1, β),
+
+which simplifies to ˜g(β) = X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+n + β⊤(w − 1)
+
+
+
+− X
+
+> (w,r )∈A
+
+cw,r log( cw,r ).
+
+Let β ← nβ, rescaling the dual variables to maintain numerical stability as the sample size n increases. Then by strong duality, − log L∗ can be obtained by solving the Lagrange dual problem, 
+
+− log L∗ = sup 
+
+> β∈V ′
+
+˜g(β)= sup 
+
+> β∈V ′
+
+X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+1 + β⊤(w − 1)
+
+
+
+− C
+
+= sup 
+
+> β∈V ′
+> n
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + β⊤(wi − 1)
+
+
+
+− C, 
+
+where C = P 
+
+> (w,r )∈A
+
+cw,r log( cw,r ) − n log( n) is an immaterial constant, and 
+
+V′ =
+
+n
+
+β ∈ Rℓ 1 + β⊤(w − 1) ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.
+
+After solving this dual problem, we can use the optimal dual variable, β∗, to construct the maximum empirical likelihood estimator, ˆ v. Recall that the policy value vector depends on the distribution of the mass over the hyperrectangular support, i.e., 
+
+v =
+
+Z
+
+> S
+
+wr dQ(w, r ) = X
+
+> (w,r )∈A
+
+wrQ w,r .
+
+The probabilities assigned to the observed data points are given by 
+
+Q∗ 
+
+> wi,r i
+
+= 1
+
+n(1 + β∗⊤ (wi − 1)) .
+
+The remaining probabilities, if any, are allocated to the boundary points of S that satisfies 1 + β∗⊤ (w − 1) = 0 .
+
+Note that this condition is free of the reward, r. Hence, for any w0 that satisfies the condition, probabilities can be assigned to points over the interval {(w0, r ) | r ∈ [0 , 1] }.This explains why the maximum empirical likelihood estimator may not be unique. Let 
+
+W0 =
+
+w0 ∈
+
+> ℓ
+
+Y
+
+> j=1
+
+[wj, min , w j, max ] 1 + β∗⊤ (w0 − 1) = 0 
+
+ .
+
+19 Ouyang, Gong, and Bondell 
+
+Then ˆv =
+
+
+
+> n
+
+X
+
+> i=1
+
+wiriQ∗ 
+
+> wi,r i
+
++ X
+
+> w0∈W 0
+
+w0rw0 Q∗ 
+
+> w0
+
+∀rw0 ∈ [0 , 1] 
+
+ ,
+
+where Q∗ 
+
+> w0
+
+are solved from the primal conditions, 
+
+X
+
+> w0∈W 0
+
+Qw0 = 1 −
+
+> n
+
+X
+
+> i=1
+
+Q∗
+
+> wi,r i
+
+X
+
+> w0∈W 0
+
+w0Qw0 = 1 −
+
+> n
+
+X
+
+> i=1
+
+wiQ∗ 
+
+> wi,r i
+
+.
+
+Note that W0 may be empty, which occurs if Pni=1 Q∗ 
+
+> wi,r i
+
+= 1. In this case, ˆ v is unique. If W0 is not empty, then due to the linearity with respect to β, it suffices to consider those elements of W0 that are the vertices of Qℓj=1 [wj, min , w j, max ] when constructing ˆ v. For the same reason, for any candidate w0 ∈ W 0, it suffices to consider ( w0, 0) and ( w0, 1). 
+
+Appendix C. Empirical Likelihood for Policy Value Difference 
+
+Let t = ( −1, 1) ⊤, v = (v baseline , vnew )⊤ ∈ [0 , 1] 2, and d = t⊤v. As in (2) of Section 3.2, we define − log L(d) as the solution to the following optimization problem, 
+
+− log L(d) = inf 
+
+> Q
+
+(
+
+−
+
+> n
+
+X
+
+> i=1
+
+log ( Qwi,r i )
+
+Z
+
+> S
+
+w dQ(w, r ) = 1,
+
+Z
+
+> S
+
+t⊤wr dQ(w, r ) = d
+
+)
+
+,
+
+where S =
+
+Qℓj=1 [wj, min , w j, max ]
+
+
+
+× [0 , 1], Q is a probability measure on ( S, B(S)), and 
+
+Qwi,r i = Q({(wi, r i)}). As a nonparametric maximum likelihood estimation problem, it suffices to consider only discrete probability measures Q (Lindsay, 1995). Let A denote the set of points in S with positive probability mass, 
+
+A = {(w, r ) ∈ S | Q({(w, r )}) > 0}.
+
+Then − log L(d) can be rewritten as minimize  
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r )subject to X
+
+> (w,r )∈A
+
+Qw,r = 1 
+
+X
+
+> (w,r )∈A
+
+wQw,r = 1
+
+X
+
+> (w,r )∈A
+
+t⊤wrQ w,r = d, 
+
+where cw,r = Pni=1 1{w=wi,r =ri}.
+
+20 Bayesian Inference of Contextual Bandit Policies 
+
+The associated Lagrange dual function is given by 
+
+g(γ, β, δ ) = inf 
+
+> Q
+
+− X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r ) + γ
+
+ X
+
+> (w,r )∈A
+
+Qw,r − 1
+
+
+
++ β⊤
+
+ X
+
+> (w,r )∈A
+
+wQw,r − 1
+
+
+
++ δ
+
+ X
+
+> (w,r )∈A
+
+t⊤wrQ w,r − d
+
+
+
+= inf 
+
+> Q
+
+ −
+
+
+
+γ + β⊤1 + δd 
+
+
+
++ X
+
+> (w,r )∈A
+
+n 
+
+γ + β⊤w + δt⊤wr
+
+
+
+Qw,r − cw,r log ( Qw,r )
+
+o .
+
+To ensure that the Lagrange dual function is bounded, we must have 
+
+γ + β⊤w + δt⊤wr ≥ 0 ∀(w, r ) ∈ A ⊂ S 
+
+γ + β⊤w + δt⊤wr > 0 if cw,r > 0.
+
+Note that A is an arbitrary subset of S. Since we require boundedness for any such A ⊂ S ,the constraints above must therefore hold for all ( w, r ) ∈ S . Now, if γ + β⊤w + δt⊤wr = 0, then cw,r = 0, and the corresponding summand involving Qw,r vanishes from the Lagrange dual function. Hence, the only relevant allocation of Qw,r with respect to the infimum is when γ + β⊤w + δt⊤wr > 0. Using standard calculus for minimization, we get 
+
+Q∗ 
+
+> w,r
+
+= cw,r 
+
+γ + β⊤w + δt⊤wr .
+
+Hence, the Lagrange dual function becomes 
+
+g(γ, β, τ ) = −
+
+
+
+γ + β⊤1 + δd 
+
+
+
++ X
+
+> (w,r )∈A
+
+
+
+cw,r − cw,r log 
+
+ cw,r 
+
+γ + β⊤w + δt⊤wr
+
+ 
+
+= −
+
+
+
+γ + β⊤1 + δd 
+
+
+
++ n + X
+
+> (w,r )∈A
+
+
+
+−cw,r log 
+
+ cw,r 
+
+γ + β⊤w + δt⊤wr
+
+ 
+
+.
+
+Now consider X
+
+> (w,r )∈A
+
+(γ + β⊤w + δt⊤wr)Q∗
+
+> w,r
+
+.
+
+From the Q∗ 
+
+> w,r
+
+obtained above, this sum equals 
+
+X
+
+> (w,r )∈A
+
+cw,r = n. 
+
+21 Ouyang, Gong, and Bondell 
+
+But, expanding the same sum and then applying the primal constraints yields 
+
+γ X
+
+> (w,r )∈A
+
+Q∗ 
+
+> w,r
+
++ β⊤ X
+
+> (w,r )∈A
+
+wQ∗ 
+
+> w,r
+
++ δ X
+
+> (w,r )∈A
+
+t⊤wrQ ∗ 
+
+> w,r
+
+= γ + β⊤1 + + δd, 
+
+where the equality holds when the dual variables are evaluated at their optimal values. Hence, γ + β⊤1 + δd = n. This identity allows us to eliminate γ. We reparameterize the Lagrange dual function as ˜g(β, δ ) = g(n − β⊤1 − δd, β, δ ),
+
+which simplifies to ˜g(β, δ ) = X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+n + β⊤(w − 1) + δ(t⊤wr − d)
+
+
+
+− X
+
+> (w,r )∈A
+
+cw,r log( cw,r ).
+
+Let β ← nβ and δ ← nδ , rescaling the dual variables to maintain numerical stability as the sample size n increases. Then by strong duality, − log L(d) can be obtained by solving the Lagrange dual problem, 
+
+− log L(d) = sup 
+
+> (β,δ )∈D
+
+˜g(β, δ )= sup 
+
+> (β,δ )∈D
+
+X
+
+> (w,r )∈A
+
+cw,r log 
+
+
+
+1 + β⊤(w − 1) + δ(t⊤wr − d)
+
+
+
+− C
+
+= sup 
+
+> (β,δ )∈D
+> n
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + β⊤(wi − 1) + δ(t⊤wiri − d)
+
+
+
+− C, 
+
+where C = P 
+
+> (w,r )∈A
+
+cw,r log( cw,r ) − n log( n) is an immaterial constant, and 
+
+D =
+
+n
+
+(β, δ ) ∈ R2 × R 1 + β⊤(w − 1) + δ(t⊤wr − d) ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.
+
+Appendix D. Adaptive Sub-Support 
+
+To enable efficient Bayesian computations with a fine grid, we need an adaptive sub-support for v in which the empirical likelihood is larger than some small threshold. As in (3) of Section 3.3, we define the sub-support for each dimension v j as follows: 
+
+{vj | L(v) ≥ c−1L∗},
+
+where L∗ is the maximum empirical likelihood over the full support, and c is a large positive number. Taking their Cartesian product yields the adaptive sub-support for v.Note that this sub-support is similar to Wilks’ confidence region in that both are defined by the condition that the likelihood exceeds a certain threshold. The difference lies in their construction. Wilks’ confidence region applies the threshold condition jointly to the entire vector, whereas the adaptive sub-support applies this condition separately to each dimension and then takes their Cartesian product. 
+
+22 Bayesian Inference of Contextual Bandit Policies 
+
+Let F −1
+
+> χ2
+> k
+
+(q) denote the q-th quantile of the χ2 
+
+> k
+
+distribution. We choose c as summarized in Table 2. The resulting adaptive sub-support corresponds to the 99 .99% Wilks’ confidence interval or the smallest rectangle that encompasses the 99 .99% Wilks’ confidence region. In all cases, the adaptive sub-support obtained from such choices of c covers most of the relevant points in a practical sense. Parameter c
+
+v ∈ [0 , 1] exp 
+
+ 12 F −1
+
+> χ21
+
+(0 .9999) 
+
+
+
+v ∈ [0 , 1] 2 exp 
+
+ 12 F −1
+
+> χ22
+
+(0 .9999) 
+
+
+
+d ∈ [−1, 1] exp 
+
+ 12 F −1
+
+> χ21
+
+(0 .9999) 
+
+
+
+Table 2: Choices of c for the adaptive sub-support. Now we show how the sub-support for each dimension can be obtained by solving an optimization problem. Recall that 
+
+v =
+
+Z
+
+> S
+
+wr dQ(w, r ) = X
+
+> (w,r )∈A
+
+wrQ w,r ,
+
+where S =
+
+Qℓj=1 [wj, min , w j, max ]
+
+
+
+× [0 , 1], Q is a probability measure on ( S, B(S)), A =
+
+{(w, r ) ∈ S | Q({(w, r )}) > 0}, and Qw,r = Q({(w, r )}). Let ej be the unit vector with a one in the j-th component. Then the sub-support for vj can be reformulated as 
+
+X
+
+> (w,r )∈A
+
+e⊤ 
+
+> j
+
+wrQ w,r 
+
+X
+
+> (w,r )∈A
+
+Qw,r = 1 , X
+
+> (w,r )∈A
+
+wQw,r = 1, X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r ) ≥ ϕ
+
+ ,
+
+where cw,r = Pni=1 1{w=wi,r =ri} and ϕ = log L∗ − log c.We can then identify the sub-support for v j by finding the infimum and supremum of this set with the corresponding optimization problems. We show the derivation for the infimum. The derivation for the supremum is similar and is omitted here. Consider minimize 
+
+> Q
+
+X
+
+> (w,r )∈A
+
+e⊤ 
+
+> j
+
+wrQ w,r 
+
+subject to X
+
+> (w,r )∈A
+
+Qw,r = 1 
+
+X
+
+> (w,r )∈A
+
+wQw,r = 1
+
+X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r ) ≥ ϕ. 
+
+23 Ouyang, Gong, and Bondell 
+
+The associated Lagrange dual function is given by 
+
+g(γ, β, κ ) = inf 
+
+> Q
+
+X
+
+> (w,r )∈A
+
+e⊤ 
+
+> j
+
+wrQ w,r + γ
+
+ X
+
+> (w,r )∈A
+
+Qw,r − 1
+
+
+
++ β⊤
+
+ X
+
+> (w,r )∈A
+
+wQw,r − 1
+
+
+
++ κ
+
+ϕ − X
+
+> (w,r )∈A
+
+cw,r log ( Qw,r )
+
+
+
+= inf 
+
+> Q
+
+ − γ − β⊤1 + κϕ 
+
++ X
+
+> (w,r )∈A
+
+n 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+
+
+Qw,r − κc w,r log ( Qw,r )
+
+o .
+
+To ensure that the Lagrange dual function is bounded, we must have 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr ≥ 0 ∀(w, r ) ∈ A ⊂ S 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr > 0 if κc w,r > 0.
+
+Note that A is an arbitrary subset of S. Since we require boundedness for any such A ⊂ S ,the constraints above must therefore hold for all ( w, r ) ∈ S . Hence, the first constraint simplifies to 
+
+γ + β⊤w ≥ 0 ∀(w, r ) ∈ S .
+
+Now, if γ + β⊤w + e⊤ 
+
+> j
+
+wr = 0, then κc w,r = 0, and the corresponding summand involving 
+
+Qw,r vanishes from the Lagrange dual function. Hence, the only relevant allocation of Qw,r 
+
+with respect to the infimum is when γ + β⊤w + e⊤ 
+
+> j
+
+wr > 0. Using standard calculus for minimization, we get 
+
+Q∗ 
+
+> w,r
+
+= κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr .
+
+Hence, the Lagrange dual function becomes 
+
+g(γ, β, κ ) = −γ − β⊤1 + κϕ + X
+
+> (w,r )∈A
+
+(
+
+κc w,r − κc w,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+!) 
+
+= −γ − β⊤1 + κ
+
+ϕ + n − X
+
+> (w,r )∈A
+
+cw,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+! .
+
+24 Bayesian Inference of Contextual Bandit Policies 
+
+Now we arrive at the Lagrange dual problem, sup 
+
+> (γ, β,κ )∈W κ
+
+g(γ, β, κ )= sup 
+
+> (γ, β,κ )∈W κ
+
+−γ − β⊤1 + κ
+
+ϕ + n − X
+
+> (w,r )∈A
+
+cw,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+! ,
+
+where Wκ =
+
+n
+
+(γ, β, κ ) ∈ R × Rℓ × R+ γ + β⊤w ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.Note that κ > 0. Instead of solving the Lagrange dual problem directly, we can first eliminate the dual variable κ using standard calculus for maximization, 
+
+∂g ∂κ =
+
+ϕ + n − X
+
+> (w,r )∈A
+
+cw,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+! + κ
+
+− X
+
+> (w,r )∈A
+
+cw,r 
+
+κ
+
+
+
+= ϕ − X
+
+> (w,r )∈A
+
+cw,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+!
+
+∂2g∂κ 2 = − X
+
+> (w,r )∈A
+
+cw,r 
+
+κ = − nκ < 0.
+
+Hence, we have 
+
+ϕ = X
+
+> (w,r )∈A
+
+cw,r log κc w,r 
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+!
+
+. (⋆)Rearranging gives 
+
+κ = exp ϕ − P 
+
+> (w,r )∈A
+
+cw,r log( cw,r )
+
+n
+
+! Y
+
+> (w,r )∈A
+
+
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+cw,r /n 
+
+.
+
+Now we reparameterize the Lagrange dual function as ˜g(γ, β) = g(γ, β, κ (γ, β)) .
+
+Then the Lagrange dual problem simplifies to sup 
+
+> (γ, β)∈W
+
+˜g(γ, β)= sup 
+
+> (γ, β)∈W
+
+n
+
+−γ − β⊤1 + κ(γ, β) n
+
+o
+
+(using Identity ⋆)= sup 
+
+> (γ, β)∈W
+
+(
+
+−γ − β⊤1 + exp ϕ − P 
+
+> (w,r )∈A
+
+cw,r log( cw,r ) + n log( n)
+
+n
+
+!
+
+× Y
+
+> (w,r )∈A
+
+
+
+γ + β⊤w + e⊤ 
+
+> j
+
+wr
+
+cw,r /n 
+
+ ,
+
+where W =
+
+n
+
+(γ, β) ∈ R × Rℓ γ + β⊤w ≥ 0 ∀(w, r ) ∈ S 
+
+o
+
+.Finally, by strong duality, the infimum of the sub-support for v j can be obtained by solving this simplified Lagrange dual problem. 
+
+25 Ouyang, Gong, and Bondell 
+
+References 
+
+Peter Auer, Nicol` o Cesa-Bianchi, Yoav Freund, and Robert E. Schapire. The Nonstochastic Multiarmed Bandit Problem. SIAM Journal on Computing , 32(1):48–77, 2002. doi: 10.1137/S0097539701398375. Robert I. Berkowitz, Thomas A. Wadden, Christine A. Gehrman, Chanelle T. Bishop-Gilyard, Rene´ e H. Moore, Leslie G. Womble, Joanna L. Cronquist, Natalie L. Trumpikas, Lorraine E. Levitt-Katz, and Melissa S. Xanthopoulos. Meal Replacements in the Treat-ment of Adolescent Obesity: A Randomized Controlled Trial. Obesity , 19(6):1193–1199, 2011. doi: 10.1038/oby.2010.288. David M. Blei, Alp Kucukelbir, and Jon D. McAuliffe. Variational Inference: A Review for Statisticians. Journal of the American Statistical Association , 112(518):859–877, 2017. doi: 10.1080/01621459.2017.1285773. Sanjay Chaudhuri and Malay Ghosh. Empirical likelihood for small area estimation. 
+
+Biometrika , 98(2):473–480, 2011. doi: 10.1093/biomet/asr004. Sanjay Chaudhuri, Debashis Mondal, and Teng Yin. Hamiltonian Monte Carlo Sampling in Bayesian Empirical Likelihood Computation. Journal of the Royal Statistical Society Series B: Statistical Methodology , 79(1):293–320, 2017. doi: 10.1111/rssb.12164. Miroslav Dudik, John Langford, and Lihong Li. Doubly Robust Policy Evaluation and Learning. In Proceedings of the 28th International Conference on Machine Learning ,ICML ’11, pages 1097–1104, 2011. doi: 10.48550/arXiv.1103.4601. Marian Grend´ ar and George Judge. Asymptotic equivalence of empirical likelihood and Bayesian MAP. The Annals of Statistics , 37(5A):2445–2457, 2009. doi: 10.1214/ 08-AOS645. D. G. Horvitz and D. J. Thompson. A Generalization of Sampling Without Replacement from a Finite Universe. Journal of the American Statistical Association , 47(260):663–685, 1952. doi: 10.1080/01621459.1952.10483446. Nan Jiang and Lihong Li. Doubly Robust Off-policy Value Evaluation for Reinforcement Learning. In Proceedings of The 33rd International Conference on Machine Learning ,pages 652–661. PMLR, 2016. doi: 10.48550/arXiv.1511.03722. Nathan Kallus and Masatoshi Uehara. Intrinsically Efficient, Stable, and Bounded Off-Policy Evaluation for Reinforcement Learning. In Advances in Neural Information Processing Systems , volume 32, pages 3325–3334. Curran Associates, Inc., 2019. doi: 10.48550/arXiv.1906.03735. Joseph D. Y. Kang and Joseph L. Schafer. Demystifying Double Robustness: A Compar-ison of Alternative Strategies for Estimating a Population Mean from Incomplete Data. 
+
+Statistical Science , 22(4):523–539, 2007. doi: 10.1214/07-STS227. 
+
+> 26 Bayesian Inference of Contextual Bandit Policies
+
+Nikos Karampatziakis, John Langford, and Paul Mineiro. Empirical Likelihood for Contex-tual Bandits. In Advances in Neural Information Processing Systems , volume 33, pages 9597–9607. Curran Associates, Inc., 2020. doi: 10.48550/arXiv.1906.03323. Ancel Keys, Flaminio Fidanza, Martti J. Karvonen, Noboru Kimura, and Henry L. Taylor. Indices of relative weight and obesity. Journal of Chronic Diseases , 25(6):329–343, 1972. doi: 10.1016/0021-9681(72)90027-6. John Langford and Tong Zhang. The Epoch-Greedy Algorithm for Multi-armed Bandits with Side Information. In Advances in Neural Information Processing Systems , volume 20, pages 817–824. Curran Associates, Inc., 2007. URL https://papers.nips.cc/paper_ files/paper/2007/hash/4b04a686b0ad13dce35fa99fa4161c65-Abstract.html .Nicole A. Lazar. Bayesian empirical likelihood. Biometrika , 90(2):319–326, 2003. doi: 10.1093/biomet/90.2.319. Lihong Li, Wei Chu, John Langford, and Robert E. Schapire. A Contextual-Bandit Ap-proach to Personalized News Article Recommendation. In Proceedings of the 19th In-ternational Conference on World Wide Web , WWW ’10, pages 661–670. Association for Computing Machinery, 2010. doi: 10.1145/1772690.1772758. Bruce G. Lindsay. Mixture Models: Theory, Geometry and Applications , volume 5 of NSF-CBMS Regional Conference Series in Probability and Statistics . Institute of Mathematical Statistics and American Statistical Association, Haywood CA and Alexandria VA, 1995. doi: 10.1214/cbms/1462106013. Kristin A. Linn, Eric B. Laber, and Leonard A. Stefanski. iqLearn: Interactive Q-Learning in R. Journal of Statistical Software , 64:1–25, 2015. doi: 10.18637/jss.v064.i01. Kerrie L. Mengersen, Pierre Pudlo, and Christian P. Robert. Bayesian computation via empirical likelihood. Proceedings of the National Academy of Sciences , 110(4):1321–1326, 2013. doi: 10.1073/pnas.1208827110. Yusuke Narita, Shota Yasui, and Kohei Yata. Efficient Counterfactual Learning from Bandit Feedback. Proceedings of the AAAI Conference on Artificial Intelligence , 33(01):4634– 4641, 2019. doi: 10.1609/aaai.v33i01.33014634. Art Owen. Empirical Likelihood Ratio Confidence Regions. The Annals of Statistics , 18 (1):90–120, 1990. doi: 10.1214/aos/1176347494. Art B. Owen. Empirical likelihood ratio confidence intervals for a single functional. 
+
+Biometrika , 75(2):237–249, 1988. doi: 10.1093/biomet/75.2.237. Jin Qin and Jerry Lawless. Empirical Likelihood and General Estimating Equations. The Annals of Statistics , 22(1):300–325, 1994. doi: 10.1214/aos/1176325370. J. N. K. Rao and Changbao Wu. Bayesian pseudo-empirical-likelihood intervals for complex surveys. Journal of the Royal Statistical Society Series B: Statistical Methodology , 72(4): 533–544, 2010. doi: 10.1111/j.1467-9868.2010.00747.x. 
+
+> 27 Ouyang, Gong, and Bondell
+
+Herbert Robbins. Some aspects of the sequential design of experiments. Bul-letin of the American Mathematical Society , 58(5):527–535, 1952. doi: 10.1090/ S0002-9904-1952-09620-8. Richard S. Sutton and Andrew G. Barto. Reinforcement Learning: An Introduction . Adap-tive Computation and Machine Learning. The MIT Press, Cambridge, Massachusetts, second edition, 2018. URL http://incompleteideas.net/book/the-book-2nd.html .Adith Swaminathan and Thorsten Joachims. The Self-Normalized Estimator for Coun-terfactual Learning. In Advances in Neural Information Processing Systems , volume 28, pages 3231–3239. Curran Associates, Inc., 2015. URL https://papers.nips.cc/paper/ 2015/hash/39027dfad5138c9ca0c474d71db915c3-Abstract.html .Ambuj Tewari and Susan A. Murphy. From Ads to Interventions: Contextual Bandits in Mobile Health. In James M. Rehg, Susan A. Murphy, and Santosh Kumar, editors, 
+
+Mobile Health: Sensors, Analytic Methods, and Applications , pages 495–517. Springer International Publishing, Cham, 2017. doi: 10.1007/978-3-319-51394-2 25. Sof´ ıa S. Villar and William F. Rosenberger. Covariate-adjusted response-adaptive random-ization for multi-arm clinical trials using a modified forward looking Gittins index rule. 
+
+Biometrics , 74(1):49–57, 2018. doi: 10.1111/biom.12738. Yunwen Yang and Xuming He. Bayesian empirical likelihood for quantile regression. The Annals of Statistics , 40(2):1102–1131, 2012. doi: 10.1214/12-AOS1005. Weichang Yu and Howard D. Bondell. Variational Bayes for Fast and Accurate Empirical Likelihood Inference. Journal of the American Statistical Association , 119(546):1089– 1101, 2024. doi: 10.1080/01621459.2023.2169701.
