@@ -9,32 +9,22 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-01 ~ 2026-03-09
-- 运行时间：2026-03-09 19:27:12 UTC
+- 最新运行日期：2026-03-02 ~ 2026-03-10
+- 运行时间：2026-03-10 19:14:45 UTC
 - 运行状态：成功
-- 本次总论文数：5
-- 精读区：1
-- 速读区：4
+- 本次总论文数：0
+- 精读区：0
+- 速读区：0
 
 ### 今日简报（AI）
-本期聚焦 Search-R1 深度搜索智能体的训练优化，并探讨了强化学习在医疗多模态及 SFT 稳定性中的实战表现。
-重点推荐 Search-R1 通过奖励与策略优化提升逻辑深度的方案，同时揭示了 RL 在医疗 VLM 中对视觉与对齐增益的解耦分析。
-建议优先关注如何利用强化学习解决 SFT 分布偏移，并参考 Search-R1 的思路构建更具研究能力的 AI Agent。
-- 详情：[/20260301-20260309/README](/20260301-20260309/README)
+> 今日无新推荐，系统未产出可展示论文。
+- 详情：[/20260302-20260310/README](/20260302-20260310/README)
 
 ### 精读区论文标签
-1. [How to Train Your Deep Research Agent? Prompt, Reward, and Policy Optimization in Search-R1](/20260301-20260309/2602.19526v1-how-to-train-your-deep-research-agent-prompt-reward-and-policy-optimization-in-search-r1)  
-   标签：评分：9.0/10、query:rl-ts
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Bayesian Inference of Contextual Bandit Policies via Empirical Likelihood](/20260301-20260309/2602.10608v1-bayesian-inference-of-contextual-bandit-policies-via-empirical-likelihood)  
-   标签：评分：7.0/10、query:rl-ts
-2. [Patch the Distribution Mismatch: RL Rewriting Agent for Stable Off-Policy SFT](/20260301-20260309/2602.11220v1-patch-the-distribution-mismatch-rl-rewriting-agent-for-stable-off-policy-sft)  
-   标签：评分：7.0/10、query:rl-ts
-3. [When Does RL Help Medical VLMs? Disentangling Vision, SFT, and RL Gains](/20260301-20260309/2603.01301v1-when-does-rl-help-medical-vlms-disentangling-vision-sft-and-rl-gains)  
-   标签：评分：7.0/10、query:rl-ts
-4. [Comparison of symbolic regression algorithms in Star/galaxy/quasar separation](/20260301-20260309/2602.24022v1-comparison-of-symbolic-regression-algorithms-in-stargalaxyquasar-separation)  
-   标签：评分：6.0/10、query:rl-ts
+- 本次无速读推荐。
 
 
 <div class="dpr-home-promo-card">
