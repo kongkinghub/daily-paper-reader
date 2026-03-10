@@ -25,24 +25,21 @@ subscriptions:
   keyword_recall_mode: or
   intent_profiles:
     - tag: RL TS
-      description: 强化学习，教师学生框架，外推误差，Q高估问题相关的论文查找
+      description: 强化学习，教师学生框架，Q估计不准确问题相关的论文查找
       enabled: true
       keywords:
-        - keyword: reinforcement learning
+        - keyword: Reinforcement Learning
           keyword_cn: 强化学习
-          query: reinforcement learning algorithms and methods
-        - keyword: teacher-student framework
+          query: Reinforcement Learning algorithms and frameworks
+        - keyword: Teacher-Student framework
           keyword_cn: 教师学生框架
-          query: teacher-student framework in reinforcement learning
-        - keyword: extrapolation error
-          keyword_cn: 外推误差
-          query: extrapolation error in offline reinforcement learning
+          query: Teacher-Student architecture in reinforcement learning
         - keyword: Q-value overestimation
-          keyword_cn: Q值高估
-          query: addressing Q-value overestimation in deep reinforcement learning
-        - keyword: knowledge distillation
-          keyword_cn: 知识蒸馏
-          query: knowledge distillation for reinforcement learning
+          keyword_cn: Q值估计过高
+          query: Addressing Q-value overestimation in deep reinforcement learning
+        - keyword: Q-value underestimation
+          keyword_cn: Q值估计过低
+          query: Q-value underestimation bias in RL
       intent_queries:
         - query: papers on teacher student framework for reinforcement learning
           query_cn: 关于强化学习中教师学生框架的论文
@@ -69,4 +66,24 @@ subscriptions:
           enabled: true
           source: manual
           note: ''
-      updated_at: '2026-03-03T05:59:57.901Z'
+        - query: Teacher student framework for solving Q value estimation bias in RL
+          query_cn: 解决强化学习中Q值估计偏差的教师学生框架
+          enabled: true
+          source: generated
+          note: ''
+        - query: Impact of inaccurate Q value estimation on policy distillation
+          query_cn: 不准确的Q值估计对策略蒸馏的影响
+          enabled: true
+          source: generated
+          note: ''
+        - query: Methods to mitigate overestimation in teacher student reinforcement learning
+          query_cn: 缓解教师学生强化学习中过估计的方法
+          enabled: true
+          source: generated
+          note: ''
+        - query: Correcting value approximation errors using teacher guidance
+          query_cn: 利用教师指导修正价值近似误差
+          enabled: true
+          source: generated
+          note: ''
+      updated_at: '2026-03-10T13:27:35.823Z'
