@@ -1,0 +1,725 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-11T19:30:24.534702+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 28,
+    "deep_cap": 6,
+    "deep_selected": 8,
+    "quick_candidates": 78,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2603.04166v1",
+      "title": "Learning Hip Exoskeleton Control Policy via Predictive Neuromusculoskeletal Simulation",
+      "abstract": "Developing exoskeleton controllers that generalize across diverse locomotor conditions typically requires extensive motion-capture data and biomechanical labeling, limiting scalability beyond instrumented laboratory settings. Here, we present a physics-based neuromusculoskeletal learning framework that trains a hip-exoskeleton control policy entirely in simulation, without motion-capture demonstrations, and deploys it on hardware via policy distillation. A reinforcement learning teacher policy is trained using a muscle-synergy action prior over a wide range of walking speeds and slopes through a two-stage curriculum, enabling direct comparison between assisted and no-exoskeleton conditions. In simulation, exoskeleton assistance reduces mean muscle activation by up to 3.4% and mean positive joint power by up to 7.0% on level ground and ramp ascent, with benefits increasing systematically with walking speed. On hardware, the assistance profiles learned in simulation are preserved across matched speed-slope conditions (r: 0.82, RMSE: 0.03 Nm/kg), providing quantitative evidence of sim-to-real transfer without additional hardware tuning. These results demonstrate that physics-based neuromusculoskeletal simulation can serve as a practical and scalable foundation for exoskeleton controller development, substantially reducing experimental burden during the design phase.",
+      "authors": [
+        "Ilseung Park",
+        "Changseob Song",
+        "Inseung Kang"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.LG"
+      ],
+      "published": "2026-03-04T15:23:50+00:00",
+      "link": "https://arxiv.org/pdf/2603.04166v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "teacher policy and policy distillation for exoskeleton control",
+      "llm_evidence_cn": "用于外骨骼控制的教师策略与策略蒸馏",
+      "llm_evidence": "用于外骨骼控制的教师策略与策略蒸馏",
+      "llm_tldr_en": "Uses a teacher-student framework via policy distillation to deploy RL controllers for hip exoskeletons.",
+      "llm_tldr_cn": "通过策略蒸馏使用教师-学生框架来部署用于髋关节外骨骼的强化学习控制器。",
+      "llm_tldr": "通过策略蒸馏使用教师-学生框架来部署用于髋关节外骨骼的强化学习控制器。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "state of the art reinforcement learning using teacher student models",
+      "matched_requirement_id": "req-9",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.08118v1",
+      "title": "Model-based Offline RL via Robust Value-Aware Model Learning with Implicitly Differentiable Adaptive Weighting",
+      "abstract": "Model-based offline reinforcement learning (RL) aims to enhance offline RL with a dynamics model that facilitates policy exploration. However, \\textit{model exploitation} could occur due to inevitable model errors, degrading algorithm performance. Adversarial model learning offers a theoretical framework to mitigate model exploitation by solving a maximin formulation. Within such a paradigm, RAMBO~\\citep{rigter2022rambo} has emerged as a representative and most popular method that provides a practical implementation with model gradient. However, we empirically reveal that severe Q-value underestimation and gradient explosion can occur in RAMBO with only slight hyperparameter tuning, suggesting that it tends to be overly conservative and suffers from unstable model updates. To address these issues, we propose \\textbf{RO}bust value-aware \\textbf{M}odel learning with \\textbf{I}mplicitly differentiable adaptive weighting (ROMI). Instead of updating the dynamics model with model gradient, ROMI introduces a novel robust value-aware model learning approach. This approach requires the dynamics model to predict future states with values close to the minimum Q-value within a scale-adjustable state uncertainty set, enabling controllable conservatism and stable model updates. To further improve out-of-distribution (OOD) generalization during multi-step rollouts, we propose implicitly differentiable adaptive weighting, a bi-level optimization scheme that adaptively achieves dynamics- and value-aware model learning. Empirical results on D4RL and NeoRL datasets show that ROMI significantly outperforms RAMBO and achieves competitive or superior performance compared to other state-of-the-art methods on datasets where RAMBO typically underperforms. Code is available at https://github.com/zq2r/ROMI.git.",
+      "authors": [
+        "Zhongjian Qiao",
+        "Jiafei Lyu",
+        "Boxiang Lyu",
+        "Yao Shu",
+        "Siyang Gao",
+        "Shuang Qiu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-09T08:59:45+00:00",
+      "link": "https://arxiv.org/pdf/2603.08118v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "reveal and address severe Q-value underestimation in model-based offline RL",
+      "llm_evidence_cn": "揭示并解决基于模型的离线强化学习中严重的 Q 值低估问题",
+      "llm_evidence": "揭示并解决基于模型的离线强化学习中严重的 Q 值低估问题",
+      "llm_tldr_en": "Identifies Q-value underestimation in RAMBO and proposes a robust value-aware model learning method.",
+      "llm_tldr_cn": "识别了 RAMBO 中的 Q 值低估问题，并提出了一种鲁棒的价值感知模型学习方法。",
+      "llm_tldr": "识别了 RAMBO 中的 Q 值低估问题，并提出了一种鲁棒的价值感知模型学习方法。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Q-value underestimation bias in RL",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.03733v1",
+      "title": "X-Loco: Towards Generalist Humanoid Locomotion Control via Synergetic Policy Distillation",
+      "abstract": "While recent advances have demonstrated strong performance in individual humanoid skills such as upright locomotion, fall recovery and whole-body coordination, learning a single policy that masters all these skills remains challenging due to the diverse dynamics and conflicting control objectives involved. To address this, we introduce X-Loco, a framework for training a vision-based generalist humanoid locomotion policy. X-Loco trains multiple oracle specialist policies and adopts a synergetic policy distillation with a case-adaptive specialist selection mechanism, which dynamically leverages multiple specialist policies to guide a vision-based student policy. This design enables the student to acquire a broad spectrum of locomotion skills, ranging from fall recovery to terrain traversal and whole-body coordination skills. To the best of our knowledge, X-Loco is the first framework to demonstrate vision-based humanoid locomotion that jointly integrates upright locomotion, whole-body coordination and fall recovery, while operating solely under velocity commands without relying on reference motions. Experimental results show that X-Loco achieves superior performance, demonstrated by tasks such as fall recovery and terrain traversal. Ablation studies further highlight that our framework effectively leverages specialist expertise and enhances learning efficiency.",
+      "authors": [
+        "Dewei Wang",
+        "Xinmiao Wang",
+        "Chenyun Zhang",
+        "Jiyuan Shi",
+        "Yingnan Zhao",
+        "Chenjia Bai",
+        "Xuelong Li"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-03-04T05:07:05+00:00",
+      "link": "https://arxiv.org/pdf/2603.03733v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "synergetic policy distillation from specialist teachers to a student",
+      "llm_evidence_cn": "从专家教师到学生的协同策略蒸馏",
+      "llm_evidence": "从专家教师到学生的协同策略蒸馏",
+      "llm_tldr_en": "A framework using teacher-student distillation to train generalist humanoid locomotion policies.",
+      "llm_tldr_cn": "一种利用教师-学生蒸馏训练通用类人机器人运动策略的框架。",
+      "llm_tldr": "一种利用教师-学生蒸馏训练通用类人机器人运动策略的框架。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "papers on teacher student framework for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.04289v1",
+      "title": "IPD: Boosting Sequential Policy with Imaginary Planning Distillation in Offline Reinforcement Learning",
+      "abstract": "Decision transformer based sequential policies have emerged as a powerful paradigm in offline reinforcement learning (RL), yet their efficacy remains constrained by the quality of static datasets and inherent architectural limitations. Specifically, these models often struggle to effectively integrate suboptimal experiences and fail to explicitly plan for an optimal policy. To bridge this gap, we propose \\textbf{Imaginary Planning Distillation (IPD)}, a novel framework that seamlessly incorporates offline planning into data generation, supervised training, and online inference. Our framework first learns a world model equipped with uncertainty measures and a quasi-optimal value function from the offline data. These components are utilized to identify suboptimal trajectories and augment them with reliable, imagined optimal rollouts generated via Model Predictive Control (MPC). A Transformer-based sequential policy is then trained on this enriched dataset, complemented by a value-guided objective that promotes the distillation of the optimal policy. By replacing the conventional, manually-tuned return-to-go with the learned quasi-optimal value function, IPD improves both decision-making stability and performance during inference. Empirical evaluations on the D4RL benchmark demonstrate that IPD significantly outperforms several state-of-the-art value-based and transformer-based offline RL methods across diverse tasks.",
+      "authors": [
+        "Yihao Qin",
+        "Yuanfei Wang",
+        "Hang Zhou",
+        "Peiran Liu",
+        "Hao Dong",
+        "Yiding Ji"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-03-04T17:05:39+00:00",
+      "link": "https://arxiv.org/pdf/2603.04289v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "distillation from quasi-optimal value function in offline RL",
+      "llm_evidence_cn": "离线强化学习中准最优价值函数的蒸馏",
+      "llm_evidence": "离线强化学习中准最优价值函数的蒸馏",
+      "llm_tldr_en": "Proposes Imaginary Planning Distillation to bridge offline planning and sequential policy via world models.",
+      "llm_tldr_cn": "提出虚构规划蒸馏框架，通过世界模型将离线规划与顺序策略相结合。",
+      "llm_tldr": "提出虚构规划蒸馏框架，通过世界模型将离线规划与顺序策略相结合。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "relationship between teacher student distillation and extrapolation error",
+      "matched_requirement_id": "req-8",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.05296v1",
+      "title": "Latent Policy Steering through One-Step Flow Policies",
+      "abstract": "Offline reinforcement learning (RL) allows robots to learn from offline datasets without risky exploration. Yet, offline RL's performance often hinges on a brittle trade-off between (1) return maximization, which can push policies outside the dataset support, and (2) behavioral constraints, which typically require sensitive hyperparameter tuning. Latent steering offers a structural way to stay within the dataset support during RL, but existing offline adaptations commonly approximate action values using latent-space critics learned via indirect distillation, which can lose information and hinder convergence. We propose Latent Policy Steering (LPS), which enables high-fidelity latent policy improvement by backpropagating original-action-space Q-gradients through a differentiable one-step MeanFlow policy to update a latent-action-space actor. By eliminating proxy latent critics, LPS allows an original-action-space critic to guide end-to-end latent-space optimization, while the one-step MeanFlow policy serves as a behavior-constrained generative prior. This decoupling yields a robust method that works out-of-the-box with minimal tuning. Across OGBench and real-world robotic tasks, LPS achieves state-of-the-art performance and consistently outperforms behavioral cloning and strong latent steering baselines.",
+      "authors": [
+        "Hokyun Im",
+        "Andrey Kolobov",
+        "Jianlong Fu",
+        "Youngwoon Lee"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.LG"
+      ],
+      "published": "2026-03-05T15:38:08+00:00",
+      "link": "https://arxiv.org/pdf/2603.05296v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "addressing extrapolation error in offline RL by backpropagating Q-gradients through a flow policy",
+      "llm_evidence_cn": "通过流策略反向传播 Q 梯度来解决离线强化学习中的外推误差",
+      "llm_evidence": "通过流策略反向传播 Q 梯度来解决离线强化学习中的外推误差",
+      "llm_tldr_en": "LPS mitigates extrapolation error in offline RL using a latent steering mechanism and flow policies.",
+      "llm_tldr_cn": "LPS 通过潜空间引导机制和流策略缓解了离线强化学习中的外推误差。",
+      "llm_tldr": "LPS 通过潜空间引导机制和流策略缓解了离线强化学习中的外推误差。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.07964v1",
+      "title": "Model-Free DRL Control for Power Inverters: From Policy Learning to Real-Time Implementation via Knowledge Distillation",
+      "abstract": "In response to the trade-off between control performance and computational burden hindering the deployment of Deep Reinforcement Learning (DRL) in power inverters, this paper presents a novel model-free control framework leveraging policy distillation. To handle the convergence instability and steady-state errors inherent in model-free agents, an error energy-guided hybrid reward mechanism is established to theoretically constrain the exploration space. More specifically, an adaptive importance weighting mechanism is integrated into the distillation architecture to amplify the significance of fluctuation regions, ensuring high-quality transfer of transient control logic by mitigating the observational bias dominated by steady-state data. This approach efficiently compresses the heavy DRL policy into a lightweight neural network, retaining the desired control performance while overcoming the computational bottleneck during deployment. The proposed method is validated through a hardware-based kilowatt-level experimental platform. Experimental comparison results with traditional methods demonstrate that the proposed technique reduces inference time to the microsecond level and achieves superior transient response speed and parameter robustness.",
+      "authors": [
+        "Yang Yang",
+        "Chenggang Cui",
+        "Xitong Niu",
+        "Jiaming Liu",
+        "Chuanlin Zhang"
+      ],
+      "primary_category": "eess.SY",
+      "categories": [
+        "eess.SY"
+      ],
+      "published": "2026-03-09T05:02:20+00:00",
+      "link": "https://arxiv.org/pdf/2603.07964v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Policy distillation to mitigate steady-state errors in DRL",
+      "llm_evidence_cn": "通过策略蒸馏减轻深度强化学习中的稳态误差",
+      "llm_evidence": "通过策略蒸馏减轻深度强化学习中的稳态误差",
+      "llm_tldr_en": "Uses policy distillation and adaptive weighting to transfer control logic and handle DRL instability.",
+      "llm_tldr_cn": "利用策略蒸馏和自适应权重转移控制逻辑，解决深度强化学习的不稳定性。",
+      "llm_tldr": "利用策略蒸馏和自适应权重转移控制逻辑，解决深度强化学习的不稳定性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Methods to mitigate overestimation in teacher student reinforcement learning",
+      "matched_requirement_id": "req-12",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.08956v1",
+      "title": "A Survey of Reinforcement Learning For Economics",
+      "abstract": "This survey (re)introduces reinforcement learning methods to economists. The curse of dimensionality limits how far exact dynamic programming can be effectively applied, forcing us to rely on suitably \"small\" problems or our ability to convert \"big\" problems into smaller ones. While this reduction has been sufficient for many classical applications, a growing class of economic models resists such reduction. Reinforcement learning algorithms offer a natural, sample-based extension of dynamic programming, extending tractability to problems with high-dimensional states, continuous actions, and strategic interactions. I review the theory connecting classical planning to modern learning algorithms and demonstrate their mechanics through simulated examples in pricing, inventory control, strategic games, and preference elicitation. I also examine the practical vulnerabilities of these algorithms, noting their brittleness, sample inefficiency, sensitivity to hyperparameters, and the absence of global convergence guarantees outside of tabular settings. The successes of reinforcement learning remain strictly bounded by these constraints, as well as a reliance on accurate simulators. When guided by economic structure, reinforcement learning provides a remarkably flexible framework. It stands as an imperfect, but promising, addition to the computational economist's toolkit. A companion survey (Rust and Rawat, 2026b) covers the inverse problem of inferring preferences from observed behavior.",
+      "authors": [
+        "Pranjal Rawat"
+      ],
+      "primary_category": "econ.GN",
+      "categories": [
+        "econ.GN",
+        "cs.LG"
+      ],
+      "published": "2026-03-09T21:43:10+00:00",
+      "link": "https://arxiv.org/pdf/2603.08956v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Survey of Reinforcement Learning algorithms",
+      "llm_evidence_cn": "强化学习算法综述",
+      "llm_evidence": "强化学习算法综述",
+      "llm_tldr_en": "A comprehensive survey of reinforcement learning methods and their applications in economic modeling.",
+      "llm_tldr_cn": "对强化学习方法及其在经济模型中应用的全面综述。",
+      "llm_tldr": "对强化学习方法及其在经济模型中应用的全面综述。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.09344v1",
+      "title": "Robust Regularized Policy Iteration under Transition Uncertainty",
+      "abstract": "Offline reinforcement learning (RL) enables data-efficient and safe policy learning without online exploration, but its performance often degrades under distribution shift. The learned policy may visit out-of-distribution state-action pairs where value estimates and learned dynamics are unreliable. To address policy-induced extrapolation and transition uncertainty in a unified framework, we formulate offline RL as robust policy optimization, treating the transition kernel as a decision variable within an uncertainty set and optimizing the policy against the worst-case dynamics. We propose Robust Regularized Policy Iteration (RRPI), which replaces the intractable max-min bilevel objective with a tractable KL-regularized surrogate and derives an efficient policy iteration procedure based on a robust regularized Bellman operator. We provide theoretical guarantees by showing that the proposed operator is a $γ$-contraction and that iteratively updating the surrogate yields monotonic improvement of the original robust objective with convergence. Experiments on D4RL benchmarks demonstrate that RRPI achieves strong average performance, outperforming recent baselines including percentile-based methods such as PMDB on the majority of environments while remaining competitive on the rest. Moreover, RRPI exhibits robust behavior. The learned $Q$-values decrease in regions with higher epistemic uncertainty, suggesting that the resulting policy avoids unreliable out-of-distribution actions under transition uncertainty.",
+      "authors": [
+        "Hongqiang Lin",
+        "Zhenghui Fu",
+        "Weihao Tang",
+        "Pengfei Wang",
+        "Yiding Sun",
+        "Qixian Huang",
+        "Dongxu Zhang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "stat.ML"
+      ],
+      "published": "2026-03-10T08:18:27+00:00",
+      "link": "https://arxiv.org/pdf/2603.09344v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "address policy-induced extrapolation and transition uncertainty in offline RL",
+      "llm_evidence_cn": "解决离线强化学习中策略引起的外推和转移不确定性",
+      "llm_evidence": "解决离线强化学习中策略引起的外推和转移不确定性",
+      "llm_tldr_en": "Proposes RRPI to handle extrapolation error and transition uncertainty via robust policy optimization.",
+      "llm_tldr_cn": "提出 RRPI，通过鲁棒策略优化处理离线强化学习中的外推误差和转移不确定性。",
+      "llm_tldr": "提出 RRPI，通过鲁棒策略优化处理离线强化学习中的外推误差和转移不确定性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2603.02604v1",
+      "title": "Heterogeneous Agent Collaborative Reinforcement Learning",
+      "abstract": "We introduce Heterogeneous Agent Collaborative Reinforcement Learning (HACRL), a new learning paradigm that addresses the inefficiencies of isolated on-policy optimization. HACRL enables collaborative optimization with independent execution: heterogeneous agents share verified rollouts during training to mutually improve, while operating independently at inference time. Unlike LLM-based multi-agent reinforcement learning (MARL), HACRL does not require coordinated deployment, and unlike on-/off-policy distillation, it enables bidirectional mutual learning among heterogeneous agents rather than one-directional teacher-to-student transfer. Building on this paradigm, we propose HACPO, a collaborative RL algorithm that enables principled rollout sharing to maximize sample utilization and cross-agent knowledge transfer. To mitigate capability discrepancies and policy distribution shifts, HACPO introduces four tailored mechanisms with theoretical guarantees on unbiased advantage estimation and optimization correctness. Extensive experiments across diverse heterogeneous model combinations and reasoning benchmarks show that HACPO consistently improves all participating agents, outperforming GSPO by an average of 3.3\\% while using only half the rollout cost.",
+      "authors": [
+        "Zhixia Zhang",
+        "Zixuan Huang",
+        "Xin Xia",
+        "Deqing Wang",
+        "Fuzhen Zhuang",
+        "Shuai Ma",
+        "Ning Ding",
+        "Yaodong Yang",
+        "Jianxin Li",
+        "Yikun Ban"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-03T05:09:49+00:00",
+      "link": "https://arxiv.org/pdf/2603.02604v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Bidirectional mutual learning among heterogeneous agents as an alternative to teacher-student distillation",
+      "llm_evidence_cn": "异构智能体间的双向互学习，作为教师-学生蒸馏的替代方案",
+      "llm_evidence": "异构智能体间的双向互学习，作为教师-学生蒸馏的替代方案",
+      "llm_tldr_en": "Introduces HACRL for collaborative RL among heterogeneous agents through shared rollouts.",
+      "llm_tldr_cn": "引入HACRL范式，通过共享轨迹实现异构智能体间的协作强化学习。",
+      "llm_tldr": "引入HACRL范式，通过共享轨迹实现异构智能体间的协作强化学习。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Teacher-Student architecture in reinforcement learning",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.02576v1",
+      "title": "Wasserstein Proximal Policy Gradient",
+      "abstract": "We study policy gradient methods for continuous-action, entropy-regularized reinforcement learning through the lens of Wasserstein geometry. Starting from a Wasserstein proximal update, we derive Wasserstein Proximal Policy Gradient (WPPG) via an operator-splitting scheme that alternates an optimal transport update with a heat step implemented by Gaussian convolution. This formulation avoids evaluating the policy's log density or its gradient, making the method directly applicable to expressive implicit stochastic policies specified as pushforward maps. We establish a global linear convergence rate for WPPG, covering both exact policy evaluation and actor-critic implementations with controlled approximation error. Empirically, WPPG is simple to implement and attains competitive performance on standard continuous-control benchmarks.",
+      "authors": [
+        "Zhaoyu Zhu",
+        "Shuhan Zhang",
+        "Rui Gao",
+        "Shuang Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-03T03:48:09+00:00",
+      "link": "https://arxiv.org/pdf/2603.02576v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Wasserstein Proximal Policy Gradient algorithm",
+      "llm_evidence_cn": "Wasserstein近端策略梯度算法",
+      "llm_evidence": "Wasserstein近端策略梯度算法",
+      "llm_tldr_en": "Derives a new policy gradient algorithm (WPPG) using Wasserstein geometry for entropy-regularized RL.",
+      "llm_tldr_cn": "利用Wasserstein几何推导了一种用于熵正则化强化学习的新策略梯度算法(WPPG)。",
+      "llm_tldr": "利用Wasserstein几何推导了一种用于熵正则化强化学习的新策略梯度算法(WPPG)。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.02554v1",
+      "title": "Generalizable Knowledge Distillation from Vision Foundation Models for Semantic Segmentation",
+      "abstract": "Knowledge distillation (KD) has been widely applied in semantic segmentation to compress large models, but conventional approaches primarily preserve in-domain accuracy while neglecting out-of-domain generalization, which is essential under distribution shifts. This limitation becomes more severe with the emergence of vision foundation models (VFMs): although VFMs exhibit strong robustness on unseen data, distilling them with conventional KD often compromises this ability. We propose Generalizable Knowledge Distillation (GKD), a multi-stage framework that explicitly enhances generalization. GKD decouples representation learning from task learning. In the first stage, the student acquires domain-agnostic representations through selective feature distillation, and in the second stage, these representations are frozen for task adaptation, thereby mitigating overfitting to visible domains. To further support transfer, we introduce a query-based soft distillation mechanism, where student features act as queries to teacher representations to selectively retrieve transferable spatial knowledge from VFMs. Extensive experiments on five domain generalization benchmarks demonstrate that GKD consistently outperforms existing KD methods, achieving average gains of +1.9% in foundation-to-foundation (F2F) and +10.6% in foundation-to-local (F2L) distillation. The code will be available at https://github.com/Younger-hua/GKD.",
+      "authors": [
+        "Chonghua Lv",
+        "Dong Zhao",
+        "Shuang Wang",
+        "Dou Quan",
+        "Ning Huyan",
+        "Nicu Sebe",
+        "Zhun Zhong"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-03-03T03:18:12+00:00",
+      "link": "https://arxiv.org/pdf/2603.02554v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "knowledge distillation from vision foundation models to student models",
+      "llm_evidence_cn": "从视觉基础模型到学生模型的知识蒸馏",
+      "llm_evidence": "从视觉基础模型到学生模型的知识蒸馏",
+      "llm_tldr_en": "Proposes a multi-stage distillation framework to enhance generalization in semantic segmentation student models.",
+      "llm_tldr_cn": "提出一种多阶段蒸馏框架，以增强语义分割学生模型的泛化能力。",
+      "llm_tldr": "提出一种多阶段蒸馏框架，以增强语义分割学生模型的泛化能力。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "papers on teacher student framework for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.02613v1",
+      "title": "Real-Time Generative Policy via Langevin-Guided Flow Matching for Autonomous Driving",
+      "abstract": "Reinforcement learning (RL) is a fundamental methodology in autonomous driving systems, where generative policies exhibit considerable potential by leveraging their ability to model complex distributions to enhance exploration. However, their inherent high inference latency severely impedes their deployment in real-time decision-making and control. To address this issue, we propose diffusion actor-critic with entropy regulator via flow matching (DACER-F) by introducing flow matching into online RL, enabling the generation of competitive actions in a single inference step. By leveraging Langevin dynamics and gradients of the Q-function, DACER-F dynamically optimizes actions from experience replay toward a target distribution that balances high Q-value information with exploratory behavior. The flow policy is then trained to efficiently learn a mapping from a simple prior distribution to this dynamic target. In complex multi-lane and intersection simulations, DACER-F outperforms baselines diffusion actor-critic with entropy regulator (DACER) and distributional soft actor-critic (DSAC), while maintaining an ultra-low inference latency. DACER-F further demonstrates its scalability on standard RL benchmark DeepMind Control Suite (DMC), achieving a score of 775.8 in the humanoid-stand task and surpassing prior methods. Collectively, these results establish DACER-F as a high-performance and computationally efficient RL algorithm.",
+      "authors": [
+        "Tianze Zhu",
+        "Yinuo Wang",
+        "Wenjun Zou",
+        "Tianyi Zhang",
+        "Likun Wang",
+        "Letian Tao",
+        "Feihong Zhang",
+        "Yao Lyu",
+        "Shengbo Eben Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.RO"
+      ],
+      "published": "2026-03-03T05:35:53+00:00",
+      "link": "https://arxiv.org/pdf/2603.02613v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Reinforcement Learning algorithms and frameworks",
+      "llm_evidence_cn": "强化学习算法与框架",
+      "llm_evidence": "强化学习算法与框架",
+      "llm_tldr_en": "Proposes a diffusion actor-critic framework with flow matching for real-time online RL.",
+      "llm_tldr_cn": "提出了一种结合流匹配的扩散演员-评论家框架，用于实时在线强化学习。",
+      "llm_tldr": "提出了一种结合流匹配的扩散演员-评论家框架，用于实时在线强化学习。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.02654v1",
+      "title": "Generalized Per-Agent Advantage Estimation for Multi-Agent Policy Optimization",
+      "abstract": "In this paper, we propose a novel framework for multi-agent reinforcement learning that enhances sample efficiency and coordination through accurate per-agent advantage estimation. The core of our approach is Generalized Per-Agent Advantage Estimator (GPAE), which employs a per-agent value iteration operator to compute precise per-agent advantages. This operator enables stable off-policy learning by indirectly estimating values via action probabilities, eliminating the need for direct Q-function estimation. To further refine estimation, we introduce a double-truncated importance sampling ratio scheme. This scheme improves credit assignment for off-policy trajectories by balancing sensitivity to the agent's own policy changes with robustness to non-stationarity from other agents. Experiments on benchmarks demonstrate that our approach outperforms existing approaches, excelling in coordination and sample efficiency for complex scenarios.",
+      "authors": [
+        "Seongmin Kim",
+        "Giseung Park",
+        "Woojun Kim",
+        "Jiwon Jeon",
+        "Seungyeol Han",
+        "Youngchul Sung"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA"
+      ],
+      "published": "2026-03-03T06:37:50+00:00",
+      "link": "https://arxiv.org/pdf/2603.02654v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Eliminating direct Q-function estimation to avoid bias and improve stability",
+      "llm_evidence_cn": "消除直接 Q 函数估计以避免偏差并提高稳定性",
+      "llm_evidence": "消除直接 Q 函数估计以避免偏差并提高稳定性",
+      "llm_tldr_en": "Proposes a multi-agent RL framework that avoids direct Q-estimation to improve advantage accuracy.",
+      "llm_tldr_cn": "提出了一种多智能体强化学习框架，通过避免直接 Q 估计来提高优势函数的准确性。",
+      "llm_tldr": "提出了一种多智能体强化学习框架，通过避免直接 Q 估计来提高优势函数的准确性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Q-value underestimation bias in RL",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.03191v1",
+      "title": "A Covering Framework for Offline POMDPs Learning using Belief Space Metric",
+      "abstract": "In off policy evaluation (OPE) for partially observable Markov decision processes (POMDPs), an agent must infer hidden states from past observations, which exacerbates both the curse of horizon and the curse of memory in existing OPE methods. This paper introduces a novel covering analysis framework that exploits the intrinsic metric structure of the belief space (distributions over latent states) to relax traditional coverage assumptions. By assuming value relevant functions are Lipschitz continuous in the belief space, we derive error bounds that mitigate exponential blow ups in horizon and memory length. Our unified analysis technique applies to a broad class of OPE algorithms, yielding concrete error bounds and coverage requirements expressed in terms of belief space metrics rather than raw history coverage. We illustrate the improved sample efficiency of this framework via case studies: the double sampling Bellman error minimization algorithm, and the memory based future dependent value functions (FDVF). In both cases, our coverage definition based on the belief space metric yields tighter bounds.",
+      "authors": [
+        "Youheng Zhu",
+        "Yiping Lu"
+      ],
+      "primary_category": "stat.ML",
+      "categories": [
+        "stat.ML",
+        "cs.LG",
+        "math.OC"
+      ],
+      "published": "2026-03-03T17:48:20+00:00",
+      "link": "https://arxiv.org/pdf/2603.03191v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "covering analysis framework for offline POMDPs learning",
+      "llm_evidence_cn": "离线POMDP学习的覆盖分析框架",
+      "llm_evidence": "离线POMDP学习的覆盖分析框架",
+      "llm_tldr_en": "Provides a theoretical framework for offline policy evaluation in POMDPs to mitigate error blow-ups.",
+      "llm_tldr_cn": "为POMDP中的离线策略评估提供理论框架，以减轻误差爆炸问题。",
+      "llm_tldr": "为POMDP中的离线策略评估提供理论框架，以减轻误差爆炸问题。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.02650v1",
+      "title": "Improving Diffusion Planners by Self-Supervised Action Gating with Energies",
+      "abstract": "Diffusion planners are a strong approach for offline reinforcement learning, but they can fail when value-guided selection favours trajectories that score well yet are locally inconsistent with the environment dynamics, resulting in brittle execution. We propose Self-supervised Action Gating with Energies (SAGE), an inference-time re-ranking method that penalises dynamically inconsistent plans using a latent consistency signal. SAGE trains a Joint-Embedding Predictive Architecture (JEPA) encoder on offline state sequences and an action-conditioned latent predictor for short horizon transitions. At test time, SAGE assigns each sampled candidate an energy given by its latent prediction error and combines this feasibility score with value estimates to select actions. SAGE can integrate into existing diffusion planning pipelines that can sample trajectories and select actions via value scoring; it requires no environment rollouts and no policy re-training. Across locomotion, navigation, and manipulation benchmarks, SAGE improves the performance and robustness of diffusion planners.",
+      "authors": [
+        "Yuan Lu",
+        "Dongqi Han",
+        "Yansen Wang",
+        "Dongsheng Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.RO"
+      ],
+      "published": "2026-03-03T06:36:16+00:00",
+      "link": "https://arxiv.org/pdf/2603.02650v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Addressing dynamic inconsistency and value-guided selection errors in offline RL",
+      "llm_evidence_cn": "解决离线强化学习中的动态不一致和价值引导选择误差",
+      "llm_evidence": "解决离线强化学习中的动态不一致和价值引导选择误差",
+      "llm_tldr_en": "SAGE uses action gating to penalize inconsistent plans in offline RL diffusion planners.",
+      "llm_tldr_cn": "SAGE 通过动作门控惩罚离线强化学习扩散规划器中不一致的计划。",
+      "llm_tldr": "SAGE 通过动作门控惩罚离线强化学习扩散规划器中不一致的计划。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.02935v1",
+      "title": "Contextual Latent World Models for Offline Meta Reinforcement Learning",
+      "abstract": "Offline meta-reinforcement learning seeks to learn policies that generalize across related tasks from fixed datasets. Context-based methods infer a task representation from transition histories, but learning effective task representations without supervision remains a challenge. In parallel, latent world models have demonstrated strong self-supervised representation learning through temporal consistency. We introduce contextual latent world models, which condition latent world models on inferred task representations and train them jointly with the context encoder. This enforces task-conditioned temporal consistency, yielding task representations that capture task-dependent dynamics rather than merely discriminating between tasks. Our method learns more expressive task representations and significantly improves generalization to unseen tasks across MuJoCo, Contextual-DeepMind Control, and Meta-World benchmarks.",
+      "authors": [
+        "Mohammadreza Nakheai",
+        "Aidan Scannell",
+        "Kevin Luck",
+        "Joni Pajarinen"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-03T12:45:20+00:00",
+      "link": "https://arxiv.org/pdf/2603.02935v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "offline meta-reinforcement learning using latent world models",
+      "llm_evidence_cn": "使用潜世界模型的离线元强化学习",
+      "llm_evidence": "使用潜世界模型的离线元强化学习",
+      "llm_tldr_en": "Introduces contextual latent world models to improve task representation and generalization in offline meta-RL.",
+      "llm_tldr_cn": "引入上下文潜世界模型，以提高离线元强化学习中的任务表示和泛化能力。",
+      "llm_tldr": "引入上下文潜世界模型，以提高离线元强化学习中的任务表示和泛化能力。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "how to solve extrapolation error in offline reinforcement learning",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.04124v1",
+      "title": "BeamPERL: Parameter-Efficient RL with Verifiable Rewards Specializes Compact LLMs for Structured Beam Mechanics Reasoning",
+      "abstract": "Can reinforcement learning with hard, verifiable rewards teach a compact language model to reason about physics, or does it primarily learn to pattern-match toward correct answers? We study this question by training a 1.5B-parameter reasoning model on beam statics, a classic engineering problem, using parameter-efficient RLVR with binary correctness rewards from symbolic solvers, without teacher-generated reasoning traces. The best BeamPERL checkpoint achieves a 66.7% improvement in Pass@1 over the base model. However, the learned competence is anisotropic: the model generalizes compositionally (more loads) but fails under topological shifts (moved supports) that require the same equilibrium equations. Intermediate checkpoints yield the strongest reasoning, while continued optimization degrades robustness while maintaining reward. These findings reveal a key limitation of outcome-level alignment: reinforcement learning with exact physics rewards induces procedural solution templates rather than internalization of governing equations. The precision of the reward signal - even when analytically exact - does not by itself guarantee transferable physical reasoning. Our results suggest that verifiable rewards may need to be paired with structured reasoning scaffolding to move beyond template matching toward robust scientific reasoning.",
+      "authors": [
+        "Tarjei Paule Hage",
+        "Markus J. Buehler"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cond-mat.mtrl-sci",
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-03-04T14:42:43+00:00",
+      "link": "https://arxiv.org/pdf/2603.04124v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "parameter-efficient RL with verifiable rewards for compact language models",
+      "llm_evidence_cn": "针对紧凑型语言模型的高效参数可验证奖励强化学习",
+      "llm_evidence": "针对紧凑型语言模型的高效参数可验证奖励强化学习",
+      "llm_tldr_en": "Explores if RL with verifiable rewards can teach compact models physics reasoning without teachers.",
+      "llm_tldr_cn": "探讨了具有可验证奖励的强化学习是否能在没有教师的情况下教导模型物理推理。",
+      "llm_tldr": "探讨了具有可验证奖励的强化学习是否能在没有教师的情况下教导模型物理推理。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.03651v1",
+      "title": "Freezing of Gait Prediction using Proactive Agent that Learns from Selected Experience and DDQN Algorithm",
+      "abstract": "Freezing of Gait (FOG) is a debilitating motor symptom commonly experienced by individuals with Parkinson's Disease (PD) which often leads to falls and reduced mobility. Timely and accurate prediction of FOG episodes is essential for enabling proactive interventions through assistive technologies. This study presents a reinforcement learning-based framework designed to identify optimal pre-FOG onset points, thereby extending the prediction horizon for anticipatory cueing systems. The model implements a Double Deep Q-Network (DDQN) architecture enhanced with Prioritized Experience Replay (PER) allowing the agent to focus learning on high-impact experiences and refine its policy. Trained over 9000 episodes with a reward shaping strategy that promotes cautious decision-making, the agent demonstrated robust performance in both subject-dependent and subject-independent evaluations. The model achieved a prediction horizon of up to 8.72 seconds prior to FOG onset in subject-independent scenarios and 7.89 seconds in subject-dependent settings. These results highlight the model's potential for integration into wearable assistive devices, offering timely and personalized interventions to mitigate FOG in PD patients.",
+      "authors": [
+        "Septian Enggar Sukmana",
+        "Sang Won Bae",
+        "Tomohiro Shibata"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-04T02:16:46+00:00",
+      "link": "https://arxiv.org/pdf/2603.03651v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "implements a Double Deep Q-Network (DDQN) architecture to refine policy",
+      "llm_evidence_cn": "实现双深度Q网络（DDQN）架构以优化策略",
+      "llm_evidence": "实现双深度Q网络（DDQN）架构以优化策略",
+      "llm_tldr_en": "Applies DDQN, a standard method for mitigating Q-value overestimation, to predict freezing of gait in PD patients.",
+      "llm_tldr_cn": "应用DDQN（缓解Q值高估的标准方法）来预测帕金森病患者的冻结步态。",
+      "llm_tldr": "应用DDQN（缓解Q值高估的标准方法）来预测帕金森病患者的冻结步态。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Addressing Q-value overestimation in deep reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.03045v2",
+      "title": "QFlowNet: Fast, Diverse, and Efficient Unitary Synthesis with Generative Flow Networks",
+      "abstract": "Unitary Synthesis, the decomposition of a unitary matrix into a sequence of quantum gates, is a fundamental challenge in quantum compilation. Prevailing reinforcement learning (RL) approaches are often hampered by sparse reward signals, which necessitate complex reward shaping or long training times, and typically converge to a single policy, lacking solution diversity. In this work, we propose QFlowNet, a novel framework that learns efficiently from sparse signals by pairing a Generative Flow Network (GFlowNet) with Transformers. Our approach addresses two key challenges. First, the GFlowNet framework is fundamentally designed to learn a diverse policy that samples solutions proportional to their reward, overcoming the single-solution limitation of RL while offering faster inference than other generative models like diffusion. Second, the Transformers act as a powerful encoder, capturing the non-local structure of unitary matrices and compressing a high-dimensional state into a dense latent representation for the policy network. Our agent achieves an overall success rate of 99.7% on a 3-qubit benchmark(lengths 1-12) and discovers a diverse set of compact circuits, establishing QFlowNet as an efficient and diverse paradigm for unitary synthesis.",
+      "authors": [
+        "Inhoe Koo",
+        "Hyunho Cha",
+        "Jungwoo Lee"
+      ],
+      "primary_category": "quant-ph",
+      "categories": [
+        "quant-ph",
+        "cs.AI"
+      ],
+      "published": "2026-03-03T14:38:05+00:00",
+      "link": "https://arxiv.org/pdf/2603.03045v2",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement learning framework for unitary synthesis",
+      "llm_evidence_cn": "用于幺正合成的强化学习框架",
+      "llm_evidence": "用于幺正合成的强化学习框架",
+      "llm_tldr_en": "QFlowNet uses GFlowNet and Transformers for efficient RL in quantum compilation.",
+      "llm_tldr_cn": "QFlowNet 结合 GFlowNet 和 Transformer，在量子编译中实现高效强化学习。",
+      "llm_tldr": "QFlowNet 结合 GFlowNet 和 Transformer，在量子编译中实现高效强化学习。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}

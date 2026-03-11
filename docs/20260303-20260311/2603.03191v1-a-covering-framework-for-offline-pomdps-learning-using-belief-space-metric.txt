@@ -1,0 +1,3633 @@
+Title: A Covering Framework for Offline POMDPs Learning using Belief Space Metric
+
+URL Source: https://arxiv.org/pdf/2603.03191v1
+
+Published Time: Wed, 04 Mar 2026 02:22:47 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Youheng Zhu Yiping Lu 
+
+Northwestern University Northwestern University 
+
+## Abstract 
+
+In off - policy evaluation (OPE) for par-tially observable Markov decision processes (POMDPs), an agent must infer hidden states from past observations, which exacerbates both the curse of horizon and the curse of memory in existing OPE methods. This paper introduces a novel covering analysis framework that exploits the intrinsic metric structure of the belief space (distributions over latent states) to relax traditional cover-age assumptions. By assuming value-relevant functions are Lipschitz continuous in the be-lief space,we derive error bounds that mit-igate exponential blow-ups in horizon and memory length. Our unified analysis tech-nique applies to a broad class of OPE algo-rithms, yielding concrete error bounds and coverage requirements expressed in terms of belief space metrics rather than raw history coverage. We illustrate the improved sample efficiency of this framework via case studies: the double sampling Bellman error minimiza-tion algorithm, and the memory-based future-dependent value functions (FDVF). In both cases, our coverage definition based on the belief-space metric yields tighter bounds. 
+
+## 1 INTRODUCTION 
+
+Off-policy evaluation (OPE) is a central problem in offline reinforcement learning, aiming to estimate the expected cumulative reward of a target policy πe us-ing data collected under a different behavior policy πb.This setting arises naturally in real-world applications, where interactive data collection is often impractical or 
+
+Proceedings of the 29 th International Conference on Arti-ficial Intelligence and Statistics (AISTATS) 2026, Tangier, Morocco. PMLR: Volume 300. Copyright 2026 by the au-thor(s). 
+
+unsafe, and learning must rely solely on pre-collected offline trajectories. In this paper, we consider a more realistic yet challenging setting where only partial ob-servations of the underlying latent states are available. This leads to non-Markovian observation dynamics that may depend on the entire history of action-observation pairs. Such scenarios are modeled by partially observ-able Markov decision processes (POMDPs), which offer greater expressiveness for real-world problems [Atrash et al., 2009, Lauri et al., 2022] but introduce significant complexity compared to fully observable MDPs. Although for a POMDP, Markovian is restored when treating history trajectories as states, in which case the POMDP is reduced to a MDP problem, directly applying conventional MDP methods, such as Impor-tance Sampling and Bellman residual minimization, inevitably leads to error bounds exponentially scaling with horizon H, a phenomenon termed the curse of horizon . For instance, in importance sampling, the sequential importance weights grow exponentially with the horizon, leading to an intractable variance in the estimation. To alleviate this issue, a method called the Future Dependent Value Function (FDVF) is proposed for memoryless policies but fail when memory-based policies are introduced, in which case the coverage scales exponentially with the memory length, facing the curse of memory [Zhang and Jiang, 2024]. To overcome the curses of horizon and memory in history -as -state MDPs, we reformulate the problem in the belief space , a central concept in POMDPs, defined as the space of probability distributions over latent states given the observed history of actions and obser-vations. Each element in belief space—referred to as a belief state—serves as a proxy for historical trajectories. As an explicit computation of a belief state requires the latent dynamic to be transparent to the agent, it is most commonly used in POMDP planning literature. Utilizing the metric structure of belief spaces, plan-ning methods like point-based value iteration (PBVI) achieve efficient solutions by sparsely covering belief subspaces [Shani et al., 2013, Lee et al., 2007, Zhang 
+
+> arXiv:2603.03191v1 [stat.ML] 3 Mar 2026 A Covering Framework for Offline POMDPs Learning using Belief Space Metric
+
+et al., 2014]. Although belief-space structure has been extensively studied in POMDP planning [Lee et al., 2007] and model learning [Zhang et al., 2012], its role in off-policy evaluation (OPE) remains largely under-explored. Notably, current offline learning approaches typically neglect this metric structure, treating history spaces explicitly, resulting in exponential dependence on the horizon length. This raises a critical question: 
+
+While the metric structure of belief space has proven effective for characterizing computational complexity in POMDP planning, can it similarly characterize sam-ple complexity in offline learning? More specifically, can we exploit this belief space structure to circumvent exponential complexity in offline POMDP learning? 
+
+Our Contributions Motivated by this question, our work explores the idea of belief space metric structure, and studies the theoretical guarantees of some common model-free OPE algorithms using belief metric. The core idea of our framework is similar to that of state abstraction [Li et al., 2006], given that the complexity of belief space can be lowered significantly through an abstraction that contracts similar states. That is to say, if two history trajectories have similar belief states, they should be considered similar in the analysis. To do this, we restrict ourselves to a subset of policies , i.e. the policies with stability . This structural assumption on policy class is rich enough to contain all possible policies of our interest, and possesses nice properties for tighter coverage. The overall result of our analysis with comparison to existing results that suffer from the curse of horizon/memory is presented in Table 1 below. In general, our result mitigates the exponentiality of coverage especially under smoothness structure of belief space as shown in Example 1 and 2. To specify our contributions: 
+
+• We propose a framework of analysis that uses state abstraction induced by ε-covering to obtain a coverage on the abstract space, which adapts to a wide range of scenarios in the OPE problem. This framework easily generalizes to other algorithms or even other reinforcement learning tasks. 
+
+• We show in Table 1, Theorem 4 and 5 that our coverage obtained using belief space covering is no worse than the original coverage. We also show in Ex-ample 1 and 2 that our coverage resolves the curse or horizon/memory under specific smoothness property of the POMDP model. 
+
+• In Chapter 5.1, we complete a detailed analysis specifically for double sampling algorithm as an ex-ample of Bellman error minimization algorithms. In Chapter 5.2, we also present the pipeline on future dependent value function where the fast forgetting properties of POMDP and policies are adopted. We then show that FDVF admits a simpler analysis, free from any assumptions on the POMDP system itself. 
+
+This indicates that the "curse of memory" is much easier to handle than the "curse of hori-zon" . Additionally, this provide an answer to the question left by [Zhang and Jiang, 2024], that with structural assumption on the policy, we can mitigate the "curse of memory". 
+
+## 2 RELATED WORKS 
+
+POMDP planning. In POMDP planning literature, the idea of point-based value iteration (PBVI) [Shani et al., 2013, Kurniawati et al., 2008, Poupart et al., 2011, Shani et al., 2008, Smith and Simmons, 2012, Spaan and Vlassis, 2005] is to computes on a finite subset of the entire belief space, aiming for an optimal policy. Notably, an important characteristic of PBVI is that its selection of belief subspace uses the metric structure in belief space, namely, every time the algorithm expands the belief subset, it searches for the furthest belief point w.r.t. the current belief subset that is one-step reachable, so that the reachable belief subset can be constructed as sparse as possible. Additionally, the connection between complexity and belief space metric was identified by [Lee et al., 2007, Zhang et al., 2014], which proved the existence of approximate algorithm with complexity polynomial to the covering number of reachable belief space. 
+
+Curse of Horizon and Curse of Memory in OPE. 
+
+Numerous algorithms have addressed Off-Policy Eval-uation (OPE) in fully observable MDPs, such as Im-portance Sampling [Precup et al., 2000, Jiang and Li, 2016, Jiang et al., 2019, Hu and Wager, 2023], Fitted Q-Iteration (FQE) [Ernst et al., 2005, Munos and Szepesvári, 2008, Le et al., 2019], Bellman resid-ual minimization with double sampling [Baird et al., 1995], min-max estimators [Antos et al., 2008, Chen and Jiang, 2019, Feng et al., 2019, Nachum et al., 2019, Ue-hara et al., 2021, Zanette and Wainwright, 2022], and marginalized importance sampling [Uehara et al., 2020]. However, directly applying these approaches to Par-tially Observable MDPs (POMDPs) by treating each trajectory history as a distinct state encounters a fun-damental challenge known as the curse of horizon : the error bounds become exponentially worse as the horizon grows, due to coverage assumptions expanding with the exponentially large history space. Alternatively, recent approaches such as the Future Dependent Value Func-tion (FDVF) [Uehara et al., 2023, Zhang and Jiang, 2024] address this by shifting coverage requirements onto latent states, thus providing polynomial guaran-tees for memoryless policies. Nevertheless, this method is constrained by the curse of memory , as its complexity Youheng Zhu, Yiping Lu 
+
+reverts to exponential when extended to memory-based policies, due to the necessity of capturing dependen-cies between future observations and historical memory states, dramatically increasing coverage complexity. 
+
+## 3 PRELIMINARIES 
+
+Infinite-horizon Discounted POMDP: An infinite-horizon discounted POMDP can be specified as a 7-tuple: M = ⟨S , A, O, r, γ, O, T⟩ where γ ∈ [0 , 1) 
+
+is the discount factor, S is the latent state space, 
+
+A is the action space, O is the observation space, 
+
+r : S × A → [0 , R max ] is the bounded reward function, 
+
+O : S → ∆( O) is the emission kernel (i.e., the conditional distribution of the observation given the state), and T : S × A → ∆( S) is the transition kernel (i.e., the conditional distribution of the next state given the current state-action pair). We use ∆( ·) to represent probability distributions on the given space, and | · | for the cardinality of a set. For simplicity and without loss of generality, we assume discrete and finite spaces S, A, O, of which the cardinality can be large. The POMDP evolves as follows: starting from an initial latent state s1 ∼ d0(s), at each step h, the latent state 
+
+sh emits an observation oh drawn from O(sh), and the environment generates a reward rh based on the current state-action pair (sh, a h). The state then transitions according to sh+1 ∼ T(sh, a h). Crucially, in general POMDPs, the learner has no access to the latent state space S; instead, only trajectories collected under an offline behavior policy are available. We also consider the finite-horizon POMDP setting extensively discussed in Chapter 5.2. In the finite-horizon scenario, we set the discount factor γ = 1 , and the agent interacts with the environment for a finite number of steps H.
+
+Offline Data: The offline dataset D is collected us-ing a behavior policy ˜πb. The process involves inde-pendently collecting n sample trajectories (o1, a 1, · · · )
+
+from the POMDP. From each trajectory, a prefix of the first h elements is truncated to form a tuple 
+
+(o1, a 1, r 1, o 2, a 2, r 2, · · · , o h, a h, r h, o h+1 ) where h is ran-domly selected. Finally, the dataset takes the form of D1 as shown below. In chapter 6, for the future-dependent value function (FDVF), the definition of offline data differs slightly. In the FDVF setting, we consider a finite-horizon POMDP of length H. Again, a behavior policy πb is used to interact with the environ-ment and collect data. This time, the entire trajectory is treated as a single data point, as shown by D2.
+
+D1 = {(o[i]1 , a [i]1 , r [i]1 , · · · , o [i] 
+
+> hi
+
+, a [i] 
+
+> hi
+
+, r [i] 
+
+> hi
+
+, o [i]
+
+> hi+1
+
+)}ni=1 ,
+
+D2 = {(( o[i]1 , a [i]1 , r [i]1 , · · · , o [i] 
+
+> H
+
+, a [i] 
+
+> H
+
+, r [i] 
+
+> H
+
+)}ni=1 
+
+State Abstraction: For a MDP (S, A, r, γ, P )
+
+where P : S × A → ∆( S) denotes the transition kernel, an abstraction ϕ is a mapping from S to an abstract state space Sϕ, and the MDP is transformed into an abstract MDP (Sϕ, A, r ϕ, γ, P ϕ) where rϕ(ϕ(s), a ) := 
+
+Es′∼pϕ(s) [r(s′, a )] and Pϕ(ϕ(sd)|ϕ(s), a ) := 
+
+Es′∼pϕ(s) [P 
+
+> ϕ(s′′ )= ϕ(sd)
+
+P (s′′ |s′, a )] . Here {px}x∈S ϕ is any family of distributions in which px being supported on ϕ−1(x). For any function defined on the abstract system fbin : Sϕ → R, we define the lifted version of which as [fbin ]true (·) := fbin (ϕ(·)) . Similar for an abstract policy πϕ : Sϕ → ∆( A), of which the lifted version [πϕ]true (·) := πϕ(ϕ(·)) In the following section, 
+
+ϕ is often selected by ε, and is treated as equivalent. Conventionally, notations with super/subscripts ϕ is also used to specify functions defined on the abstract system, and whenever we say fϕ ∈ F where F is a function class defined on the true system, we mean 
+
+∃f ∈ F , f (ϕ(·)) = fϕ(ϕ(·)) .
+
+Other Notations: We denote state-action occu-pancy as dπ (s, a ) := (1 − γ) P∞ 
+
+> k=1
+
+Pr π (Sk = s, A k = a).
+
+J(π) represents the expected reward of a policy π, and 
+
+J ˆQ(π) is the estimated reward of π using approximation function ˆQ.
+
+## 4 UNIFIED ANALYSIS OVERVIEW 
+
+In this section, we briefly explain how the geometry of the belief state space can help characterize the sample complexity of off-policy evaluation for POMDPs, and what our result looks like in general. We also present the basics of belief space, abstraction on the belief space induced by a ε-cover, and the assumptions related to the belief metric. 
+
+Belief State Space and Smoothness Condition: 
+
+Since one cannot observe the latent state directly, a prediction of the current state can be made using the information from the entire history of observations and actions. We denote the history at time step h to be 
+
+τh = ( o1, a 1, o 2, a 2, · · · , o h−1, a h−1) ∈ H h ⊂ H and 
+
+τ + 
+
+> h
+
+:= ( τh, o h) ∈ H + 
+
+> h
+
+⊂ H +. Consequently the belief state b(τ + 
+
+> h
+
+) := Pr (sh|τ + 
+
+> h
+
+) is an element of ∆( S) ⊂
+
+R|S| when |S| < ∞. We use B to denote belief state space such that B = {b : ∃h ∈ N ∃τ + 
+
+> h
+
+, b(τ + 
+
+> h
+
+) = b}.Consider a common case when such b is a bijection, then B becomes a perfect proxy for H, of which the cardinality grows exponentially with the horizon. In infinite horizon cases, |B| = ∞, yet considering the compactness of a bounded subset of R|S| , cluster points of B must exist. For simplicity, we assign distinct belief copies to histories that share the same belief state A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Table 1: Comparison With Existing Coverage 
+
+Criteria Existing Coverage With Curse of Horizon/Memory Our Coverage using Belief Space Smoothness 
+
+Bellman Error Minimization ( e.g. Double Sampling ) Coverage Definition [Jiang and Xie, 2024] 
+
+dπe (τh, a )
+
+dD (τh, a ) ∞
+
+dπϕe (ϕ(b), a )
+
+dD (ϕ(b), a ) ∞
+
+Coverage Worst Case 1
+
+Scale |B| = Θ(( |O||A| )H ) > Covering( B, Θ( n−1/2)) 2
+
+Ability to handle H → ∞ ✘: Infinite ✓: Polynomial guarantee see example 1 Future Dependent Value Function Coverage Definition [Zhang and Jiang, 2024] sup h,V 
+
+r Eπe [( B(S,HH )V )( sh,τ h)2]   
+
+> Eπb[( BHV)( τh)2]
+
+sup h,V 
+
+s Eπϕe    
+
+> [( B(S,HT)V)( sh,τ [h−T+1: h])2]
+> Eπϕb
+> [( BHV)( τh)2]
+
+L2 Belief Coverage (One-hot Belief) [Zhang and Jiang, 2024] Eπb
+
+ dπe (sh, τ h)
+
+dπb (sh, τ h)
+
+2 >Theorem 4 Eπϕb
+
+ dπϕe 
+
+> ϕ
+
+(sh, τ [h−T +1: h])
+
+dπϕb 
+
+> ϕ
+
+(sh, τ [h−T +1: h])
+
+2
+
+L∞ Belief Coverage (One-hot Belief) [Zhang and Jiang, 2024] 
+
+dπe (sh, τ h)
+
+dπb (sh, τ h) ∞
+
+>Theorem 5 dπϕe 
+
+> ϕ
+
+(sh, τ [h−T +1: h])
+
+dπϕb 
+
+> ϕ
+
+(sh, τ [h−T +1: h]) ∞
+
+L∞ Worst Case 1 (One-hot Belief) Θ(( |O||A| )H ) > Θ(( |O||A| )T )
+
+Ability to handle H → ∞ 3 ✘: Infinite ✓: Polynomial guarantee see example 2 distribution, making the belief space metric a pseudo-metric. We denote the policy of interest ˜π(τ + 
+
+> h
+
+) = 
+
+π(b(τ + 
+
+> h
+
+)) : H+ → ∆( A), which is used to sample an action when given a history. Similarly for value function ˜V (τ + 
+
+> h
+
+) = V (b(τ + 
+
+> h
+
+)) . Since ˜V , ˜π, τ + 
+
+> h
+
+∈ H + one-to-one correspond to V, π, b ∈ B , we slightly abuse our notation and treat them as equivalent for the rest of the passage, i.e. whenever we mention b ∈ B , we also mean the corresponding b−1(b) ∈ H +, especially when describing the algorithms, since they only see the data trajectories instead of actual beliefs. Then we introduce the core idea of using belief space metric to lower the complexity of the potentially ex-ponential belief space, that is through covering. By introducing an ε-cover as a abstraction of the original belief space, we can treat near belief states as one, mak-ing the space simpler. This is formalized below with a similar idea as an ε-sufficient statistic in [François-Lavet et al., 2019, Subramanian et al., 2022]. 
+
+> 1
+
+“Worst-case coverage” refers to the worst case for the most exploratory data-collection distribution. 
+
+> 2
+
+Covering( B, ε ) denotes the L1 covering number of B.
+
+> 3
+
+For H → ∞ , we assume worst-case coverage grows as a subpolynomial power α0 ≤ 1 (not logarithmic, which would trivially remove the curse of horizon). In the FDVF case, specific forgetting rates may be required. 
+
+Abstraction Induced by Covering. Consider the belief space B, for any ε > 0 and a ε-cover Cε ⊂ B 
+
+(Defined in Appendix B). There exists an abstraction ϕ :
+
+B → C ε such that ∀b ∈ B , ∥ϕ(b) − b∥1 ≤ ε. Select any such ϕ, and a family of measure {px}x∈C ε mentioned in Section 3, then an abstract belief MDP is defined, we refer to which as the abstract system. To obtain a meaningful result, it is important for us to limit our attention to a subset of all possible policies, i.e. those that presents stability. This is characterized by the two core structural assumptions on the pol-icy of interest, primarily introduced in Lipchitz-MDP literature [Pirotta et al., 2015, Gelada et al., 2019]: 
+
+Assumption 1 (Local Stability) . ∀b1, b 2 ∈ B , ∥π(b1)−
+
+π(b2)∥1 ≤ Lπ ∥b1 − b2∥1.
+
+Assumption 2 (Value Stability) . sup b1,b 2∈B 
+
+> ε≥0,ϕ ε
+
+|V [πϕε ]true 
+
+(b1) − V [πϕε ]true (b2)|/∥b1 − b2∥1 ≤ LV < ∞.
+
+Remark 1. Assumption 1 is made by the intuition that a good belief state policy should treat two similar belief state similarly, and thus should itself have some local stability. Assumption 2 measures the stability of a policy’s long-term return. As indicated by the following Theorem 1, it can also be viewed as a proxy for how closely a policy resembles the optimal policy. Youheng Zhu, Yiping Lu 
+
+Theorem 1 (Lemma 1 in [Lee et al., 2007]) . For any 
+
+b1, b 2 ∈ B , |V ∗(b1) − V ∗(b2)| ≤ Rmax  
+
+> 1−γ
+
+∥b1 − b2∥1.
+
+This shows that the optimal value function is Rmax  
+
+> 1−γ
+
+-value stable. Apart from the inherent stability of op-timal value, people have studied this stability prop-erty not just in POMDPs, but also in continuous state MDPs. This line of work, e.g. [Pirotta et al., 2015, Asadi et al., 2018, Gelada et al., 2019], were explored in various contexts, but in such cases, the stability in value weren’t as natural as in POMDPs, since unlike in belief spaces, the system dynamic in a continuous state MDP may not be smooth w.r.t. its intrinsic metric. In general, the two assumption holds with some finite constant Lπ and LV , but the worst case scaling of them could be exponentially large. However, policies with malignant stability are often bad and uninteresting, and it is efficient for us to only study the behavior of those good policies. With that said, our analysis applies to both cases, and the smaller the stability constants are, the more tractable our bound becomes. Either way, our bound will be no worse than the original. 
+
+4.1 Unified Analysis In a Nutshell         
+
+> True System
+> Abstract System
+> Estimate from True System
+> Estimate from Abstract System
+> True System Coverage ✗
+> ➀State Abstraction
+> ➁Abstract System Coverage
+> ➂Gap of True and Abstract Algorithm
+> policy: π
+> policy: πΦ
+> policy: π
+> policy: πΦ
+
+Figure 1: Pipeline of the analysis Specifically as shown in Figure 1, in step 1, we descend the true belief space MDP system (resp. policy π) to an abstract system (resp. abstract policy πϕ). Using similar ideas of state abstraction, we control the ab-straction error using the size of bins ε. In step 2, we execute the algorithm on the abstract system, with the coverage assumption for the abstract belief space, which can be much more tractable than the coverage of the true system due to the curse of horizon. We also provide Theorems 4, and 5 to show that abstract cover-age is no worse than the original coverage. Eventually for step 3, we utilize the stability property of value function again to control the difference between the real and the virtually executed algorithm on the same offline data. Combining all the analysis above, we ob-tain an estimation error bound without incorporating the traditional coverage assumption. In this paper, we construct the abstraction using a 
+
+ε-cover Cε of the belief space, with definition in Ap-pendix B. We state the following helpful lemma for controlling abstraction error. 
+
+Lemma 1. ∀a ∈ A , b 1, b 2 ∈ B , Eo∼P (·| b1,a )[∥bo,a  
+
+> 1
+
+−
+
+bo,a  
+
+> 2
+
+∥1] ≤ 2∥b1 − b2∥1. Here bo,a denotes the updated next belief of b after taking action a and observing o.
+
+Remark 2. Intuitively, after a pair of same action and observation (a, o ), the chances of two belief states sharing the same state becomes larger, resulting in the two next belief states become closer, i.e. a data pro-cessing inequality (DPI) should hold. However, such contraction property generally does not hold point wise as indicated in example 3, which also show that the Lipchitz value can go to infinity. The reason for that is that the belief update is a posterior instead of a Markov kernel, and a DPI only applies to the latter. However, the lemma shows that after taking expectation, the value is bounded by 2. The proof can be found in Appendix A. 
+
+Proposition 1. If for any τh ∈ H , b(τh) is one-hot, then 2 in Lemma 1 can be replaced with 1.
+
+Theorem 2. Under Assumption 1 and 2, for an abstraction ϕε depending on ε, we have ∥V π 
+
+> true
+
+−
+
+[V πϕ 
+
+> bin
+
+]true ∥∞ ≤ L[1]  
+
+> ϕ
+
+ε, where L[1]  
+
+> ϕ
+
+:= (Lπ +1) Rmax +2 LV 
+
+> 1−γ
+
++  
+
+> γR max Lπ+Rmax
+> (1 −γ)2
+
+, and V is the function class for function estimation. See Appendix B for the proof. 
+
+Remark 3. For finite horizon POMDP, simply replace 
+
+(1 − γ)−1 with H.
+
+Therefore, our previous assumptions enable a principled reduction from the exponentially large belief MDP to an abstract belief MDP, with a tractable approximation error. The abstract state space has cardinality on the order of the covering number, potentially mitigating the curse of horizon, as illustrated in Examples 1 and 2. Formally speaking, we have the following meta-theorem, with the proof in Appendix A. 
+
+Theorem 3 (Meta-theorem) . For a POMDP M, a policy π and an OPE algorithm Alg := {alg , est } where 
+
+alg : D → V learns a function ˆQπ ∈ V using offline dataset D of size n, and est : V → R estimates the ex-pected reward of π from ˆQπ . We omit Alg ’s dependency on π and est ’s dependency on M in the notation. Then for any ε ≥ 0 and an abstraction ϕ : B → B such that ∀ b1, b 2 ∈ B , ϕ(b1) = ϕ(b2) ⇒ ∥ b1 − b2∥1 ≤ ε, we denote the algorithm executed on the abstract system as Alg ϕ := {alg ϕ, est ϕ}. If assumption 1, 2 holds, and that there exists an L[2]  
+
+> ϕ
+
+such that |est (Q) − est ϕ(Q)| ≤ 
+
+L[2]  
+
+> ϕ
+
+ε for all Q ∈ V , we also consider when Alg ad-mits an finite sample estimation error on the abstract system of the form |est ϕ( ˆQπ ) − est ϕ(Qπϕ)| ≤ Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 
+
+> 1
+> n
+
+log |V| 
+
+> δ
+
+α
+
++ LE ε, w.p. > 1−δ, where CϕπA Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+is a constant, ∥V∥ ∞, |V | respectively denotes the bound-edness and cardinality of the function class for function approximation. Then we have |est ( ˆQπ ) − est (Qπ )| ≤ 
+
+Lϕ + Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 
+
+> 1
+> n
+
+log |V| 
+
+> δ
+
+α
+
++ LE ε, w.p. > 1 − δ.Here, Lϕ := L[1]  
+
+> ϕ
+
++ L[2]  
+
+> ϕ
+
+with L[1]  
+
+> ϕ
+
+defined in Theorem 2, 
+
+Qπ and Qπϕ represent the ground truth estimators. 
+
+4.2 Why Coverage on Covering is Better? 
+
+In the following part, we showcase the general idea why our coverage is no worse than the original coverage by providing the two theorems as a complement to our Table 1. Since directly comparing the occupancy of 
+
+πe and the abstract occupancy of πϕe is difficult, so we turn to comparing the occupancy of [πϕe ]true := τh 7 →
+
+πϕe (ϕ(τh)) , which generally have the same scaling as that of πe. Proving the theorems (see Appendix E) uses an information-theoretic idea that the divergence between two probability measures becomes smaller on a coarser σ-algebra, using the variational representation of f -divergences. 
+
+Theorem 4. Consider the L2 belief coverage in the one-hot scenario. Then for any behavior policy πb
+
+and truncation abstraction ϕT , there exists a dDϕ ∈
+
+∆( Sϕ × H T ), such that for any πe, along with its abstract policy πϕe and the corresponding lifted ver-sion [πϕe ]true , we have EdDϕ
+
+ dπϕeϕ (sh,τ [h−T +1: h])  
+
+> dDϕ(sh,τ [h−T+1: h])
+
+2
+
+≤
+
+Eπb
+
+ d[πϕe ]true (sh,τ h) 
+
+> dπb(sh,τ h)
+
+2
+
+.
+
+Theorem 5. Same result for the L∞ belief coverage that dπϕeϕ (sh,τ [h−T +1: h])   
+
+> dDϕ(sh,τ [h−T+1: h])∞
+
+≤ d[πϕe ]true (sh,τ h)  
+
+> dπb(sh,τ h)∞
+
+.
+
+Next, we provide illustrative examples to show the superiority our result under certain structures. 
+
+Example 1. Consider a belief space with smoothness structure [Detailed Definition in Appendix E]. With coverage sublinear polynomial to the worst case, we have a finite sample guarantee of O( (C|S| LE mR 2max ) 14 
+
+> (1 −γ)32
+
+·
+
+( 1 
+
+> n
+
+log |F|  
+
+> δ
+
+) 18 ), where C, m are constants related to the smoothness property. 
+
+Example 2. Consider a fast forgetting policy with forgetting speed T (ε) = O( log 1 
+
+> ε
+
+), then with coverage sublinear polynomial to the worst case, we can ob-tain a finite sample guarantee of O( max {∥V∥ ∞,∥Θ∥∞} 
+
+> (1 −γ)2
+
+·
+
+( 1 
+
+> n
+
+log |V|| Θ| 
+
+> δ
+
+) 14 ). If we make a even stronger assump-tion than logarithmical scaling memory, i.e. strictly short-term memory, then the result goes back to what’s discussed in [Uehara et al., 2023, Zhang and Jiang, 2024]. 
+
+## 5 EXAMPLES OF APPLICATION 
+
+In this section, we apply our unified analysis on two different types of OPE algorithms, namely, the double sampling Bellman error minimization algorithm and future-dependent value function, aiming for a more sample efficient guarantee. 
+
+5.1 Analysis on Bellman Error Minimization Algorithms Double Sampling. Consider a Bellman error mini-mization algorithm using double sampling, each offline data contains two tuple (b, a, r, b ′
+
+> A
+
+) and (b, a, r, b ′ 
+
+> B
+
+) with the latter sampled independently after the system re-sets to belief b. The corresponding estimator can be written as ˆQπ = arg min f ∈F E(f, π ) where E(f, π ) = 
+
+ED [( f (b, a ) −(r + γf (b′
+
+> A
+
+, π )))( f (b, a ) −(r + γf (b′ 
+
+> B
+
+, π )))] 
+
+Instead of assuming standard coverage on the true system, we adopt the following abstract covering as-sumption on the abstract system. 
+
+Assumption 3 (Abstract Policy Coverage) .
+
+∥dπϕ /d D ∥∞ ≤ Cπ (ϕ) < ∞
+
+Remark 4. It is worth noting that the coverage Cπ (ϕ)
+
+here depends on the specific abstraction mapping ϕ. Un-der the most exploratory data collection distribution dD ,the worst-case growth rate of Cπ (ϕ) is approximately aligned with |C ε|, which denotes the ε-covering number. The benefit of the belief-policy coverage Assumption 3 lies in its potential to outperform coverage assumptions in the original space. Using an abstract belief space al-lows the exponentially large history space to be reduced to a space with size of ε-covering number. 
+
+And also a standard realizability assumption. 
+
+Assumption 4 (Abstract Realizability) . Qπϕ 
+
+> ϕ
+
+∈ F ,which according to our notation, is short for ∃f ∈F, f (ϕ(·)) = Qπϕ 
+
+> ϕ
+
+(ϕ(·)) since Qπϕ 
+
+> ϕ
+
+is defined on the abstract system. 
+
+Noticed that we previously assumed the stability of value function, whose equivalence to the Lipchitz con-tinuity of Q-function at action a can be easily proven. We now assume the function class F we use to approx-imate Q-function is also Lipchitz with regard to belief state. 
+
+Assumption 5 (Lipchitz function class) . ∀f ∈ F ,
+
+∀a ∈ A , |f (b1, a ) − f (b2, a )| ≤ LQ∥b1 − b2∥1.
+
+Then, we can provide the value of L[2]  
+
+> ϕ
+
+defined in The-orem 3 for this special case, and furthermore, the even-tual guarantee for double sampling algorithm using the aforementioned assumptions and methods of analysis. Proofs in Appendix C. Youheng Zhu, Yiping Lu 
+
+Theorem 6. If Assumption 5 holds, then for L[2] 
+
+> ϕ
+
+defined in Theorem 3, L[2]  
+
+> ϕ
+
+= Rmax  
+
+> 1−γ
+
++ LQ.
+
+Theorem 7. If Assumptions 4, 5, 1, and 2 all hold, then we have: 
+
+|J ˆQπ (π) − J(π)| ≤ inf ε≥0
+
+> D(ε)
+
+ √Cπ (ε)1−γ ·
+
+rq 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F|  
+
+> δ
+
++ LE ε + Lϕε
+
+
+
+where LE = 8Rmax  
+
+> 1−γ
+
+· (1+ γ)LQ + Rmax 
+
+> 1−γ
+
+, Lϕ is defined as in Theorem 3 and D(ε) stands for such ε that satisfies realizability (Assumption 4). 
+
+Corollary 1 (Finite sample guarantee) . If Assump-tions 5,1, and 2 all hold, then for all n satisfying 
+
+n ≥ 8R4max (Lϕ/L E )4 log (2 |F| /δ ), and the ab-straction ϕ induced by ε-cover with ε =
+
+> 1
+> LE
+
+q 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F|  
+
+> δ
+
+satisfies Assumption 4, we have |J ˆQπ (π) − J(π)| ≤ 2√Cnπ 
+
+> 1−γ
+
+·   128 R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+ 14 ,
+
+where Cnπ := Cπ
+
+  1
+
+> LE
+
+q 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+.
+
+Remark 5. The guarantee obtained using our method relies on the coverage defined on the abstract system, which is more tractable than the original coverage as discussed in Remark 4 and Table 1. Moreover, with appropriate belief space smoothness condition (Exam-ple 1), our result provides a polynomial finite sample guarantee while the original bound goes to infinity. 
+
+5.2 Future-Dependent Value Function. 
+
+FDVF was proposed targeting memoryless policies. Here we introduce the memory-based version of FDVF, which suffers from the "curse of memory" as dis-cussed in [Zhang and Jiang, 2024]. We first intro-duce the respective definition of future space F′ as 
+
+f ′ 
+
+> h
+
+:= ( oh, a h, o h+1 , a h+1 , · · · , o H , a H ) ∈ F ′ 
+
+> h
+
+⊂ F ′.
+
+From this point forward, for convenience, we will write 
+
+(f ′
+
+> h
+
+, τ h) simply as fh. Similarly, we will treat F′ as the original future space, and define F := F′ × H 
+
+as the new space of “(future-history) pairs.” This is because τh can be considered a part of the extended future, or equivalently, the future is duplicated sepa-rately for each history sequence. The future-dependent value function VF is any such function that satisfies 
+
+Eπb [VF (fh, τ h)|sh, τ h] = V πe 
+
+> S
+
+(sh, τ h) with the RHS be-ing the value function of πe, and is a zero point of the following two Bellman Residual Operators. 
+
+Definition 1 (Memory-Based Bellman Residual Operator) . We define (B(S,HT )V )( sh, τ [h−T +1: h]) := 
+
+E a1: h∼πe 
+
+> ah+1: H∼πb
+
+[rh + V (fh+1 )|sh, τ [h−T +1: h]] − Ea1: H−1∼πe 
+
+> ah:H∼πb
+
+[
+
+V (fh)|sh, τ [h−T +1: h]], and (BHV )( τh) := E a1: h∼πe 
+
+> ah+1: H∼πb
+
+[rh
+
++ V (fh+1 )|τh] − Ea1: h−1∼πe 
+
+> ah:H∼πb
+
+[V (fh)|τh].
+
+Memory-Based Algorithm. For memory-based policies, we define μ(ah, τ + 
+
+> h
+
+) := πe(ah|τ +    
+
+> h)
+> πb(ah|τ+
+> h)
+
+, then the min-max algorithm is defined as follows: 
+
+ˆVF = arg min  
+
+> V∈V
+
+max 
+
+> θ∈Θ
+> H
+
+X
+
+> h=1
+
+ED [{μ(ah, τ + 
+
+> h
+
+)( rh + V (fh+1 )) 
+
+− V (fh)}θ(τh) − 12 θ(τh)2]
+
+FDVF Analysis Pipeline. The analysis of FDVF follows a structured framework that uses the previously introduced methodology, of which an illustrative Fig-ure 2 can be found in Appendix D. All proofs can also be found in Appendix D. 
+
+Abstraction Induced by Truncation Mapping. 
+
+The first step in the approach is to introduce an ab-straction mapping ˜ϕ : H+ → H + 
+
+> T
+
+, where T is the time window, and H+ 
+
+> T
+
+:= STt=1 (O × A )t−1 × O denotes the set of history sequences constrained by the window T .
+
+˜ϕ(o1, a 1, . . . , o h) := 
+
+((oh−T +1 , a h−T +1 , . . . , o h), h ≥ T
+
+id , h < T 
+
+To reuse the previous analysis, we also introduce an abstraction mapping ϕ : B → B that operates directly on belief states. The mapping ϕ satisfies ϕ(b(τ + 
+
+> h
+
+)) = 
+
+b( ˜ϕ(τ + 
+
+> h
+
+)) . Since this mapping ϕ depends on the time window length T , we denote it as ϕT . Notice that ϕT
+
+and ˜ϕT are one-to-one, we treat them equivalently. Now we provide the fast-forgetting assumption of POMDP and the policy. 
+
+Assumption 6 (Fast-Forgetting POMDP) . For the abstraction mapping ϕT defined above, the following holds: for all ε > 0, there exists T ∈ N+ such that for all b1, b 2 ∈ B , if ϕT (b1) = ϕT (b2), then ∥b1 − b2∥1 ≤ ε.The values of T satisfying this condition form a function of ε, denoted T1(ε).
+
+Assumption 7 (Fast-Forgetting Policy) . For the ab-straction mapping ϕT , it holds that for all ε > 0, there exists a T ∈ N+, such that for all τ [1]+  
+
+> h
+
+, τ [2]+  
+
+> h
+
+∈ H +
+
+and all π ∈ πe, π b, if ˜ϕT (τ [1]+  
+
+> h
+
+) = ˜ϕT (τ [2]+  
+
+> h
+
+), then 
+
+∥π(τ [1]+  
+
+> h
+
+) − π(τ [2]+  
+
+> h
+
+)∥1 ≤ Lπ ε. We denote the depen-dency of T on ε as T1(ε).
+
+Lemma 2 (Stability implies Fast-Forgetting) . If As-sumption 6 and Assumption 1 hold, then Assumption 7 holds aotomatically, with T1 = T0.
+
+Conditions: Controlling Differences between Real and Abstract Algorithm. Since our analysis is build on the requirement that the virtually executed algorithm and the actual algorithm bear little difference, we first propose some conditions to restrain ε from being too large. A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Definition 2. We define ∥V∥ ∞ := max V ∈V ∥V ∥∞
+
+(similar for Θ), CV := max {∥V∥ ∞ + 1 , ∥Θ∥∞},
+
+Cμ := max h max ah,τ +
+
+> h
+
+μ(ah, τ + 
+
+> h
+
+), and LE := 3  2H(Cμ+1) Lπ ∥V∥ ∞∥Θ∥∞     
+
+> min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)
+
++ HC μ∥V∥ ∞∥Θ∥∞ +           
+
+> 3H2max {Cμ∥V∥ ∞∥Θ∥∞,12∥Θ∥2
+> ∞}
+> min {min hmin oh,τ hP(oh|τh),min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)/L π}
+
+.
+
+Condition 1. The ε is small enough that 
+
+Lπ ε/ min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+) ≤ 12 .
+
+Condition 2. The ε is small enough that          
+
+> Hε
+> min {min hmin oh,τ hP(oh|τh),min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)/L π}
+
+≤ 1
+
+Condition 1 assumes non-zero entries for the behavior policy πb, which is known and chosen by the learner. This assumption is also used in literature like [Zhang and Jiang, 2025], from which we adopt the same philos-ophy. In Condition 2, the probability P (oh|τh) being uniformly above zero is a non-trivial assumption, but we’ll show later in a simpler pipeline that this condition can actually be discarded. We then state the following theorem about L[2]  
+
+> ϕ
+
+.
+
+Theorem 8. If Assumptions 6, 7 and 9 hold, then for any ε > 0, with T ≥ max {T0(ε), T 1(ε), T 2(ε)}, we have 
+
+L[2]  
+
+> ϕ
+
+= ∥V∥ ∞, with L[2]  
+
+> ϕ
+
+defined in Theorem 3. 
+
+Theoretical Guarantee of FDVF. The following theorem showcases the guarantee for FDVF under our unified analysis, with the given condition that indicates our selection of ε should generally have the same scaling as finite-sample error term. 
+
+Condition 3. For some uniform constant C, for the given ε, n, δ , LE ε ≤ eCHC 2  
+
+> VCμ
+> 2n
+
+· log 4|V|| Θ| 
+
+> δ
+
+.
+
+Theorem 9 (Theoretical Guarantee of FDVF) . Sup-pose the abstract realizability condition V ϕ 
+
+> F
+
+∈ V and the Bellman completeness condition ∀V ∈ V , BHV ∈ Θ
+
+(BH here refers to the operator on the abstract sys-tem) hold, and Assumptions 2, 6, 7, and 9 are satis-fied. For any ε > 0 satisfying condition 1, 2, 3, define 
+
+T = max {T0(ε), T 1(ε), T 2(ε)}. Then, for some uniform constant c, with probability at least 1 − δ, we have: 
+
+|J(πe) − Eπb [ ˆV (f1)] | ≤ Lϕε + √H·
+
+max h∈[H] sup V ∈V 
+
+s Eπϕe     
+
+> [( B(S,HT)V)( sh,τ [h−T+1: h])2]
+> Eπϕb
+> [( BHV)( τh)2]
+
+·
+
+q cHC 2  
+
+> VCμ
+> n
+
+log |V|| Θ| 
+
+> δ
+
++ LE ε
+
+Corollary 2 (Boosted finite sample guarantee) . For n
+
+large enough with necessary realizability and complete-ness condition, we have a finite sample guarantee: 
+
+|J(πe) − Eπb [ ˆV (f1)] | ≤ √H ·
+
+q cHC 2  
+
+> VCμ
+> n
+
+log |V|| Θ| 
+
+> δ
+
+·
+
+max h∈[H] sup V ∈V 
+
+s Eπϕe    
+
+> [( B(S,HT)V)( sh,τ [h−T+1: h])2]
+> Eπϕb
+> [( BHV)( τh)2]
+
+A Simpler Pipeline: Abstracting Only the Pol-icy. Revisiting the above analysis and noticeably one step is actually unnecessary, namely, the abstraction from the original POMDP to the short-term memory POMDP. That’s because the memory dependency of the policy is the real root of the “curse of memory.” Notably, the introduction of Assumption 2 and 6 are all for the sake of bounding the abstraction error of the POMDP itself, and therefore can be eliminated for FDVF. This shows a significant advantage of FDVF comparing to history-as-state MDP that the "curse of memory" is much easier to handle than "the curse of horizon", since for the lat-ter, abstracting the POMDP itself is inevitable. 
+
+When we only abstract the policy, the previous condi-tion 1 and 2 can be relaxed to condition 2 ′ for H > 1.
+
+Condition 2′. The ε is small enough that 
+
+HL π ε/ min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+) ≤ 1.
+
+Theorem 10 (Tighter Theoretical Guarantee of FDVF) . Suppose the abstract realizability condition 
+
+V ϕ 
+
+> F
+
+∈ V and the Bellman completeness condition 
+
+∀V ∈ V , BHV ∈ Θ (BH here refers to the operator on the abstract system) hold, and Assumptions 7 and 9 are satisfied. For any ε > 0 satisfying condition 2 ′, 3, define T = max {T1(ε), T 2(ε)}. Then, for some uniform constant c, c 1, c 2, with probability at least 1−δ, we have: 
+
+|J(πe) − Eπb [ ˆV (f1)] | ≤ Lϕε + √H·
+
+max h∈[H] sup V ∈V 
+
+s Eπϕe    
+
+> [( B(S,HT)V)( sh,τ [h−T+1: h])2]
+> Eπϕb
+> [( BHV)( τh)2]
+
+·
+
+q cHC 2  
+
+> VCμ
+> n
+
+log |V|| Θ| 
+
+> δ
+
++ LE ε
+
+where CV := max {∥V∥ ∞ + 1 , ∥Θ∥∞}, Lϕ =
+
+Rmax HL π + Rmax H2Lπ + ∥V∥ ∞ and Lε = 3 ·
+
+  HL π (c1(Cμ+1) ∥V∥ ∞∥Θ∥∞+c2H max {Cμ∥V∥ ∞∥Θ∥∞, 12 ∥Θ∥2    
+
+> ∞})min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)
+
++ HC μ∥V∥ ∞∥Θ∥∞
+
+
+
+Remark 6. The coverage in our result only takes in a history of window T instead of the entire horizon H,and Theorem 4, 5 proves that the L2 and L∞ belief coverage in the belief one-hot scenario are no worse than the original. Example 2 also shows a polynomial finite sample guarantee while the original bound does not exist, effectively mitigating the curse of memory. Despite that structural assumption on POMDP model is adopted for Theorem 9, this can be avoided by taking a simpler pipeline (i.e. Theorem 10) which gives us a even better result, indicating the advantage in tractability of memory to horizon. Youheng Zhu, Yiping Lu 
+
+References 
+
+[Antos et al., 2008] Antos, A., Szepesvári, C., and Munos, R. (2008). Learning near-optimal policies with bellman-residual minimization based fitted pol-icy iteration and a single sample path. Machine Learning , 71:89–129. [Asadi et al., 2018] Asadi, K., Misra, D., and Littman, M. (2018). Lipschitz continuity in model-based rein-forcement learning. In International conference on machine learning , pages 264–273. PMLR. [Atrash et al., 2009] Atrash, A., Kaplow, R., Ville-mure, J., West, R., Yamani, H., and Pineau, J. (2009). Development and validation of a robust speech interface for improved human-robot inter-action. International Journal of Social Robotics ,1:345–356. [Baird et al., 1995] Baird, L. et al. (1995). Residual algorithms: Reinforcement learning with function approximation. In Proceedings of the twelfth interna-tional conference on machine learning , pages 30–37. [Chen and Jiang, 2019] Chen, J. and Jiang, N. (2019). Information-theoretic considerations in batch rein-forcement learning. In International conference on machine learning , pages 1042–1051. PMLR. [Ernst et al., 2005] Ernst, D., Geurts, P., and We-henkel, L. (2005). Tree-based batch mode reinforce-ment learning. Journal of Machine Learning Re-search , 6. [Feng et al., 2019] Feng, Y., Li, L., and Liu, Q. (2019). A kernel loss for solving the bellman equation. Ad-vances in Neural Information Processing Systems ,32. [François-Lavet et al., 2019] François-Lavet, V., Rabusseau, G., Pineau, J., Ernst, D., and Fonte-neau, R. (2019). On overfitting and asymptotic bias in batch reinforcement learning with partial observability. Journal of Artificial Intelligence Research , 65:1–30. [Gelada et al., 2019] Gelada, C., Kumar, S., Buckman, J., Nachum, O., and Bellemare, M. G. (2019). Deep-mdp: Learning continuous latent space models for representation learning. In International conference on machine learning , pages 2170–2179. PMLR. [Hao et al., 2024] Hao, M., Su, P., Hu, L., Szabó, Z., Zhao, Q., and Shi, C. (2024). Off-policy evalua-tion with deeply-abstracted states. arXiv preprint arXiv:2406.19531 .[Hu and Wager, 2023] Hu, Y. and Wager, S. (2023). Off-policy evaluation in partially observed markov decision processes under sequential ignorability. The Annals of Statistics , 51(4):1561–1585. [Jiang et al., 2019] Jiang, B., Song, R., Li, J., and Zeng, D. (2019). Entropy learning for dynamic treat-ment regimes. Statistica Sinica , 29(4):1633. [Jiang and Li, 2016] Jiang, N. and Li, L. (2016). Dou-bly robust off-policy value evaluation for reinforce-ment learning. In International conference on ma-chine learning , pages 652–661. PMLR. [Jiang and Xie, 2024] Jiang, N. and Xie, T. (2024). Of-fline reinforcement learning in large state spaces: Algorithms and guarantees. Statistical Science .[Kurniawati et al., 2008] Kurniawati, H., Hsu, D., and Lee, W. S. (2008). Sarsop: Efficient point-based pomdp planning by approximating optimally reach-able belief spaces. In Robotics: Science and systems ,volume 2008. Citeseer. [Lauri et al., 2022] Lauri, M., Hsu, D., and Pajarinen, J. (2022). Partially observable markov decision pro-cesses in robotics: A survey. IEEE Transactions on Robotics , 39(1):21–40. [Le et al., 2019] Le, H., Voloshin, C., and Yue, Y. (2019). Batch policy learning under constraints. In International Conference on Machine Learning ,pages 3703–3712. PMLR. [Lee et al., 2007] Lee, W., Rong, N., and Hsu, D. (2007). What makes some pomdp problems easy to approximate? Advances in neural information processing systems , 20. [Li et al., 2006] Li, L., Walsh, T. J., and Littman, M. L. (2006). Towards a unified theory of state abstraction for mdps. AI&M , 1(2):3. [Munos and Szepesvári, 2008] Munos, R. and Szepesvári, C. (2008). Finite-time bounds for fitted value iteration. Journal of Machine Learning Research , 9(5). [Nachum et al., 2019] Nachum, O., Chow, Y., Dai, B., and Li, L. (2019). Dualdice: Behavior-agnostic es-timation of discounted stationary distribution cor-rections. Advances in neural information processing systems , 32. [Pirotta et al., 2015] Pirotta, M., Restelli, M., and Bascetta, L. (2015). Policy gradient in lipschitz markov decision processes. Machine Learning ,100(2):255–283. A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+[Poupart et al., 2011] Poupart, P., Kim, K.-E., and Kim, D. (2011). Closing the gap: Improved bounds on optimal pomdp solutions. In Proceedings of the International Conference on Automated Planning and Scheduling , volume 21, pages 194–201. [Precup et al., 2000] Precup, D., Sutton, R. S., and Singh, S. (2000). Eligibility traces for off-policy policy evaluation. In ICML , volume 2000, pages 759–766. Citeseer. [Shani et al., 2008] Shani, G., Brafman, R. I., and Shi-mony, S. E. (2008). Prioritizing point-based pomdp solvers. IEEE Transactions on Systems, Man, and Cybernetics, Part B (Cybernetics) , 38(6):1592–1605. [Shani et al., 2013] Shani, G., Pineau, J., and Kaplow, R. (2013). A survey of point-based pomdp solvers. 
+
+Autonomous Agents and Multi-Agent Systems , 27:1– 51. [Smith and Simmons, 2012] Smith, T. and Simmons, R. (2012). Point-based pomdp algorithms: Im-proved analysis and implementation. arXiv preprint arXiv:1207.1412 .[Spaan and Vlassis, 2005] Spaan, M. T. and Vlassis, N. (2005). Perseus: Randomized point-based value iteration for pomdps. Journal of artificial intelligence research , 24:195–220. [Subramanian et al., 2022] Subramanian, J., Sinha, A., Seraj, R., and Mahajan, A. (2022). Approximate information state for approximate planning and re-inforcement learning in partially observed systems. 
+
+Journal of Machine Learning Research , 23(12):1–83. [Uehara et al., 2020] Uehara, M., Huang, J., and Jiang, N. (2020). Minimax weight and q-function learning for off-policy evaluation. In International Conference on Machine Learning , pages 9659–9668. PMLR. [Uehara et al., 2021] Uehara, M., Imaizumi, M., Jiang, N., Kallus, N., Sun, W., and Xie, T. (2021). Finite sample analysis of minimax offline reinforcement learning: Completeness, fast rates and first-order efficiency. arXiv preprint arXiv:2102.02981 .[Uehara et al., 2023] Uehara, M., Kiyohara, H., Ben-nett, A., Chernozhukov, V., Jiang, N., Kallus, N., Shi, C., and Sun, W. (2023). Future-dependent value-based off-policy evaluation in pomdps. Advances in neural information processing systems , 36:15991– 16008. [Zanette and Wainwright, 2022] Zanette, A. and Wainwright, M. J. (2022). Bellman residual orthogonalization for offline reinforcement learning. 
+
+Advances in Neural Information Processing Systems ,35:3137–3151. [Zhang and Jiang, 2024] Zhang, Y. and Jiang, N. (2024). On the curses of future and history in future-dependent value functions for off-policy evaluation. 
+
+arXiv preprint arXiv:2402.14703 .[Zhang and Jiang, 2025] Zhang, Y. and Jiang, N. (2025). Statistical tractability of off-policy evalu-ation of history-dependent policies in pomdps. arXiv preprint arXiv:2503.01134 .[Zhang et al., 2014] Zhang, Z., Hsu, D., and Lee, W. S. (2014). Covering number for efficient heuristic-based pomdp planning. In International conference on machine learning , pages 28–36. PMLR. [Zhang et al., 2012] Zhang, Z., Littman, M., and Chen, X. (2012). Covering number as a complexity measure for pomdp planning and learning. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 26, pages 1853–1859. Youheng Zhu, Yiping Lu 
+
+## 6 Checklist 
+
+1. For all models and algorithms presented, check if you include: (a) A clear description of the mathematical set-ting, assumptions, algorithm, and/or model. [Yes] (b) An analysis of the properties and complexity (time, space, sample size) of any algorithm. [Yes] (c) (Optional) Anonymized source code, with specification of all dependencies, including external libraries. [Not Applicable] 2. For any theoretical claim, check if you include: (a) Statements of the full set of assumptions of all theoretical results. [Yes] (b) Complete proofs of all theoretical results. [Yes] (c) Clear explanations of any assumptions. [Yes] 3. For all figures and tables that present empirical results, check if you include: (a) The code, data, and instructions needed to re-produce the main experimental results (either in the supplemental material or as a URL). [Not Applicable] (b) All the training details (e.g., data splits, hy-perparameters, how they were chosen). [Not Applicable] (c) A clear definition of the specific measure or statistics and error bars (e.g., with respect to the random seed after running experiments multiple times). [Not Applicable] (d) A description of the computing infrastructure used. (e.g., type of GPUs, internal cluster, or cloud provider). [Not Applicable] 4. If you are using existing assets (e.g., code, data, models) or curating/releasing new assets, check if you include: (a) Citations of the creator If your work uses existing assets. [Not Applicable] (b) The license information of the assets, if appli-cable. [Not Applicable] (c) New assets either in the supplemental material or as a URL, if applicable. [Not Applicable] (d) Information about consent from data provider-s/curators. [Not Applicable] (e) Discussion of sensible content if applicable, e.g., personally identifiable information or of-fensive content. [Not Applicable] 5. If you used crowdsourcing or conducted research with human subjects, check if you include: (a) The full text of instructions given to partici-pants and screenshots. [Not Applicable] (b) Descriptions of potential participant risks, with links to Institutional Review Board (IRB) approvals if applicable. [Not Applicable] (c) The estimated hourly wage paid to partici-pants and the total amount spent on partici-pant compensation. [Not Applicable] A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+## A THE UNIFIED ANALYSIS 
+
+Proof of Meta-theorem 3 
+
+Proof. First, we have from Theorem 2, 
+
+|est (Qπ ) − est ϕ(Qπϕ)| = |Eb∼d0 [V πϕ 
+
+> bin
+
+(ϕ(b)) − V π
+
+> true
+
+(b)] |≤ ∥ [V πϕ 
+
+> bin
+
+]true − V π
+
+> true
+
+∥∞
+
+≤ L[1]  
+
+> ϕ
+
+ε. 
+
+Then using triangle’s inequality, we get 
+
+|est ( ˆQπ ) − est ϕ(Qπ )| ≤ | est ( ˆQπ ) − est ϕ( ˆQπ )| + |est ϕ( ˆQπ ) − est ϕ(Qπϕ)| + |est (Qπ ) − est ϕ(Qπϕ)|≤ L[1]  
+
+> ϕ
+
++ L[2]  
+
+> ϕ
+
++ Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 1
+
+n log |V| 
+
+δ
+
+α
+
++ LE ε, w.p. > 1 − δ
+
+And that completes the proof. 
+
+Lemma 3. If for any ε that satisfies D(ε), the following holds 
+
+|J(π) − ˆJ(π)| ≤ Lϕε + Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 1
+
+n log |V| 
+
+δ
+
+α
+
++ LE ε w.p. ≥ 1 − δ. (1) 
+
+Then 
+
+|J(π) − ˆJ(π)| ≤ inf 
+
+> ε≥0
+> D(ε)
+
+Lϕε + Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 1
+
+n log |V| 
+
+δ
+
+α
+
++ LE ε
+
+!
+
+w.p. ≥ 1 − δ. (2) 
+
+Proof. Let β(ε) := Lϕε + Cϕπ ·
+
+s
+
+∥V∥ ∞ ·
+
+ 
+
+> 1
+> n
+
+log |V| 
+
+> δ
+
+α
+
++ LE ε, and β∗ := inf ε≥0
+
+> D(ε)
+
+β(ε). Then there exists a sequence of {εi}∞ 
+
+> i=1
+
+satisfying εi ≥ 0 and D(εi), such that β(εi) ↓ β∗. Then the family of events {Ei := {ω ∈ Ω : 
+
+|J(π) − ˆJ(π)|(ω) ≤ β(εi)}} ∞ 
+
+> i=1
+
+is decreasing, with the limit being E∞ := {ω ∈ Ω : |J(π) − ˆJ(π)|(ω) ≤ β∗}. It then suffice to prove the result by applying the monotone convergence theorem of measure, which shows that 
+
+Pr( E∞) = lim i→∞ Pr( Ei) ≥ 1 − δ.
+
+Proof of Proposition 1 
+
+Proof. This is because for any b1, b 2 ∈ B , a ∈ A , o ∈ O , if b1̸ = b2, bo,a  
+
+> 1
+
+and bo,a  
+
+> 2
+
+would either be identical, thus    
+
+> ∥bo,a
+> 1−bo,a
+> 2∥1
+> ∥b1−b2∥1
+
+= 0 , or be different, thus ∥bo,a    
+
+> 1−bo,a
+> 2∥1
+> ∥b1−b2∥1
+
+= 1 .
+
+Explanation of Example Example 3. Consider a latent MDP with one action a, two states s1, s 2 and three observations o1, o 2, o 3, o 4.The initial state is evenly distributed over s1 and s2, the emission probability of s1 is (0 .5, 0, 0.5 − ξ, ξ ) and of s2
+
+is (0 , 0.5, ξ, 0.5 − ξ). Then for two belief states b1 := b(o2) = (0 , 1) and b2 := b(o4) = (2 ξ, 1 − 2ξ), simultaneously taking action a and observing o3 makes the successive belief becomes bo3,a  
+
+> 1
+
+= (0 , 1) and bo3,a  
+
+> 2
+
+= (0 .5, 0.5) . This violates the contraction property as ∥bo3,a  
+
+> 1
+
+− bo3,a  
+
+> 2
+
+∥1 ≥ 14ξ ∥b1 − b2∥1 for any ξ ≤ 14 , also showing that the Lipchitz parameter can be arbitrarily large as ξ → 0.
+
+Proof of Lemma 1. 
+
+Proof. Fix an action a ∈ A . For a belief b ∈ B , define the joint distribution over states and observations: 
+
+Pb(s, o |a) := b(s) P (o|s, a ), Pb(o|a) = X
+
+> s
+
+Pb(s, o |a).Youheng Zhu, Yiping Lu 
+
+The posterior distribution over the current state is 
+
+˜bo,a (s) := P (s|b, o, a ) = Pb(s, o |a)
+
+Pb(o|a) = Pb(s|o, a ).
+
+The next belief after observing o is 
+
+bo,a (s′) = X
+
+> s
+
+P (s′|s, a ) ˜bo,a (s).
+
+For each o ∈ O , the total variation distance contracts under the state transition kernel: 
+
+∥bo,a  
+
+> 1
+
+− bo,a  
+
+> 2
+
+∥1 = ∥˜bo,a  
+
+> 1
+
+P (·|· , a ) − ˜bo,a  
+
+> 2
+
+P (·|· , a )∥1 ≤ ∥ ˜bo,a  
+
+> 1
+
+− ˜bo,a  
+
+> 2
+
+∥1.
+
+Taking expectation with respect to P (·| b1, a ) gives 
+
+Eo∼P (·| b1,a )[∥bo,a  
+
+> 1
+
+− bo,a  
+
+> 2
+
+∥1] ≤ Eo∼P (·| b1,a )[∥˜bo,a  
+
+> 1
+
+− ˜bo,a  
+
+> 2
+
+∥1]= X
+
+> o
+
+Pb1 (o|a) X
+
+> s
+
+P (s|b1, o, a ) − P (s|b2, o, a )
+
+= X
+
+> s,o
+
+Pb1 (s, o |a) − Pb1 (o|a)Pb2 (s|o, a ) .
+
+Insert and subtract Pb2 (s, o |a) = Pb2 (o|a)Pb2 (s|o, a ), then apply the triangle inequality: 
+
+≤ X
+
+> s,o
+
+Pb1 (s, o |a) − Pb2 (s, o |a) + X
+
+> s,o
+
+Pb1 (o|a)Pb2 (s|o, a ) − Pb2 (s, o |a) .
+
+All three mappings 
+
+ka 
+
+> 1
+
+(( o′, s ′)|s) = I(s = s′)P (o′|s, a ), ka 
+
+> 2
+
+(( o′, s ′)|o) = I(o = o′)Pb2 (s′|o, a ), ka 
+
+> 3
+
+(o|s) = P (o|s, a )
+
+where I(x = x′) is the indicator function on X , are Markov kernels. By the data processing inequality for total variation, 
+
+X
+
+> s,o
+
+Pb1 (s, o |a) − Pb2 (s, o |a) = X
+
+> s
+
+ka 
+
+> 1
+
+(( ·, ·)|s)b1(s) − X
+
+> s
+
+ka 
+
+> 1
+
+(( ·, ·)|s)b2(s)
+
+> 1
+
+≤ ∥ b1 − b2∥1,
+
+X
+
+> s,o
+
+Pb1 (o|a)Pb2 (s|o, a ) − Pb2 (s, o |a) = X
+
+> o
+
+ka 
+
+> 2
+
+(( ·, ·)|o)Pb1 (o|a) − X
+
+> o
+
+ka 
+
+> 2
+
+(( ·, ·)|o)Pb2 (o|a)
+
+> 1
+
+≤ ∥ Pb1 (·| a) − Pb2 (·| a)∥1
+
+= X
+
+> s
+
+b1(s)P (·| s, a ) − X
+
+> s
+
+b2(s)P (·| s, a ) 1
+
+= X
+
+> s
+
+ka 
+
+> 3
+
+(·| s)b1(s) − X
+
+> s
+
+ka 
+
+> 3
+
+(·| s)b2(s)
+
+> 1
+
+≤ ∥ b1 − b2∥1
+
+Combining the above inequalities yields 
+
+Eo∼P (·| b1,a )[∥bo,a  
+
+> 1
+
+− bo,a  
+
+> 2
+
+∥1] ≤ 2 ∥b1 − b2∥1.
+
+By symmetry, the same bound holds when the expectation is taken with respect to P (·| b2, a ) instead of P (·| b1, a ).This completes the proof. A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+## B ABSTRACTION UNDER COVERING 
+
+The proof for bounding the belief abstraction error, i.e. Theorem 11 follows a similar idea from Theorem 9 and Proposition 48 in [Subramanian et al., 2022]. 
+
+Definition 3. A ε-cover Cε is a subspace of the belief state space which satisfies: 
+
+B ⊂ [
+
+> c∈C ε
+
+B(c, ε ) (3) 
+
+where B(c, ε ) stands for an open ball centered at c with radius ε. The cardinality of Cε is called ε-covering number. For every ε-cover Cε, there exist a partition of the belief state space, where each c ∈ C ε acts as the representation element of the bin. 
+
+Building on this, we can attempt to characterize how certain important quantities behave when two belief states are sufficiently close. First, the following lemma provides a bound on the difference in expected rewards when the belief states are close. 
+
+Lemma 4. For two belief states b1 and b2, ∀a ∈ A , we have: 
+
+|r(b1, a ) − r(b2, a )| ≤ Rmax ∥b1 − b2∥1. (4) 
+
+Proof. This is easily obtained from: 
+
+|r(b1, a ) − r(b2, a )| = |Es∼b1 [r(s, a )] − Es∼b2 [r(s, a )] |
+
+= |⟨ r(·, a ), b 1 − b2⟩| ≤ Rmax ∥b1 − b2∥1.
+
+And it shows that when treating POMDPs as belief space MDPs, there’s intrinsic smoothness within the dynamic. 
+
+Lemma 5. (Lemma 2 in [Zhang et al., 2012]) For any two belief points b1, b2 satisfying ∥b1 − b2∥1 ≤ ε,P 
+
+> o
+
+|P (o|b1, a ) − P (o|b2, a )| ≤ ∥ b1 − b2∥1 ≤ ε.
+
+Consequently, we put forward the following proposition. 
+
+Proposition 2. For policy π satisfying Assumption 1, we have for ∀o, a 
+
+X
+
+> o,a
+
+|P (o|b1, a )π(a|b1) − P (o|b1, a )π(a|b2)| ≤ Lπ ∥b1 − b2∥1. (5) 
+
+Proof. This is a direct application of the data processing inequality. Notice that kb1 (( o′, a ′)|a) = P (o′|b1, a )I(a = a′)
+
+is a Markov kernel, then 
+
+X
+
+> o,a
+
+|P (o|b1, a )π(a|b1) − P (o|b1, a )π(a|b2)| = X
+
+> o′,a ′
+
+X
+
+> a
+
+kb1 (( o′, a ′)|a)π(a|b1) − X
+
+> a
+
+kb1 (( o′, a ′)|a)π(a|b2)
+
+≤ ∥ π(·| b1) − π(·| b2)∥1
+
+≤ Lπ ∥b1 − b2∥1
+
+and the proof is done. The one-step error is easy to control, however, without model irrelevant state bastraction assumptions such as bisimulation, it is extremely difficult to control the accumulative error induced by infinite amount of steps. Fortunately, stability property of value function provides us with an alternative approach. In the abstract MDP, the tuple (S, A, P, R, γ ) is mapped by the abstraction ϕ to (Sϕ, A, P ϕ, R ϕ, γ ), which means that the transition dynamics Pϕ in the abstract MDP are induced by the original MDP. Youheng Zhu, Yiping Lu 
+
+Specifically, the induced Pϕ satisfies that there exists a family of probability measures {px}x∈S ϕ , where each px is defined on ϕ−1(x), such that the transition probability from ϕ(s) to ϕ(s′) under action a, namely, Pϕ(ϕ(s′)|ϕ(s), a )
+
+in the abstract MDP can be written as: 
+
+Pϕ(ϕ(s′)|ϕ(s), a ) = Es∼pϕ(s) [Pϕ(ϕ(s′)|s, a )] (6) Because this characterization of Pϕ relies on the existence of such a family of probability measures without specifying their exact properties, any proof involving the value function V πϕ 
+
+> bin
+
+must treat the {px}x∈S ϕ as arbitrary. With this understanding, we now present the following theorem, which provides an upper bound on the error between V [πϕ]true  
+
+> true
+
+and the lifted value function [V πϕ 
+
+> bin
+
+]true from the abstract MDP. Importantly, the proof of this theorem does not rely on the specific form of the measures {px}x∈S ϕ .
+
+Theorem 11. If Assumption 2 holds, then the error between V [πϕ]true  
+
+> true
+
+and the lifted abstract MDP’s true value function [V πϕ 
+
+> bin
+
+]true can be bounded as follows: 
+
+∥V [πϕ]true  
+
+> true
+
+− [V πϕ 
+
+> bin
+
+]true ∥∞ ≤ (Rmax + 2 LV )ε
+
+1 − γ + Rmax 
+
+(1 − γ)2 ε (7) 
+
+Proof. We begin by clarifying and establishing the notation used in the proof. Fix an arbitrary family {px}x∈S ϕ ,and let b′ ∼ bin( ϕ(b)) denote the expectation taken over the following sampling process: 1. Since ϕ(b) ∈ B ϕ is the representative element of some partition of the belief space after binning, the set 
+
+ϕ−1(ϕ(b)) ⊂ B is the corresponding element in the original belief space—i.e., the subset consisting of all belief states that are grouped into the same bin as b.2. Sample a temporary belief state btemp from ϕ−1(ϕ(b)) according to the fixed distribution pϕ(b).3. Starting from btemp , perform the belief update procedure, where the action a is determined by the policy π.Once the update is complete, the resulting belief state is the sampled b′.With this notation established, we can proceed with the proof of the theorem. The main idea of the proof is to construct a chain rule argument. First, notice that 
+
+[V πϕ 
+
+> bin
+
+]true (b) = E b1∼bin( ϕ(b)) 
+
+> b2∼bin( ϕ(b1))
+> ···
+
+[rϕ(ϕ(b1), a 1) + γr ϕ(ϕ(b2), a 2) + γ2rϕ(ϕ(b3), a 3) + · · · ] (8) Consider V [k] as 
+
+V [k] = E b1∼bin( ϕ(b))  
+
+> b2∼bin( ϕ(b1))
+> ···
+> bk∼bin( ϕ(bk−1))
+> bk+1 ∼bk
+> ···
+
+[rϕ(ϕ(b1), a 1) + γr ϕ(ϕ(b2), a 2) + γ2rϕ(ϕ(b3), a 3) + · · · ] (9) Then V [0] (b) = V [πϕ]true  
+
+> true
+
+(b). Next, for ∀b,
+
+|V [k+1] (b) − V [k](b)| (10) 
+
+= E b1∼bin( ϕ(b))  
+
+> b2∼bin( ϕ(b1))
+> ···
+> bk∼bin( ϕ(bk−1))
+> bk+1 ∼bk
+> bk+2 ∼bk+1
+> ···
+
+[γkV [πϕ]true  
+
+> true
+
+(bk+1 )] − E b1∼bin( ϕ(b))   
+
+> b2∼bin( ϕ(b1))
+> ···
+> bk∼bin( ϕ(bk−1))
+> bk+1 ∼bin( ϕ(bk))
+> bk+2 ∼bk+1
+> ···
+
+[γkrϕ(ϕ(bk+1 ), a ) + γk+1 V [πϕ]true  
+
+> true
+
+(bk+2 )] (11) 
+
+= E b1∼bin( ϕ(b))  
+
+> b2∼bin( ϕ(b1))
+> ···
+> bk∼bin( ϕ(bk−1))
+> bk+1 ∼bk
+> bk+2 ∼bk+1
+> ···
+
+[γkV [πϕ]true  
+
+> true
+
+(bk+1 )] − E b1∼bin( ϕ(b))   
+
+> b2∼bin( ϕ(b1))
+> ···
+> bk∼bin( ϕ(bk−1))
+> bk+1 ∼bin( ϕ(bk))
+> bk+2 ∼bk+1
+> ···
+
+[γkrϕ(ϕ(bk+1 ), a ) − γkr(bk+1 , a ) + γkV [πϕ]true  
+
+> true
+
+(bk+1 )] 
+
+(12) A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+≤ γkRmax ε + γk2LV ε + γk Rmax 
+
+1 − γ ε (13) where the last inequality used the stability of value function (Assumption 2), Lemma 1 and Lemma 4, 5 since the next belief is sampled from the start of same bin and thus close enough. Specifically, it uses the fact that 
+
+Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[V [πϕ]true 
+
+true (bo,a k )] − Ea∼π(ϕ(bk )) 
+
+bt∼pϕ(bk )
+
+o∼P (·| bt,a )
+
+[V [πϕ]true 
+
+true (bo,a t )] 
+
+= Ebt∼pϕ(bk )
+
+
+
+Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[V [πϕ]true 
+
+true (bo,a k )] − Ea∼π(ϕ(bk )) 
+
+o∼P (·| bt,a )
+
+[V [πϕ]true 
+
+true (bo,a t )] 
+
+
+
+≤ Ebt∼pϕ(bk )
+
+
+
+Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[V [πϕ]true 
+
+true (bo,a k )] − Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[V [πϕ]true 
+
+true (bo,a t )] 
+
+
+
++ Ebt∼pϕ(bk )
+
+
+
+Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[V [πϕ]true 
+
+true (bo,a t )] − Ea∼π(ϕ(bk )) 
+
+o∼P (·| bt,a )
+
+[V [πϕ]true 
+
+true (bo,a t )] 
+
+
+
+≤ Ebt∼pϕ(bk )
+
+
+
+Ea∼π(ϕ(bk )) 
+
+o∼P (·| bk ,a )
+
+[LV ∥bo,a k − bo,a t ∥1]
+
+
+
++ E bt∼pϕ(bk )
+
+a∼π(ϕ(bk )) 
+
+
+
+⟨P (·| bk, a ) − P (·| bt, a ), V [πϕ]true 
+
+true (b·,a t )⟩
+
+
+
+≤ 2LV ε + Rmax 
+
+1 − γ ε
+
+Finally, we do the telescoping, and sums up all the V [k+1] − V [k] to get for ∀b,
+
+|V [πϕ]true 
+
+true (b) − [V πϕ
+
+bin ]true (b)| (14) 
+
+=
+
+∞X
+
+k=0 
+
+ V [k+1] (b) − V [k](b) (15) 
+
+≤
+
+∞X
+
+k=0 
+
+γkRmax ε + γk2LV ε + γk Rmax 
+
+1 − γ ε (16) 
+
+≤ (Rmax + 2 LV )ε
+
+1 − γ + Rmax 
+
+(1 − γ)2 ε (17) Before ending this part, we’ll need to fill the gap between the target policy and the abstracted policy to which the target policy descended. This is handled by the following theorem, which does not rely on any assumption on the POMDP model itself. 
+
+Theorem 12. If Assumption 1 holds. 
+
+∥V π
+
+true − V [πϕ]true 
+
+true ∥∞ ≤ Rmax Lπ ε
+
+1 − γ + γR max 
+
+(1 − γ)2 Lπ ε (18) 
+
+Proof. Using the fact that V [πϕ]true 
+
+true = T [πϕ]true V [πϕ]true 
+
+true ,
+
+∥V π
+
+true − V [πϕ]true 
+
+true ∥∞ = ∥V π
+
+true − T [πϕ]true V π
+
+true + T [πϕ]true V π
+
+true − T [πϕ]true V [πϕ]true 
+
+true ∥∞
+
+≤ ∥ V π
+
+true − T [πϕ]true V π
+
+true ∥∞ + γ∥V π
+
+true − V [πϕ]true 
+
+true ∥∞. (19) Here for an MDP (S, A, r, γ, P ), (T π V )( s) := E a′∼π(·| s)
+
+s′∼P (·| s,a ′)
+
+[r(s, a ′) + γV (s′)] is the Bellman operator, which is a 
+
+γ-Lipchitz compression operator w.r.t. the infinity norm. Consequently, 
+
+∥V π
+
+true − V [πϕ]true 
+
+true ∥∞ ≤ 11 − γ ∥V π
+
+true − T [πϕ]true V π
+
+true ∥∞. (20) Youheng Zhu, Yiping Lu 
+
+For any b, we have 
+
+|(V π 
+
+> true
+
+− T [πϕ]true V π
+
+> true
+
+)( b)|
+
+= |(T π V π 
+
+> true
+
+− T [πϕ]true V π
+
+> true
+
+)( b)|
+
+= E a∼π(b) 
+
+> b+1 ∼P(·| b)
+
+
+
+r + γV π
+
+> true
+
+(b+1 )
+
+
+
+− Ea∼πϕ(ϕ(b))  
+
+> b+1 ∼P(·| b)
+
+
+
+r + γV π
+
+> true
+
+(b+1 )
+
+
+
+(21) We first look at r,
+
+|Ea∼π(b)[r] − Ea∼πϕ(ϕ(b)) [r]| = |Ea∼π(b)[r] − Ea∼π(ϕ(b)) [r]|≤ Rmax Lπ ε (22) Then we look at V π
+
+> true
+
+,
+
+E a∼π(b) 
+
+> b+1 ∼P(·| b)
+
+
+
+γV π
+
+> true
+
+(b+1 )
+
+
+
+− Ea∼πϕ(ϕ(b))  
+
+> b+1 ∼P(·| b)
+
+
+
+γV π
+
+> true
+
+(b+1 )
+
+
+
+= γ X
+
+> o∈O
+
+X
+
+> a∈A
+
+ P (o|b, a )π(a|b) − P (o|b, a )π(a|ϕ(b))  · V π (bo,a )
+
+
+
+≤ γR max 
+
+1 − γ Lπ ε (23) where we used Proposition 2 for the final inequality. 
+
+Proof of Theorem 2. 
+
+Proof. Combining Theorem 11, 12, we get 
+
+∥[V πϕ 
+
+> bin
+
+]true − V π
+
+> true
+
+∥∞ ≤ ∥ [V πϕ 
+
+> bin
+
+]true − V [πϕ]true  
+
+> true
+
+∥∞ + ∥V [πϕ]true  
+
+> true
+
+− V π
+
+> true
+
+∥∞
+
+≤ (Lπ + 1) Rmax + 2 LV
+
+1 − γ ε + γR max Lπ + Rmax 
+
+(1 − γ)2 ε, (24) thereby completing the proof. 
+
+## C DOUBLE SAMPLING ANALYSIS IN CHAPTER 5.1 
+
+Definition 4 (abstract algorithm) . Consider the Bellman error minimization algorithm using double sampling, not only is it executed in the real world (simulator), but also virtually in the abstract system, using the same piece of offline data. The optimization target for the abstract algorithm can be written as 
+
+ˆQπϕ 
+
+> ϕ
+
+= arg min  
+
+> f∈F
+
+Eϕ(f, π ) (25) 
+
+where 
+
+Eϕ(f, π ) = ED [( f (ϕ(b), a ) − (rϕ + γf (ϕ(b′
+
+> A
+
+), π ϕ)))( f (ϕ(b), a ) − (rϕ + γf (ϕ(b′ 
+
+> B
+
+), π ϕ)))] . (26) 
+
+Lemma 6 (MDP telescoping [Jiang and Xie, 2024]) . For an MDP (S, A, r, γ, P ) and any function Q : S ×A → R+,we have 
+
+JQ(π) − J(π) = 11 − γ Edπ [Q − T π Q] (27) 
+
+where (T π Q)( s, a ) := r(s, a ) + γEs′∼P (·| s,a )
+
+> a′∼π(·| s′)
+
+[Q(s′, a ′)] is the Bellman operator. 
+
+Lemma 7. In the binned system, we have the following telescoping error 
+
+|J ˆQ(πϕ) − J(πϕ)| ≤ 
+
+pCπ (ϕ)1 − γ ·
+
+q
+
+EdD [( ˆQ − T πϕ ˆQ)2] (28) A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Proof. Recall the previously mentioned Lemma 6. Substituting it into the case of the abstract belief MDP gives: 
+
+J ˆQ(πϕ) − J(πϕ) = 11 − γ Edπϕ [ ˆQ − T πϕ ˆQ] (29) Therefore, we have: 
+
+|J ˆQ(πϕ) − J(πϕ)| = 11 − γ Edπϕ [ ˆQ − T πϕ ˆQ]
+
+≤ 11 − γ Edπϕ [| ˆQ − T πϕ ˆQ|] (30) 
+
+≤ 11 − γ
+
+q
+
+Edπϕ [( ˆQ − T πϕ ˆQ)2] (31) 
+
+≤ 11 − γ
+
+r
+
+EdD [ dπ
+
+dD ( ˆQ − T πϕ ˆQ)2] (32) 
+
+≤
+
+pCπ (ϕ)1 − γ ·
+
+q
+
+EdD [( ˆQ − T πϕ ˆQ)2] (33) And we obviously have 
+
+EdD [Eϕ( ˆQ, π )] = EdD [( ˆQ − T πϕ ˆQ)2] (34) As the size of independent samples grows, the difference between the empirical estimate and the true expectation of the value above becomes closer, whose convergence speed can be characterized using concentration inequalities such as Hoeffding’s or Bernstein’s inequality. Using Hoeffding’s inequality, we get the following lemma. 
+
+Lemma 8. With probability at least 1 − δ, for ∀f ∈ F ,
+
+|E ϕ(f, π ) − EdD [Eϕ(f, π )] | ≤ 
+
+s
+
+8R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ (35) 
+
+Proof. For Eϕ(f, π ), we first estimate an upper bound on its absolute value. Since f ∈ F is used to approximate a value function, its upper bound can be assumed to be no greater than Rmax /(1 − γ), i.e., the upper bound of the value function. Therefore, we can give a rough upper bound (possibly with a constant slack, which is acceptable since it’s only a constant): 
+
+0 ≤ E ϕ(f, π ) ≤ 4R2max 
+
+(1 − γ)2
+
+Thus, by Hoeffding’s inequality, for any f ∈ F , we have: 
+
+Pr( |E ϕ(f, π ) − EdD [Eϕ(f, π )] | ≥ t) ≤ 2 exp 
+
+
+
+− 2t2n(1 − γ)4
+
+16 R4max 
+
+
+
+→ Pr( |E ϕ(f, π ) − EdD [Eϕ(f, π )] | > t ) ≤ 2 exp 
+
+
+
+− 2t2n(1 − γ)4
+
+16 R4max 
+
+
+
+(36) However, the goal of the proof is actually: 
+
+Pr( ∀f ∈ F , |E ϕ(f, π ) − EdD [Eϕ(f, π )] | ≤ t) (37) For such problems, a common approach is to use the union bound. Let the probability space be (Ω , Σ, Pr ), and define the events: 
+
+A := {ω ∈ Ω : ∀f ∈ F , |E ϕ(f, π ) − EdD [Eϕ(f, π )] |(ω) ≤ t}
+
+Bf := {ω ∈ Ω : |E ϕ(f, π ) − EdD [Eϕ(f, π )] |(ω) > t }Youheng Zhu, Yiping Lu 
+
+Then: 
+
+Pr( ∀f ∈ F , |E ϕ(f, π ) − EdD [Eϕ(f, π )] | ≤ t)= Pr( A) = 1 − Pr(Ω \A) = 1 − Pr( [ 
+
+> f∈F
+
+Bf )
+
+≥ 1 − X 
+
+> f∈F
+
+Pr( Bf ) ≥ 1 − 2|F| exp 
+
+
+
+− t2n(1 − γ)4
+
+8R4max 
+
+
+
+(38) The second-to-last step uses the subadditivity of probability (countable subadditivity), and the final step applies inequality (36). Let δ = 2 |F| exp   − t2n(1 − γ)4/8R4max 
+
+, then solving for t gives t =
+
+q 8R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+Substituting this into (37) completes the proof. In fact, Hoeffding’s inequality only leverages the boundedness of the function. However, by introducing the Bellman completeness assumption below, we can also take the variance of the function into account and apply Bernstein’s inequality to achieve a tighter convergence rate. And the standard Bellman completeness assumption is as below: 
+
+Assumption 8 (Bellman Completeness) . ∀f ∈ F , T πϕ f ∈ F .
+
+Remark 7. For a finite function space where |F| < ∞, the Bellman completeness Assumption 8 implies the realizability Assumption 4. 
+
+Proposition 3. Under the Bellman completeness Assumption 8, we can obtain an upper bound with O(1 /n )
+
+convergence rate. Specifically, with probability at least 1 − δ, for all f ∈ F , the following holds: 
+
+|E ϕ(f, π ) − EdD [Eϕ(f, π )] | ≲ R2max 
+
+n(1 − γ)2 · log |F| 
+
+δ (39) Of course, for the purpose of this discussion, the Bellman completeness assumption is not necessary—only the following realizability assumption is needed to achieve the goal. However, in this case, we can only characterize the concentration rate using Lemma 8 derived from Hoeffding’s inequality, and cannot use the tighter concentration rate provided by Proposition 3. 
+
+Lemma 9. If Assumption 5 holds, then 
+
+|E (f, π ) − E ϕ(f, π )| ≤ 4Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε (40) 
+
+Proof. 
+
+|E (f, π ) − E ϕ(f, π )|
+
+= |ED [( f (b, a ) − (r + γf (b′
+
+> A
+
+, π )))( f (b, a ) − (r + γf (b′ 
+
+> B
+
+, π )))] −
+
+ED [( f (ϕ(b), a ) − (rϕ + γf (ϕ(b′
+
+> A
+
+), π ϕ)))( f (ϕ(b), a ) − (rϕ + γf (ϕ(b′ 
+
+> B
+
+), π ϕ)))] |≤ | ED [{(f (b, a ) − f (ϕ(b), a )) − (r(b, a ) − rϕ(ϕ(b), a )) − γ(f (b′
+
+> A
+
+, π ) − f (ϕ(b′
+
+> A
+
+), π ϕ)}· (f (b, a ) − (r + γf (b′ 
+
+> B
+
+, π )))] |+
+
+|ED [{(f (b, a ) − f (ϕ(b), a )) − (r(b, a ) − rϕ(ϕ(b), a )) − γ(f (b′ 
+
+> B
+
+, π ) − f (ϕ(b′ 
+
+> B
+
+), π ϕ)}· (f (b, a ) − (r + γf (b′
+
+> A
+
+, π )))] |. (41) Using the fact that 
+
+|f (b, π ) − f (ϕ(b), π ϕ)|
+
+= |Eπ(a|b)[f (b, a )] − Eπ(a|ϕ(b)) [f (ϕ(b), a )] |≤ | Eπ(a|b)[f (b, a )] − Eπ(a|ϕ(b)) [f (b, a )] | + |Eπ(a|ϕ(b)) [f (b, a )] − Eπ(a|ϕ(b)) [f (ϕ(b), a )] |≤ Rmax 
+
+1 − γ ε + LQε (42) A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+we have 
+
+|E (f, π ) − E ϕ(f, π )|≤ 2 · 2Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε (43) 
+
+Proposition 4. If Assumption 4 , 5 holds, then 
+
+|EdD [Eϕ( ˆQπ , π )] | ≤ 
+
+s
+
+32 R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ + 8Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε (44) 
+
+Proof. Using Lemma 8, we have 
+
+|E ϕ( ˆQ, π ) − EdD [Eϕ( ˆQ, π )] | ≤ 
+
+s
+
+8R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ (45) and 
+
+|E ϕ(Qπϕ 
+
+> ϕ
+
+, π ) − EdD [Eϕ(Qπϕ 
+
+> ϕ
+
+, π )] | ≤ 
+
+s
+
+8R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ (46) where EdD [Eϕ(Qπϕ 
+
+> ϕ
+
+, π )] = 0 . Then using Lemma 9, we have with probability greater than 1 − δ
+
+|E ( ˆQ, π ) − EdD [Eϕ( ˆQ, π )] | ≤ 
+
+s
+
+8R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ + 4Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε (47) and 
+
+|E (Qπϕ 
+
+> ϕ
+
+, π ) − EdD [Eϕ(Qπϕ 
+
+> ϕ
+
+, π )] | ≤ 
+
+s
+
+8R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ + 4Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε (48) Using the abstract realizability Assumption 4, we have E( ˆQ, π ) = min f ∈F E(f, π ) ≤ E (Qπϕ 
+
+> ϕ
+
+, π ), and consequently 
+
+|EdD [Eϕ( ˆQπ , π )] | ≤ 
+
+s
+
+32 R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ + 8Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+ε. (49) And consequently, 
+
+Theorem 13. If Assumption 4, 5 hold, then 
+
+|J ˆQπ (πϕ) − J(πϕ)| ≤ 
+
+pCπ (ϕ)1 − γ ·
+
+vuuts
+
+32 R4max 
+
+n(1 − γ)4 · log 2|F| 
+
+δ + LE ε (50) 
+
+where 
+
+LE := 8Rmax 
+
+1 − γ ·
+
+
+
+(1 + γ)LQ + Rmax 
+
+1 − γ
+
+
+
+(51) 
+
+Proof. The result follows directly from Proposition 4, Lemma 7, and (34). The following series of theorems are all preparatory steps toward ultimately controlling the overall error. Youheng Zhu, Yiping Lu 
+
+Theorem 14. If Assumption 5 holds, then 
+
+|J ˆQπ (π) − J ˆQπ (πϕ)| ≤ Rmax 
+
+1 − γ ε + LQε (52) 
+
+Proof. We have 
+
+|J ˆQπ (π) − J ˆQπ (πϕ)|
+
+= |Eb∼d0 [ ˆQπ (b, π )] − Eb∼d0 [ ˆQπ (ϕ(b), π ϕ)] |
+
+= |Eb∼d0 [ ˆQπ (b, π ) − ˆQπ (ϕ(b), π ϕ)] |≤ Rmax 
+
+1 − γ ε + LQε (53) 
+
+Proof of Theorem 6. 
+
+Proof. Using Theorem 14 and the definition of L[2]  
+
+> ϕ
+
+in Theorem 3, we have L[2]  
+
+> ϕ
+
+= Rmax  
+
+> 1−γ
+
++ LQ
+
+Proof of Theorem 7. 
+
+Proof. Combining Theorem 13, Theorem 6 and the Meta-theorem 3, we have |J ˆQπ (π) − J(π)| ≤ √Cπ (ε)1−γ ·
+
+rq 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F|  
+
+> δ
+
++ LE ε + Lϕε, where LE = 8Rmax  
+
+> 1−γ
+
+·  (1 + γ)LQ + Rmax 
+
+> 1−γ
+
+. Note that when applying the Meta-theorem 3, we specify est ϕ( ˆQπ ) = J ˆQπ (πϕ) and est ϕ(Qπϕ) = J(πϕ).Then, applying the result of Lemma 3 proves the result. 
+
+Proof of Corollary 1. 
+
+Proof. Notice that the ε inside the square root always dominates the ε outside with ε small enough, therefore, we prove the corollary by substituting LE ε with 
+
+q 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F|  
+
+> δ
+
+, and then find the condition that the out side Lϕε can be dominated by the term inside the square root. Such condition can be presented as 
+
+  32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+ 14 ≤ LE 
+
+> Lϕ
+
+·√2Cnπ 
+
+> 1−γ
+
+. Noticing that the coverage term is generally increasing, and is always bounded below by 1, we therefore provide a sufficient condition as   32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+ 14 ≤ LE 
+
+> Lϕ
+
+· √21−γ . Solving it gives us the condition n ≥ 8R4max (Lϕ/L E )4 log(2 |F| /δ ), under which |J ˆQπ (π) − J(π)| ≤ 2√Cnπ 
+
+> 1−γ
+
+·   128 R4max  
+
+> n(1 −γ)4
+
+· log 2|F| 
+
+> δ
+
+ 14 .
+
+## D FUTURE-DEPENDENT VALUE FUNCTIONS 
+
+Definition 5. MDPs M1 = {S 1, A, P 1, R 1, H } and M2 = {S 2, A, P 2, R 2, H } are said to be isomorphic if there exists a bijection φ : S1 → S 2 such that φ(M1) := {φ(S1), A, P 1(φ(·), ·), R 1(φ(·), ·), H } = M2
+
+Theorem 15. For any POMDP P and T ∈ N+, there exists a short-term memory POMDP PT with memory window T such that the belief MDP of P, after abstraction by ϕT , is isomorphic to the belief MDP of PT .Proof. To prove the existence, it suffices to construct a short-term memory POMDP PT . Consider the belief MDP M of the original POMDP P, and let MT be the abstraction of M through ϕT . Let b denote the belief mapping in the original POMDP. Now, construct PT = ( S′, A, O, r ′, H, O′, T′) as follows: Define S′ := ST −1 
+
+> i=0
+
+(O × A )i × O , and the observation function as O′(o|s′ = ( o1, a 1, · · · , o T )) := I{o = oT }, which is a one-hot vector. The reward function is defined as r′(s′ = ( o1, a 1, · · · , o T ), a ) := Rϕ(ϕT (b(s′)) , a ), and the transition probability as T(s′
+
+> 1
+
+|s′
+
+> 0
+
+, a ) := Pϕ(ϕT (b(s′
+
+> 0
+
+)) |ϕT (b(s′
+
+> 1
+
+)) , a ), where Pϕ is defined in (6). A Covering Framework for Offline POMDPs Learning using Belief Space Metric          
+
+> POMDP
+> Short-term memory POMDP
+> estimate for POMDP
+> estimate for Short-term memory POMDP
+> Curse of Memory ✗
+> 1state abstraction truncation mapping
+> 2finite memory ✓
+> 3true algorithm v.s. abstract agorithm
+> policy: π
+> policy: πΦ
+> policy: π
+> policy: πΦ
+
+Figure 2: FDVF analysis pipeline Next, we verify that the belief MDP MT of POMDP PT is indeed isomorphic to the abstraction of the belief MDP M of P. Notice that for every historical sequence in PT , its state can be uniquely determined simply by taking the last T elements of the sequence. That is, the belief states in PT are one-hot encoded. Thus, the belief MDP of PT is isomorphic to the hidden underlying MDP of PT . According to the definitions above, this underlying MDP is naturally isomorphic to MT .This completes the construction and the proof. 
+
+Remark 8. As discussed above and in the main text, because this short-term memory POMDP is induced by an abstraction mapping ϕ, and this abstraction mapping ϕ guarantees that all belief states mapped to the same representative are close to each other (Assumption 6), we can directly apply the conclusions from Theorem 2 for abstraction error control. Note that policy truncation is essential here. This is not only to directly reuse the conclusions from Theorem 2, but also due to the “curse of memory”—the memory of a policy can severely affect the quality of theoretical guarantees. 
+
+D.1 Real Algorithm vs. Abstract Algorithm 
+
+The differences between the real algorithm and the abstract algorithm come from three aspects: 1. The discrepancy between μ(ah, τ + 
+
+> h
+
+) = πe(ah|τ + 
+
+> h
+
+)/π b(ah|τ + 
+
+> h
+
+) and the truncated version μ(ah, τ +[h−T +1: h]) = 
+
+πe(ah|τ +[h−T +1: h])/π b(ah|τ +[h−T +1: h]). This discrepancy can be controlled by the following lemma: 
+
+Lemma 10. If Assumption 7 hold, then for any ε > 0 that satisfies condition 1, with T ≥ T1(ε), we have, 
+
+|μ(ah, τ + 
+
+> h
+
+) − μ(ah, τ +[h−T +1: h])| ≤ 2( Cμ + 1) Lπ ε
+
+min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+) (54) 
+
+Proof. Using Condition 1, we have 
+
+|μ(ah, τ + 
+
+> h
+
+) − μ(ah, τ +[h−T +1: h])| ≤ |πe(ah|τ + 
+
+> h
+
+) − πe(ah|τ +[h−T +1: h])|
+
+πb(ah|τ + 
+
+> h
+
+)+ πe(ah|τ +[h−T +1: h]) 1
+
+πb(ah|τ + 
+
+> h
+
+) − 1
+
+πb(ah|τ +[h−T +1: h]) (55) 
+
+≤ Lπ ε
+
+min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+)
+
+
+
+1 + πe(ah|τ +[h−T +1: h])
+
+πb(ah|τ +[h−T +1: h])
+
+
+
+(56) 
+
+≤ Lπ ε
+
+min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+) (2 + 2 Cμ) (57) which proves the lemma. Youheng Zhu, Yiping Lu 
+
+2. The discrepancy between V (f ′
+
+> h
+
+, τ ′
+
+> h
+
+) and V (f ′
+
+> h
+
+, τ ′ 
+
+> [h−T+1: h]
+
+). This requires the function class to forget historical information quickly, as stated below: 
+
+Assumption 9 (Fast-Forgotten Function Class) . Consider the function class used for estimation V : F =(F′ × H ) → R. It satisfies that for all ε > 0, there exists T ∈ N+ such that for all V ∈ V ,
+
+|V (fh, τ h) − V (f[h:h+T ], τ [h−T +1: h])| ≤ ∥V∥ ∞ε (58) 
+
+The suitable values of T form a function of ε, denoted as T2(ε).
+
+Note that the essential assumption here is that the "history" in the extended future is fast-forgetting. Since in the original literature of FDVF [Uehara et al., 2023], the future is by default truncated by a length MF .3. The difference in data-generating distribution between the real POMDP and the abstract short-term memory POMDP. This discrepancy arises from two sources, firstly that the behavior policy is truncated, and secondly, the transition probabilities of the POMDP differ slightly. Let wϕ(f1) denote the importance weight accounting for this distribution shift. Then we define: 
+
+wϕT (f1) := πϕT 
+
+> b
+
+(a1|τ +1 )
+
+πb(a1|τ +1 ) · P ϕT (o2|τ2)
+
+P (o2|τ2) · · · · · πϕT 
+
+> b
+
+(aH |τ + 
+
+> H
+
+)
+
+πb(aH |τ + 
+
+> H
+
+) (59) Under the assumptions that both the POMDP and the policy are fast-forgetting, we have the following lemma: 
+
+Lemma 11. If Assumptions 6 and 7 hold, then for any ε > 0, with T ≥ max {T0(ε), T 1(ε)}, then for ε small enough, namely, when Condition 2 is satisfied, we have 
+
+|wϕT (f1)| ≤ 1 + 3Hε 
+
+min {min h min oh,τ h P (oh|τh), min h min ah,τ +
+
+> h
+
+πb(ah|τ + 
+
+> h
+
+)/L π } (60) 
+
+Proof. We first show that using Condition 2, for any h, 1 − πϕTb (ah|τ +    
+
+> h)
+> πb(ah|τ+
+> h)
+
+≤ Lπ ε     
+
+> min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)
+
+.Then using the fact that 
+
+P ϕT (oh|τh) = P ϕT (oh|b(τ +
+
+> h−1
+
+), a h−1) = Eb∼pϕT (b(τ + 
+
+> h−1))
+
+[P (oh|b, a h−1)] (61) and that for all b ∈ ϕ−1 
+
+> T
+
+(ϕT (b(τ +
+
+> h−1
+
+))) , ∥b − b(τ +
+
+> h−1
+
+)∥1 ≤ ε, which is described in Assumption 6. It then follows that 
+
+|P (oh|τh) − P ϕT (oh|τh)| = |P (oh|b(τ +
+
+> h−1
+
+), a h−1) − Eb∼pϕT (b(τ + 
+
+> h−1))
+
+[P (oh|b, a h−1)] |
+
+= |Eb∼pϕT (b(τ + 
+
+> h−1))
+
+[P (oh|b(τ +
+
+> h−1
+
+), a h−1) − P (oh|b, a h−1)] |≤ Eb∼pϕT (b(τ + 
+
+> h−1))
+
+[|P (oh|b(τ +
+
+> h−1
+
+), a h−1) − P (oh|b, a h−1)|] (62) 
+
+≤ ε (63) where the last step uses Lemma 5. Now we have 1 − P ϕT (oh|τh)  
+
+> P(oh|τh)
+
+≤ ε    
+
+> min hmin oh,τ hP(oh|τh)
+
+.Therefore, wϕT ≤ (1 + ε         
+
+> min {min hmin oh,τ hP(oh|τh),min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)/L π}
+
+)H , combining Condition 2 we have 
+
+wϕT ≤ 1 + 3Hε          
+
+> min {min hmin oh,τ hP(oh|τh),min hmin ah,τ +
+> h
+> πb(ah|τ+
+> h)/L π}
+
+.To summarize, by considering all sources of error, we have the following theorem. A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Lemma 12. Define 
+
+EV,Θ(V, θ ) := 
+
+> H
+
+X
+
+> h=1
+
+ED [{μ(ah, τ + 
+
+> h
+
+)( rh + V (fh+1 )) − V (fh)}θ(τh) − 12 θ(τh)2] (64) 
+
+EϕT
+
+> V,Θ
+
+(V, θ ) := 
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT ({μ(ah, τ + 
+
+> h−T+1: h
+
+)( rh + V (ϕT (fh+1 ))) − V (ϕT (fh)) }θ(τh)
+
+− 12 θ(τh)2)] (65) 
+
+where ϕT (fh) = ϕT (f ′
+
+> h
+
+, τ h) = ( f ′
+
+> h
+
+, ϕ T (τh)) . If Assumptions 6,7, and9 all hold, then for any ε > 0 satisfying condition 1, 2 and for any V ∈ V , θ ∈ Θ, we have: 
+
+|E V,Θ(V, θ ) − E ϕT
+
+> V,Θ
+
+(V, θ )| ≤ 13 LE ε (66) 
+
+and T = max {T0(ε), T 1(ε), T 2(ε)}.Proof. The proof of such lemma uses triangle’s inequality, by summing up the error depicted in Lemma 10, Assumption 9, and Lemma 11, we get the result. 
+
+Theorem 16. Define 
+
+EV (V ) := max  
+
+> θ∈Θ
+
+EV,Θ(V, θ ), EϕT 
+
+> V
+
+(V ) := max  
+
+> θ∈Θ
+
+Eϕ
+
+> V,Θ
+
+(V, θ ) (67) 
+
+If Assumptions 6,7, and9 all hold, then for any ε > 0 satisfying condition 1, 2 and for any V ∈ V , we have: 
+
+|E V (V ) − E ϕT 
+
+> V
+
+(V )| ≤ 23 LE ε (68) 
+
+and T = max {T0(ε), T 1(ε), T 2(ε)}.Proof. This use the observation that if ∀θ, |E V,Θ(V, θ ) − E ϕT
+
+> V,Θ
+
+(V, θ )| ≤ 13 LE ε, then | sup θ EV,Θ(V, θ ) −
+
+sup θ EϕT
+
+> V,Θ
+
+(V, θ )| ≤ 2 · 13 LE ε.
+
+Proof of Theorem 8. 
+
+Proof. To prove the theorem, we need to prove L[2]  
+
+> ϕ
+
+:= ∥V∥ ∞ satisfies |Eπb [ ˆV (f1)] − Eπϕb
+
+[ ˆV (f1)] | ≤ L[2]  
+
+> ϕ
+
+ε.Recall that in our construction, the dynamic of the short-term memory POMDP ensures that the first T action-observation has the exact same dynamic as the true POMDP. Also notice that ∀f [1] 1 , f [2] 1 ∈ F 1, if f [1] 1 , f [2] 1 shares the first T pairs of action and observation, then | ˆV (f [1] 1 ) − ˆV (f [2] 1 )| ≤ ∥V∥ ∞ε as indicated by the property of the function class V, Assumption 9. Then 
+
+|Eπb [ ˆV (f1)] − Eπϕb
+
+[ ˆV (f1)] | ≤ Ef1: T ∼πb [|EfT +1 ∼πb [ ˆV (f1)|f1: T ] − EfT +1 ∼πϕb
+
+[ ˆV (f1)|f1: T ]|]
+
+≤ ∥V∥ ∞ε (69) which proves the theorem. 
+
+D.2 Theoretical Guarantee of FDVF Proof of Theorem 9. Youheng Zhu, Yiping Lu 
+
+Proof. Let ˆV := arg min V ∈V EV (V ), and correspondingly ˆVϕ := arg min V ∈V EϕT 
+
+> V
+
+(V ). Our first goal is to show that with probability greater than 1 − δ,
+
+|Jϕ(πϕe ) − Eπϕb
+
+[ ˆV (f1)] | ≤ √H · max  
+
+> h∈[H]
+
+sup  
+
+> V∈V
+
+vuut Eπϕe [( B(S,HT )V )( sh, τ [h−T +1: h])2]
+
+Eπϕb
+
+[( BHV )( τh)2]
+
+·
+
+r cHC 2 
+
+> V
+
+Cμ
+
+n log |V|| Θ|
+
+δ + LE ε (70) To do this, we follow the proof provided by [Zhang and Jiang, 2024], define XϕV,h := μ(ah, τ + 
+
+> h
+
+)( rh + V (ϕT (fh+1 ))) −
+
+V (ϕT (fh)) , XV,h := μ(ah, τ + 
+
+> h
+
+)( rh + V (fh+1 )) − V (fh), then EϕT 
+
+> V
+
+(V ) = 12 max θ∈Θ
+
+PHh=1 ED [wϕT (( XϕV,h )2 − (XϕV,h −
+
+θ(τh)) 2)] , and such θ that achieves maximum is denoted as ˆθV . Similarly, EV (V ) = 12 max θ∈Θ
+
+PHh=1 ED [X2 
+
+> V,h
+
+−
+
+(XV,h − θ(τh)) 2) and the θ that achieves maximum is represented by ˆθ0 
+
+> V
+
+. According to a concentration argument using Bernstein’s inequality as presented in first part ( Analysis of Inner Maximizer ) of the the proof of theorem 2 in [Zhang and Jiang, 2024], we arrive at an argument that indicates with probability greater than 1 − δ/ 2, for any 
+
+V ∈ V , θ ∈ Θ,
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (ˆθV (τh) − XϕV,h )2]−
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (XϕV,h − (BHV )( τh)) 2]
+
+≤ 675 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ =: η (71) Then we have 
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( Xϕ
+
+> ˆV ,h
+
+)2 − (Xϕ 
+
+> ˆV ,h
+
+− (BH ˆV )( τh)) 2)] 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( Xϕ
+
+> ˆV ,h
+
+)2 − (ˆθ ˆV (τh) − Xϕ
+
+> ˆV ,h
+
+)2)] + η (72) 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [X2ˆV ,h − (ˆθ ˆV (τh) − X ˆV ,h )2] + 13 LE ε + η (73) 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [X2ˆV ,h − (ˆθ0ˆV (τh) − X ˆV ,h )2] + 13 LE ε + η (74) 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( Xϕ
+
+> ˆVϕ,h
+
+)2 − (ˆθ ˆVϕ (τh) − Xϕ
+
+> ˆVϕ,h
+
+)2)] + LE ε + η (75) Here, (72) uses (71) . (73) uses Lemma 12 and the fact that EV,Θ( ˆV , ˆθ ˆV ) = PHh=1 ED [X2ˆV ,h − ( ˆθ ˆV (τh) − X ˆV ,h )2]
+
+and that Eϕ
+
+> V,Θ
+
+( ˆV , ˆθ ˆV ) = PHh=1 ED [wϕT (( Xϕ
+
+> ˆV ,h
+
+)2 − ( ˆθ ˆV (τh) − Xϕ
+
+> ˆV ,h
+
+)2)] . After that, (74) uses the fact that ˆθ0ˆV =arg max θ∈Θ EV,Θ( ˆV , θ ), thus EV,Θ( ˆV , ˆθ0ˆV ) ≥ E V,Θ( ˆV , ˆθ ˆV ). (75) uses Theorem 16 and the fact that min V ∈V EV (V ) = 
+
+PHh=1 ED [X2ˆV ,h −( ˆθ0ˆV (τh)−X ˆV ,h )2] and min V ∈V Eϕ 
+
+> V
+
+(V ) = PHh=1 ED [wϕT (( Xϕ
+
+> ˆVϕ,h
+
+)2 −( ˆθ ˆVϕ (τh)−Xϕ
+
+> ˆVϕ,h
+
+)2)] . Noticing that min V ∈V EV ≤ min V ∈V Eϕ 
+
+> V
+
+(V ) + sup V ∈V |E V (V ) − E ϕ 
+
+> V
+
+(V )| finish the derivation of (75). After that, notice the abstract realizability assumption ∃V ϕ 
+
+> F
+
+∈ V , and that for any V ϕ 
+
+> F
+
+, we have 
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( Xϕ
+
+> ˆVϕ,h
+
+)2 − (ˆθ ˆVϕ (τh) − Xϕ
+
+> ˆVϕ,h
+
+)2)] 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( XϕV ϕ 
+
+> F,h
+
+)2 − (ˆθV ϕ
+
+> F
+
+(τh) − XϕV ϕ 
+
+> F,h
+
+)2)] (76) 
+
+≤
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( XϕV ϕ 
+
+> F,h
+
+)2 − (XϕV ϕ  
+
+> F,h
+
+− (BHV ϕ 
+
+> F
+
+)( τh)) 2)] + η = η (77) A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+where the second last inequality uses the minimal property of ˆVϕ, and the last inequality uses (71) . The last equality is the result of the definition of V ϕ 
+
+> F
+
+that it is the zero point of bellman residual operator BH.Combining (77) and (75), we have 
+
+> H
+
+X
+
+> h=1
+
+ED [wϕT (( Xϕ
+
+> ˆV ,h
+
+)2 − (Xϕ 
+
+> ˆV ,h
+
+− (BH ˆV )( τh)) 2)] ≤ LE ε + 1350 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ (78) The next step is identical to the equation (17) in [Zhang and Jiang, 2024], which, with the help of Bernstein’s inequality, gives us that with probability greater than 1 − δ/ 2, for any V ∈ V ,
+
+> H
+
+X
+
+> h=1
+
+{ED − Eπϕb
+
+}[wϕT (( XϕV,h )2 − (XϕV,h − (BHV )( τh)) 2)] 
+
+≤
+
+vuut 58 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V| 
+
+δ ·
+
+> H
+
+X
+
+> h=1
+
+Eπϕb
+
+[( BHV )( τh)2] + 27 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V| 
+
+δ . (79) Therefore, combining (78) and (79) we get 
+
+> H
+
+X
+
+> h=1
+
+Eπϕb
+
+[( BHV )( τh)2] ≤ LE ε + 1377 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ
+
++
+
+vuut 58 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ ·
+
+> H
+
+X
+
+> h=1
+
+Eπϕb
+
+[( BHV )( τh)2], (80) solving which gives us the final result that 
+
+> H
+
+X
+
+> h=1
+
+Eπϕb
+
+[( BHV )( τh)2] ≤ 1406 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ + LE ε
+
++
+
+s
+
+80707 H2C4 
+
+> V
+
+C2
+
+> μ
+
+∥wϕT ∥2
+
+> ∞
+
+n2 ·
+
+
+
+log 4|V|| Θ|
+
+δ
+
+2
+
++ 29 HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ · 2LE ε (81) 
+
+≤ (1406 + √80707 + 29 C)HC 2 
+
+> V
+
+Cμ∥wϕT ∥∞
+
+n · log 4|V|| Θ|
+
+δ + LE ε (82) where the last step is subject to 2LE ε ≤ CHC 2   
+
+> VCμ∥wϕT∥∞
+> n
+
+· log 4|V|| Θ| 
+
+> δ
+
+. Notice that under condition 2, ∥wϕT ∥∞ ≤ e,so this requirement is covered by condition 3. Then (70) is shown using the telescoping property of bellman residual operator and the fact that ∥wϕT ∥∞ ≤ e as has been mentioned. Now that we’ve obtained (70) , it suffice to prove the theorem using the result from Theorem 8, which indicates that 
+
+|J(πe) − Jϕ(πϕe )| + |Eπb [ ˆV (f1)] − Eπϕb
+
+[ ˆV (f1)] | ≤ Lϕε. (83) And we prove the theorem by applying Meta-theorem 3. Note that when applying the Meta-theorem, we specify est ϕ( ˆV ) = Eπϕb
+
+[ ˆV (f1)] and est ϕ(V πϕ ) = Jϕ(πϕe ), the latter is the ground truth estimation on the abstract system. 
+
+Corollary 3. Under the conditions of the Theorem 9, with probability greater then 1 − δ, we have: 
+
+|J(πe) − Eπb [ ˆV (f1)] | ≤ inf 
+
+> ε≥0
+> D(ε)
+
+Lϕε + √H · max  
+
+> h∈[H]
+
+sup  
+
+> V∈V
+
+vuut Eπϕe [( B(S,HT )V )( sh, τ [h−T +1: h])2]
+
+Eπϕb
+
+[( BHV )( τh)2]
+
+·
+
+r cHC 2 
+
+> V
+
+Cμ
+
+n log |V|| Θ|
+
+δ + LE ε
+
+!
+
+(84) Youheng Zhu, Yiping Lu 
+
+where D(ε) stands for such ε that satisfies abstract realizability, Bellman completeness and condition 1, 2 and 3. Proof. Combining Lemma 3 and Theorem 9, we get the result. 
+
+Proof of Corollary 2 
+
+Proof. This is obtained by choosing LE ε = c′HC 2  
+
+> VCμ
+> n
+
+log |V|| Θ| 
+
+> δ
+
+for some constant c′ in Theorem 9. 
+
+D.3 A Simpler Pipeline: Abstracting Only the Policy Proof of Theorem 10. 
+
+Proof. The new Lϕ is obtained using Theorem 12 combining with Theorem 8, and the new LE is analogous to the result of Lemma 12. The rest of the proof is exactly identical to that of Theorem 9. 
+
+## E WHY OUR COVERAGE IS BETTER 
+
+Elaboration on example 1 In this example, we consider a belief space with a smoothness structure (Section 5.3 [Lee et al., 2007]) denoted as follow: 
+
+B is a bounded subset in a |S| -dimensional vector space, assume that every belief b ∈ B can be represented by m basis vectors through linear combinations, and the magnitudes of both the basis elements and the linear coefficients are bounded above by a constant C. Then the covering number for our belief space scales as 
+
+O(( C|S| LE m)m · ( 32 R4max  
+
+> n(1 −γ)4
+
+· log 2|F|  
+
+> δ
+
+) m 
+
+> 2
+
+). We assume the coverage being sublinear polynomial w.r.t. its worst case (i.e. the covering number), specifically to the power of 12m . Then we have a finite sample guarantee of 
+
+O( (C|S| LE mR 2max ) 14 
+
+> (1 −γ)32
+
+· ( 1 
+
+> n
+
+log |F|  
+
+> δ
+
+) 18 ). Note that we only assume sublinear polynomial instead of logarithmic since the latter is too strong, and may directly resolve the exponentiality. 
+
+Proof of Theorem 4 
+
+Proof. We proof the theorem by constructing dD (τ ′) = P     
+
+> {τ: ˜ϕT(τ)= τ′}
+
+dπb (τ ). Then noticing that dπϕe 
+
+> ϕ
+
+(τ ′) = 
+
+P     
+
+> {τ: ˜ϕT(τ)= τ′}
+
+d[πϕe ]true (τ ) is automatically satisfied by how the abstraction ϕT is defined. Also, it’s not difficult to notice that in the one-hot belief state scenario, d[πϕe ]true (sh,τ h)  
+
+> dπb(sh,τ h)
+
+= d[πϕe ]true (τh)  
+
+> dπb(τh)
+
+, and it’s exactly the same for the short-term memory POMDP induced by ˜ϕT as we constructed. Here, ˜ϕT : H → H T ⊂ H .Then, consider two σ-algebras A := P(H) and D := ˜ϕ−1 
+
+> T
+
+(P(HT )) , and it’s obvious that D ⊂ A . Define the probability point measure P πe and P πb corresponding to the weight function d[πϕe ]true and dπb on the σ-algebras 
+
+A, then the probability measure can also be restricted to the smaller σ-algebra D. It is easy to notice that the two terms we try to compare coincides with the χ2-divergence between P πe and P πb , where for the LHS we use the coarser σ-algebra D, and use the finer σ-algebra A for the RHS. Then we use the variational representation of χ2-divergence to obtain our final result, by noticing that 
+
+χ2 
+
+> D
+
+(P πe ∥P πb ) = sup 
+
+> g∈M (D)
+
+EP πe [g(τh)] − EP πb [g(τh)2/4 + g(τh)] (85) 
+
+χ2
+
+> A
+
+(P πe ∥P πb ) = sup 
+
+> g∈M (A)
+
+EP πe [g(τh)] − EP πb [g(τh)2/4 + g(τh)] (86) Since D ⊂ A , any g that is D measurable is also A measurable, consequently 
+
+χ2 
+
+> D
+
+(P πe ∥P πb ) ≤ χ2
+
+> A
+
+(P πe ∥P πb ) (87) which proves the theorem. A Covering Framework for Offline POMDPs Learning using Belief Space Metric 
+
+Proof of Theorem 5 
+
+Proof. Construct dD exactly as in Theorem 4, then let w⋆(τh) = d[πϕe ]true (τh)  
+
+> dD(τh)
+
+, and τ ⋆h is when achieves the maximum. Similarly, let w∗( ˜ϕT (τ )) = dπϕe ( ˜ϕT (τ ))     
+
+> dD( ˜ϕT(τ))
+
+, and ˜ϕT (τ ∗) is when achieves the maximum. It’s obvious that ∀τh such that ˜ϕT (τh) = ˜ϕT (τ ∗), w⋆(τh) ≤ w⋆(τ ⋆h ). Denote τ ′ 
+
+> h
+
+:= arg max ˜ϕT (τh)= ˜ϕT (τ ∗) w⋆(τh), then 
+
+w∗( ˜ϕT (τ ∗)) =               
+
+> P˜ϕT(τh)= ˜ϕT(τ∗)d[πϕe]true (τh)
+> P˜ϕT(τh)= ˜ϕT(τ∗)dD(τh)
+
+. Notice that 
+
+P ˜ϕT (τh)= ˜ϕT (τ ∗) d[πϕe ]true (τh)
+
+P ˜ϕT (τh)= ˜ϕT (τ ∗) dD (τh) ≤
+
+P ˜ϕT (τh)= ˜ϕT (τ ∗) dD (τh) · d[πϕe ]true (τ ′
+
+> h
+
+)/d D (τ ′
+
+> h
+
+)
+
+P ˜ϕT (τh)= ˜ϕT (τ ∗) dD (τh) = w⋆(τ ′
+
+> h
+
+)
+
+Consequently, w∗( ˜ϕT (τ ∗)) ≤ w⋆(τ ′
+
+> h
+
+) ≤ w⋆(τ ⋆h ), which prove the theorem. 
+
+## F RELATION WITH DEEP ABSTRACTION 
+
+In this section, we discuss our relation with OPE methods that explicitly construct abstractions. Our method uses abstraction purely as a tool for analysis: we analyze existing algorithms without changing them, but simply reveal when and how these algorithms admit improved guarantees due to belief-space smoothness. On the contrary, some other methods actively construct an abstraction to simplify OPE. In such cases, algorithms running on an abstract system (thus simpler than the original system) may achieve smaller error guarantees. In this section, we briefly compare our idea and that of deep abstraction [Hao et al., 2024]. In [Hao et al., 2024], they designed a method that construct a deep abstraction in MDPs using the conventional abstraction techniques, by applying two different methods of abstraction recursively to obtain a deep abstraction. And provably, the variance of the abstracted system monotonously decreases as the abstraction goes deeper. 
+
+Comparison with our settings. 
+
+1. Differences in type and strictness of abstraction: The abstraction in this paper requires, at each step, an either forward-model-irrelevant condition or backward-model-irrelevant condition. As we know, bisimulation, whether or not in its approximate version, is a very strong condition to fulfill, and becomes especially restrictive in belief spaces with exponential cardinality and limited structure. Also, since it’s using conventional abstraction skills, it doesn’t require the metric structure of the state space. In contrast, our abstraction is based on an ε-net over the belief space, which leverages the metric geometry of the space and applies uniformly to a wide range of POMDPs regardless of structural assumptions. 2. In solving the curse of horizon: Indeed, [Hao et al., 2024] elegantly showed that the MSE monotonously decreases as the abstraction goes deeper. But to address the curse of memory/horizon via abstraction, one must analyze how coverage improves in the abstract space. Notably, directly applying their analysis to POMDPs reveals that Assumptions 2 and 4 implicitly hide an exponential constant within O(1) . This constant stems from the boundedness of the function class W , which includes the MIS ratio ˆwπ and is assumed finite under Assumption 2. While this is acceptable in MDPs where no curse of horizon/memory exists, in POMDPs, it is crucial to account for how abstraction influences this exponential term. 
+
+## G FUTURE ALGORITHM DESIGN 
+
+While our paper focuses on the theoretical framework, the stability perspective of our analysis naturally inspires concrete algorithmic ideas for future work. 1. Stability-regularized training: Augment Bellman-error minimization or value-function fitting with an additional penalty term 
+
+λED⊗2 [I(∥ˆb1 − ˆb2∥1 ≤ ϵ) · | V (ˆb1) − V (ˆb2)|].Youheng Zhu, Yiping Lu 
+
+2. Post-training stability selection: Train multiple candidate policies, then select the one with the highest empirical stability measured over belief neighborhoods. Theoretically, this is equivalent to the above penalty approach as λ → 0.
+
+## H LIMITATIONS 
+
+Despite our general result is provably no worse than the original coverage assumption, it is possible in some circumstances that the metric property of belief space cannot improve the coverage either. The simplest scenario to consider is when every history has a unique one-hot belief state, and the POMDP is merely equivalent to a MDP with exponentially large state space. In this case, the belief metric is a discrete metric, for 
+
+∀b1, b 2 ∈ B , b 1̸ = b2 → ∥ b1 − b2∥1 = 2 , and the covering number is exactly the cardinality of the space, which is exponential. This reveals the limitation of our analysis in cases when belief space is sparse, or when lack of some specific smoothness structure. However, information-theoretically, OPE problems for POMDPs always suffer from the curse of Horizon in the most general case as shown in [Zhang and Jiang, 2025], meaning that structural assumptions or specific properties of the system must be utilized to gain meaningful progress. Another limitation is when sample size becomes too large comparing to the horizon H. Notice that in the finite sample argument provided by our result (e.g. Corollary 1), the abstract coverage depends on the approximation level ε, which is set to O(n−1). If n becomes too large in this case, the O(n−1)-covering number will converge to the cardinality of the space B itself, which is exponential w.r.t. the horizon H. This also trivialize our analysis. Therefore, when considering finite horizon POMDPs, the horizon should be relatively large comparing to the sample size for our result to be valid.

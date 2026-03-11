@@ -1,0 +1,957 @@
+Title: BeamPERL: Parameter-Efficient RL with Verifiable Rewards Specializes Compact LLMs for Structured Beam Mechanics Reasoning
+
+URL Source: https://arxiv.org/pdf/2603.04124v1
+
+Published Time: Thu, 05 Mar 2026 02:18:28 GMT
+
+Number of Pages: 50
+
+Markdown Content:
+# BEAM PERL: P ARAMETER -E FFICIENT RL WITH VERIFIABLE 
+
+# REWARDS SPECIALIZES COMPACT LLM S FOR STRUCTURED 
+
+# BEAM MECHANICS REASONING 
+
+Tarjei Paule Hage 
+
+Department of Mechanical Engineering Massachusetts Institute of Technology Cambridge, MA, USA 
+
+Markus J. Buehler 
+
+Department of Civil and Environmental Engineering Department of Mechanical Engineering Schwarzman College of Computing Massachusetts Institute of Technology Cambridge, MA, USA 
+
+mbuehler@MIT.EDU 
+
+# ABSTRACT 
+
+Can reinforcement learning with hard, verifiable rewards teach a compact language model to reason about physics, or does it primarily learn to pattern-match toward correct an-swers? We study this question by training a 1.5B-parameter reasoning model on beam statics, a classic engineering problem, using parameter-efficient RLVR with binary cor-rectness rewards from symbolic solvers, without teacher-generated reasoning traces. The best BeamPERL checkpoint achieves a 66.7% improvement in Pass@1 over the base model. However, the learned competence is anisotropic: the model generalizes compositionally (more loads) but fails under topological shifts (moved supports) that require the same equilibrium equations. Intermediate checkpoints yield the strongest reasoning, while con-tinued optimization degrades robustness while maintaining reward. These findings reveal a key limitation of outcome-level alignment: reinforcement learning with exact physics rewards induces procedural solution templates rather than internalization of governing equations. The precision of the reward signal - even when analytically exact - does not by itself guarantee transferable physical reasoning. Our results suggest that verifiable rewards may need to be paired with structured reasoning scaffolding to move beyond template matching toward robust scientific reasoning. 
+
+Keywords Large Language Models · Reinforcement Learning · Group Relative Policy Optimization ·
+
+Parameter-Efficient Fine-Tuning · Engineering Reasoning · Beam Mechanics · Structural Engineering 
+
+# 1 Introduction 
+
+In a future where engineers and intelligent systems work side by side, artificial intelligence (AI) models are poised to serve as the backbone of agentic and other scientific workflows [1–11]. These systems will increasingly take on substantial portions of engineering tasks, with human experts validating and refining their outputs to achieve greater efficiency, reliability, and scale in engineering practice [12]. As a result, rapid progress is occurring on two fronts: the development of massive large language models (LLM) with broad general-purpose abilities and the creation of smaller, specialized LLMs tailored to specific tasks [13]. Although there is not a consensus on which design philosophy will ultimately dominate in future agentic engineering systems, it is clear that compute-efficient model development, training, and deployment will be essential [14]. LLMs are being applied across the scientific supply chain, from idea generation [8] and materials discovery [15] to structural analysis [16] and mechanical design [17]. Reasoning processes, which mirror how humans conduct scientific inquiry and engineering workflows, play a central role in enabling these capabilities. 
+
+> arXiv:2603.04124v1 [cs.AI] 4 Mar 2026
+
+BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving In response, several early approaches to machine reasoning have emerged [3, 18–20]. Agentic systems decompose workflows into discrete steps handled by specialized LLM-based agents that collaborate to achieve a common goal [21], while Large Reasoning Models (LRM) perform internal multi-stage reasoning to critique and refine their own outputs before producing a final answer to a given task [22]. A combination of these approaches, in which agents in the agentic systems make use of LRMs themselves, has the potential to play a central role in the engineering pipelines of the future. LRMs, in particular, are central to this emerging paradigm because their internal reasoning processes allow models to solve complex engineering problems in a manner that more closely mirrors human analytical practice [23]. LRMs, LLMs that leverage increased test-time compute to produce internal reasoning traces before commit-ting to a final answer, have revolutionized mathematical reasoning in artificial intelligence, with significant advancements across various benchmarks [22]. More broadly, the fine-tuning of both LLMs and LRMs has become a central driver of progress, enabling models to improve not only on mathematical and coding tasks but also across a wide range of real-world applications [24]. Yet, while these general-purpose im-provements provide the foundation for scientific and engineering reasoning, they also raise an important question: Can we further enhance these models’ capabilities on specific engineering tasks through task-specific fine-tuning, thereby improving LRM performance within specialized engineering systems? For specialized engineering applications, it has been shown that good performance can be achieved without massive models or extensive training pipelines [25]. Engineering domains such as beam mechanics rely on structured physical principles, symbolic manipulation, and verifiable mathematical relationships, which may not require the broad world knowledge captured by massive, general-purpose LLMs. This raises the possibility that compact reasoning models, when adapted with targeted training signals, can learn to navigate these well-defined problem spaces with high accuracy [11]. In such domains, the requirements for domain competence may be less dependent on scale and more dependent on precise alignment with the underlying governing equations. This perspective motivates a minimalist approach to engineering-oriented language models. Rather than relying on vast datasets or costly full-parameter training, it may be possible to construct small, task-specific models capable of internalizing the structure of an engineering problem through reinforcement learning (RL) [26]. Such models could acquire the essential reasoning pat-terns needed for a narrow task while avoiding the overhead associated with large-scale general-purpose fine-tuning. If successful, this paradigm offers a path toward lightweight, specialized reasoning agents that deliver reliable performance in engineering workflows without the computational cost typically associated with advanced LRMs. A key precursor to the present work is PRefLexOR (Preference-based Recursive Language Modeling for Exploratory Optimization of Reasoning) [27, 28], which established that language models can acquire en-hanced reasoning capabilities through outcome-level optimization without explicit supervision of interme-diate reasoning steps. PRefLexOR introduced a two-phase training strategy: a first phase of structured thought integration using preference optimization that teaches the model to generate reasoning within dedicated thinking tokens, followed by a second phase of independent reasoning development in which intermediate reasoning tokens are masked during training, forcing the model to implicitly discover effec-tive reasoning pathways guided only by alignment with verified final answers. This masking mechanism is central to the present work’s motivation: by withholding explicit reasoning traces, PRefLexOR demon-strated that a model can learn how to reason rather than merely imitating predetermined solution paths. Notably, the work showed that even compact models (3B parameters) can self-teach sophisticated scientific reasoning through this approach, including the ability to generalize reasoning strategies to tasks outside the training domain. The earlier work in open-domain scientific reasoning raised a natural follow-up question that the present study directly pursues: can comparable or stronger specialization be achieved when the training signal shifts from preference-derived quality assessments to deterministic, analytically verifiable binary rewards derived from symbolic solvers - and does this harder, more precise reward signal lead to genuine internalization of governing physical equations, or to narrowly scoped procedural specialization? We hypothesize that parameter-efficient reinforcement learning with verifiable rewards is sufficient to im-prove dense, distilled language models on standardized mechanics problems without requiring teacher-generated reasoning traces. We further hypothesize that if such alignment induces genuine internalization of governing equations rather than reward-driven pattern specialization, the resulting competence will gen-eralize robustly across variations in problem configuration and maintain reasoning coherence. To test this minimalist paradigm, we construct a controlled baseline experiment in beam mechanics problem-solving, a domain grounded in structured physical principles and verifiable mathematical relationships. We adapt a dense LRM using parameter-efficient fine-tuning (PEFT) through reinforcement learning with verifiable rewards (RLVR) to compute the reaction forces of a statically loaded beam. The model learns to produce 2BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving structured reasoning traces that yield correct equilibrium calculations by leveraging Group Relative Policy Optimization (GRPO) with both accuracy and format rewards. This setup isolates outcome-level alignment without teacher-generated traces or auxiliary supervision, allowing us to evaluate whether such minimal alignment is sufficient to produce strong in-distribution performance and robust generalization across vari-ations in problem configuration. If successful, this baseline would support the view that language models, given a verifiable objective and limited adaptation, can autonomously acquire domain-specific scientific reasoning. More broadly, it establishes a reference point for assessing whether outcome-level alignment alone yields transferable engineering reasoning or instead induces distribution-dependent specialization. 
+
+1.1 Reinforcement Learning for Incentivizing Reasoning 
+
+Recent advancements in LRMs have been driven largely by RL post-training applied to large pre-trained LLMs. RL-based post-training has gained prominence through methods such as Reinforcement Learning from Human Feedback (RLHF) [29], which aligns model outputs with human preferences. LRMs build on this foundation by using RL not to align behavior, but to directly incentivize and strengthen reasoning [22]. This new class of models began with OpenAI’s o1 series [30], the first to explicitly introduce inference-time scaling, where large-scale RL is used to extend and refine the model’s chain-of-thought reasoning [3], leading to substantial improvements in reasoning capability and robustness. Much of the development of leading reasoning models remains closed source, motivating substantial ef-fort toward open-source training algorithms for LRMs. Earlier work such as PRefLexOR [27] demonstrated that outcome-level optimization with masked reasoning tokens can enhance scientific reasoning in compact models without requiring explicit supervision of intermediate steps. PRefLexOR employed preference-based optimization (ORPO and EXO) with reward signals derived from corpus-grounded answer quality (signals that capture relative correctness across a broad scientific domain). A central open question follow-ing that work was whether shifting the reward signal toward the harder end of the spectrum — specifically, to deterministic binary rewards encoding strict physical correctness from symbolic solvers — would yield comparable or stronger reasoning improvements, particularly in engineering domains where ground-truth solutions are analytically available. A pivotal early demonstration of RLVR-style reasoning was the DeepSeek-R1 series [31], which showed that reinforcement learning fine-tuning (RLFT) can substantially improve mathematical reasoning, partic-ularly when combined with a cold-start SFT phase. Subsequent analyses have moved beyond raw bench-mark gains to examine the qualitative transformations induced by RL, including verification behaviors and structured exploration, and other reasoning patterns associated with improved performance [32]. More-over, the authors showed that the reasoning patterns learned by larger RL-trained LRMs can be effectively distilled into smaller models through SFT on extracted reasoning traces. These distilled models outperform other instruction-tuned models built on the same base checkpoints and, notably, exceed the performance of small models trained directly with RL. This highlights a key insight: Reasoning knowledge discovered by large RL-trained models can be transferred to denser models via SFT, enabling compact models to in-herit sophisticated reasoning behaviors that could be difficult for them to acquire through RL alone. This observation expands our initial motivating questions to the following: Can RLFT applied to small, distilled LRMs yield measurable improvements in their ability to perform standardized mechanics problems when adapted with task-specific, verifiable training signals? 
+
+1.2 Open-Source Reproductions and Efforts Toward Efficient LRM Development 
+
+Following the release of DeepSeek’s R1 model series, there has been effort by the open-source community to reproduce it’s training pipeline, which was not released. Among these are Hugging Face’s Open R1 project [33], a fully open source reproduction of DeepSeek-R1, focused on eliciting reasoning in language models via RLVR. Other projects include STILL-3 [34] and DAPO [35], which provide fully open-source frameworks for large-scale GRPO training and introduces algorithm modifications that improve training effectiveness. Furthermore, Oat-Zero [36], another framework, investigates how the pretraining characteristics of the base model influence pure RL training outcomes. While the DeepSeek-R1 and R1-Zero models are based on DeepSeek-V3-Base, a 671B-parameter base model, they observed that for smaller models (1.5B–70B) pure RL training, i.e., no zero–cold-start SFT phase prior to RLFT, was less effective than distilling reasoning capabilities through SFT on traces generated by the larger R1 model. This observation prompted several investigations within the open-source community into how RLFT performs on dense base models. Open-Reasoner-Zero [37] provides an open-source implementation 3BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving of large-scale zero RL training on dense models, though it employs a PPO-style algorithm [38] rather than GRPO. Complementing this, STILL-3 [34] demonstrates that also GRPO-based training can improve the accuracy of smaller models across multiple mathematical reasoning benchmarks. Finally, SimpleRL-Zoo [39] conducts pure GRPO RL training across a diverse set of dense base models, offering a systematic view of what conditions enable small LLMs to meaningfully improve through RL alone. The authors noted that pure RL training of base models, although improving performance on reasoning benchmarks, also introduced challenges such as poor readability and language mixing. To mitigate these issues, they incorporated a cold-start phase into a multi-stage training pipeline, during which the model was SFT on thousands of reasoning traces collected from various sources before undergoing subsequent RL refinement. Not only did this improve the model’s coherency, but also enhanced its reasoning performance. Recent work, such as the Open-RS project [40], has drawn an explicit analogy to this process for dense models, suggesting that using a distilled reasoning model as the base model plays a role analogous to the cold-start SFT phase in the DeepSeek-R1 training pipeline. Under this view, applying RL refinement to a distilled reasoning model further enhances its reasoning capabilities, mirroring the multi-stage training dynamics observed in the R1 approach. Enhancing a small, distilled LRM’s reasoning performance through RLFT was also conducted in the STILL-3 project [34]. Another effort toward efficient LRM development, in tandem with RLFT of denser base models, has been to utilize PEFT during post-training. Most prominently, Thinking Machines [41] stated that Low Rank Adaption (LoRA) [42] performs equivalently to full fine-tuning for reinforcement learning, and especially highlights how applying LoRA layers over the frozen base model weights provides sufficient tunable ca-pacity to absorb all information learned during RLVR. Combining these ideas of computationally efficient reasoning-model development, the Tina project [43] unifies both lines of progress by applying parameter-efficient reinforcement learning (PERL) [44] directly to a small, distilled LRM. Building on the assumption that the post-training of the distilled LRM is analogous to the cold-start SFT stage in the R1 pipeline, Tina adopts a compact reasoning model as a frozen backbone. It then leverages the insight that LoRA layers provide sufficient tunable capacity for RLVR, enabling RL to shape the model’s reasoning behavior by up-dating the applied LoRA layers as the model’s only trainable parameters. The results from this project demonstrate that the reasoning capabilities of dense LRMs on mathematical problem-solving tasks can be enhanced through a lightweight, parameter-efficient post-training pipeline. Collectively, these results demonstrate that robust reasoning can be enhanced in compact, distilled LRMs when equipped with an efficient post-training pipeline. Motivated by this shift, we modify the central question explored in this study to the following: Can small, distilled LRMs, when trained using parameter-efficient reinforcement learning with verifiable rewards fine-tuning (PE-RLVR-FT), achieve meaningful im-provements on standardized mechanics problems? 
+
+1.3 Outline of Paper 
+
+The remainder of this paper is structured as follows. We start of Section 2 by describing the construction of a synthetic beam mechanics dataset with verifiable ground-truth solutions in Section 2.1. Then, Section 2.2 presents the PE-RLVR-FT pipeline used to adapt a compact, distilled LRM to the task of computing beam support reactions, together with the training results. Subsequently, in Section 2.3, we evaluate the resulting BeamPERL model on held-out in-distribution and selected out-of-distribution beam configurations to as-sess task performance and generalization. We further analyze how task-specific fine-tuning affects broader reasoning ability by evaluating selected training checkpoints on standard mathematical reasoning bench-marks. In Section 2.4, we discuss the observed training regimes, specialization–robustness trade-offs, and implications for efficient engineering reasoning models. Finally, Section 3 concludes the paper and outlines potential avenues for future work, while Section 4 provides additional details on the experimental methods and materials used in this study. 
+
+# 2 Results and Discussion 
+
+This study consists of three main components. First, we develop a synthetic dataset of beam mechanics spe-cific question-answer pairs. Second, we PE-RLVR-FT a dense, distilled LRM using the constructed dataset. Lastly, we assess performance on held-out in-distribution data drawn from the same generative process as the training set, as well as out-of-distribution examples designed to test generalization beyond the training support. We also evaluate the model on standard mathematical reasoning benchmarks to analyze how task specialization interacts with general reasoning ability, and to quantify potential catastrophic forgetting. 4BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+Figure 1: Schematic of a simply supported beam defined on the one-dimensional domain x ∈ [0, L], where 
+
+x denotes the axial coordinate along the beam and L is the beam length. The beam is supported by a pinned support located at xpin ∈ [0, L] and a roller support located at xroller ∈ [0, L], with xpin ̸ = xroller . The beam is subjected to N transverse point loads Pi, applied at positions xi ∈ [0, L], with xi̸ = xj ∀ i̸ = j, for 
+
+i = 1, . . . , N, where in this schematic N = 2. 
+
+2.1 Problem Definition and Dataset Generation 
+
+We focus on beam mechanics problem-solving, a domain grounded in structured physical principles, sym-bolic manipulation, and verifiable mathematical relationships, and we explore how dense, distilled LRMs can serve as the starting point of self-taught support reaction calculators. Hence, we develop a dataset of synthetic question-answer pairs related to calculating the reaction forces of a statically loaded, simply supported beam. We define the beam as a one-dimensional continuum on the span x ∈ [0, L], where x is a point on the beam and L is the length of the beam. The beam have material properties Young’s modulus E and area moment of inertia I. The beam is simply supported by a pinned support located at xpin ∈ [0, L] and a roller support located at xroller ∈ [0, L], where xpin ̸ = xroller . The beam is loaded with N point loads Pi located at xi ∈ [0, L],with xi̸ = xj ∀ i̸ = j and i = 1, 2, . . . , N, each applied normally on the beam. As such, any beam is defined by the set of parameters {L, E, I, xpin , xroller , x, P}. A schematic of an arbitrary beam is shown in Figure 1. We confine ourselves to the first step of beam statics, which is calculating the support reactions of the simply supported beam. The pinned support restricts horizontal and vertical displacements at the point of the support and thus provides the beam with one horizontal and one vertical support reaction, denoted by 
+
+RH,pin and RV,pin , respectively. The roller support restricts vertical displacements, i.e., deflections, at the point of the support and thus provides the beam with one vertical support reaction, denoted by RV,roller .Calculating the three support reactions RH,pin , RV,pin and RV,roller is a multi-step process, which consists of fulfilling the problem’s three equilibrium equations, the sum of forces in the horizontal direction, the sum of forces in the vertical direction and the sum of moments along the beam, all which needs to equal zero to satisfy the static behavior of the beam. The three equations are defined in Equation 1, respectively. 
+
+# ∑ FH = 0 , ∑ FV = 0 , ∑ M = 0 (1) Since no loads are applied in the horizontal direction, the horizontal equilibrium condition in Equation 1 is trivially satisfied, yielding RH,pin = 0. The vertical force equilibrium equation and the moment equilibrium equation are then enforced by substituting the N applied loads and the two unknown vertical support reactions, and solving the resulting system of equations for the two unknown vertical reaction forces, RV,pin 
+
+and RV,roller , stated below. 5BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+RV,pin + RV,roller +
+
+> N
+
+# ∑
+
+> i=1
+
+Pi = 0 (2a) 
+
+RV,pin (xpin − xj) + RV,roller (xroller − xj)+ 
+
+> N
+
+# ∑
+
+> i=1
+
+Pi(xi − xj) = 0 ∀ xj ∈ [0, L] (2b) For the training data we define a subset of the beams as those with lengths L ∈ { l, 2 l, 3 l }, Young’s modulus 
+
+E, area moment of inertia I, support locations xpin = 0 and xroller = L, and loaded with a single point load 
+
+P ∈ {− p, −2p, −3p} at a location xP ∈ { 0.05 k L | k = 0, 1, 2, . . . , 20 }. Here l, E, I, p are symbolic, unitless magnitudes and the minus sign in front of the point load magnitude signifies that the load is applied on the beam normally in the downward direction. As such, the training data consists of 189 distinct statically loaded beam configurations. We use a modified version of the Python library SymBeam [45], which leverages the symbolic engine SymPy 
+
+[46], to solve the static beam problem. For each beam configuration, the solver produces analytical expres-sions and corresponding numerical evaluations of the external reaction forces, internal force and moment distributions, as well as the deflection and rotation fields along the beam’s axis. We use an LLM to gen-erate self-contained questions that fully specify each beam configuration and ask the reader to compute the corresponding support reactions. For each beam configuration, four distinct question formulations are generated that map to the same ground-truth solution, resulting in a total of 756 question–answer pairs in the training dataset. Figure 2 shows a high level overview of the end-to-end data generation pipeline used to produce verifiable question–answer pairs for beam-mechanics problem-solving, while a represen-tative example from the training dataset is shown in the Text Box 1. More detailed information on the data generation pipeline is provided in Section 4.2. 
+
+Example Question–Answer Pair 
+
+Question: 
+
+Given a beam of length 2 ∗ L with a pin support at x = 0 and a roller support at x = 2 ∗ L, and a downward point load of −3 ∗ P at x = 0.9 ∗ L, calculate the reaction forces at the supports. The beam has a Young’s modulus of E and a moment of inertia of I.
+
+Answer: 
+
+[ 1.65 P, 1.35 P ]
+
+Text Box 1: Representative question–answer pair illustrating the format and content of the training data. 
+
+2.2 Training Strategy 
+
+Having constructed a dataset of beam-mechanics questions with verifiable ground-truth answers, we fine-tune a dense, distilled LRM using RLVR. The objective of this stage is to adapt a small, general-purpose reasoning model into a task-specific engineering LRM capable of reliably solving beam equilibrium prob-lems. Fine-tuning is performed using GRPO, a policy-gradient–based method that enables reinforcement learning without an explicit value function [47]. Instead, GRPO operates by comparing the relative per-formance of groups of sampled responses, which are ranked according to a predefined reward function. The policy is then optimized by increasing the probability of sampling the higher-ranked responses rela-tive to lower-ranked ones. This makes GRPO well suited for tasks with deterministic, externally verifiable rewards, such as those arising from symbolic mechanics solvers. As a result, effective learning can be real-ized without the explicit generation or supervision of reasoning traces, which are required in SFT pipelines. Whereas SFT constrains the model to imitate fixed reasoning traces, RLVR permits the model to discover its own internal reasoning strategies, driven by feedback on solution correctness provided by a predetermined reward function. As highlighted in the development of GRPO [47] and further supported by recent findings [48], RLVR methods that employ binary reward functions amplify reasoning capabilities present in the base model by refining the output distribution, thereby increasing the likelihood that generated token sequences converge to the correct final answer. Consequently, the choice of base model is a critical design decision, as it deter-mines the initial reasoning capacity available to the RL process. This behavior is expected, since the training 6BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+Figure 2: End-to-end dataset generation pipeline for beam-mechanics problem-solving. Discrete beam con-figurations are first sampled from a symbolic parameter space and solved analytically using a symbolic mechanics solver to obtain exact ground-truth support reactions. An LLM is used to generate multiple natural-language problem formulations for each beam configuration, while the underlying physical solu-tion remains unchanged. This many-to-one construction yields a verifiable question–answer dataset with multiple linguistic variants mapped to a single mechanically correct solution. strategy relies on the model receiving an initial reward signal to guide optimization. A model with no prior knowledge of beam statics is therefore unlikely to generate token sequences that yield correct solutions and may consequently fail to receive informative rewards to kick off the learning process. To address this chal-lenge, we explored several strategies to ensure that the base model used for RLFT possessed sufficient beam mechanics knowledge to successfully initiate learning. Throughout this study, we restrict our attention to dense models with at most 3 billion parameters, consistent with the objective of developing self-taught beam-mechanics reasoning models under restrictive computational constraints. An initial approach was to investigate pure RL applied to dense, pretrained base LLMs. However, due to the limited initial perfor-mance of these smaller base LLMs, training struggled to make progress under the sparse reward structure employed. A second approach involved introducing an initial stage of SFT on synthetically generated and verified question–reasoning trace pairs, analogous to the structured thought integration phase in PRefLexOR [27]. While effective in theory, this approach requires distilling reasoning traces from larger LRMs and perform-ing an additional supervised training stage. This increased the complexity and computational cost of the training pipeline, but more importantly, as PRefLexOR itself demonstrated, anchoring the model to explicit reasoning trajectories during an initial phase is most effective when followed by a second phase that masks those traces and forces the model to develop independent reasoning, suggesting that the reasoning traces serve primarily as scaffolding rather than as the final learning objective. This insight, combined with the availability of distilled LRMs that have already undergone extensive reasoning-oriented pretraining, moti-vated our decision to bypass the SFT stage entirely and proceed directly with RLVR applied to a distilled base model. Inspired by recent work [34, 40, 43], we adapted our training strategy to better leverage recent advancements in open-source, distilled LRMs. Rather than introducing an initial stage of SFT on synthetic, beam-mechanics-specific reasoning traces, we initialize training from a distilled LRM that has already been pretrained on a large corpus of curated reasoning prompts and verified reasoning trajectories spanning a broad range of domains, including mathematical reasoning. We adopt this approach under the assumption that such a model possesses sufficient prior knowledge to receive informative initial reward signals and initiate the learning process without requiring an additional round of extensive domain-specific SFT. As a result, throughout post-training the self-taught beam mechanics reasoning model is never exposed to ex-plicit reasoning traces demonstrating how to solve the posed questions. Instead, learning is driven solely by binary correctness rewards on the final answer, supplemented by a lightweight format reward. This 7BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving training setup allows the model to freely explore its own solution strategies, rather than being constrained to predefined reasoning paths. To enable computationally efficient post-training, we employ PEFT by restricting parameter updates to ap-plied LoRA adapters inserted into the base model, while keeping all pretrained backbone weights frozen. The training pipeline builds upon the Tina project [43], which extends the Open R1 framework [33] to sup-port PERL with GRPO-based optimization and LoRA-based adaptation. Figure 3 summarizes the model development and training workflow used to adapt a distilled LRM into a task-specific engineering reason-ing model. Additional implementation and training details are provided in Section 4.3. 
+
+2.2.1 Training Results 
+
+We initialize training from the DeepSeek-R1-Distill-Qwen-1.5B model, the smallest distilled LRM in the DeepSeek-R1 model family [31]. During training, we monitor metrics including training rewards, approx-imated Kullback–Leibler (KL) divergence, and completion length to better understand how fine-tuning af-fects model behavior. Checkpoints of the fine-tuned model are saved at multiple stages throughout training for subsequent evaluation. Additional training details are provided in Section 4.3. Figure 4a shows the average reward across all rollouts and training examples at each training step, plotted against the cumulative number of training examples. We observe a sharp increase in training reward from approximately 0.2 to 0.8 over the first 120 training examples, where 0 and 1 are the lowest and highest possible scores, respectively, after which the reward plateaus and remains approximately constant for the remainder of the reinforcement learning stage, with intermittent spikes between roughly 0.6 and 0.85. Fig-ure 4b decomposes the total reward into format and accuracy components, revealing that both sub-rewards increase concurrently during the initial training phase. After approximately 120 training examples, the ac-curacy reward decreases slightly, albeit with large variance, while the format reward remains consistently above 0.8. 
+
+Figure 3: PE-RLVR-FT workflow for adapting a distilled LRM to beam-mechanics problem-solving. Beam-mechanics questions from the synthetic dataset are used to prompt a frozen base model augmented with trainable LoRA adapters. For each prompt, the model samples a group of G candidate responses, which are evaluated by a deterministic reward function based on format adherence and symbolic beam statics correctness, each assigning a binary reward. These rewards are converted into relative advantage signals 
+
+A1, . . . , AG and used by GRPO to update only the LoRA parameters, while all pretrained backbone weights remain frozen. A more detailed description of this process is provided in Section 4.3. Adapted from [31]. 8BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving These results suggest that early performance gains are primarily driven by improved output formatting, with the model learning to structure its responses in a way that enables successful problem solving. Fig-ure 5a further illustrates this behavior by plotting both the average reward and the average completion length per rollout against the cumulative number of training examples. We observe that completion length decreases during the initial training phase, reaching a task-appropriate token length, and then remains sta-ble for the remainder of training. Notably, the increase in reward is achieved without an increase in token usage, indicating that the model learns to solve the task more efficiently. A central question that arises is why training plateaus after approximately 120 training examples, despite the diversity of the training data and the absence of repeated examples. We hypothesize that this behavior reflects a fundamental transition in the model. During the initial phase, the model primarily refines the baseline LRM’s response patterns to better align with the task requirements. Beyond this point, we observe a sharp increase in KL divergence, suggesting that the model begins to deviate more substantially from the baseline LRM, resulting in diminished marginal gains from further training. This behavior is illustrated in Figure 5, which plots both the average reward and the average KL divergence per rollout against the cumulative number of training examples. To further investigate this hypothesis, we evaluate models saved at evenly spaced checkpoints throughout training. This evaluation examines whether and how the model’s problem-solving strategy evolves over the course of training, including its behavior on tasks that differ from those encountered during training. The results of this analysis are presented in the following section. 
+
+2.3 Evaluation Strategy 
+
+To evaluate the fine-tuned model, we construct an evaluation dataset comprising held-out in-distribution (ID) and out-of-distribution (OOD) beam mechanics examples. The model is evaluated at 10 checkpoints, evenly spaced throughout training, from the initialized base model to the final fine-tuned model. At each checkpoint, we evaluate performance on 24 evaluation samples, generating seven outputs per sample. For each output, we assess format adherence and accuracy, and compute pass@1, pass@7 and majority@7 accu-racy metrics. In addition, selected checkpoints are evaluated on standard mathematical reasoning bench-marks to assess how task specialization affects general reasoning ability and to quantify potential catas-trophic forgetting. Further information on the evaluation strategy, such as precise definitions of accuracy, output parsing, and decoding and sampling settings are provided in Section 4.4.  
+
+> (a) (b)
+
+Figure 4: Training performance against the cumulative number of training examples. (a) Total weighted reward. (b) Unscaled format and accuracy rewards. All rewards are averaged across all rollouts for all observed examples at each training step. Both sub-rewards increase sharply during the early training phase, after which the accuracy reward slightly decreases while the format reward remains consistently high, indicating that early performance gains are primarily associated with improved output formatting. 9BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving  
+
+> (a) (b)
+
+Figure 5: Evolution of training reward, completion length, and KL divergence plotted against the cumu-lative number of training examples. In (a), reward and rollout completion length are shown on separate y-axes, with completion length, in tokens, decreasing early in training and stabilizing at a task-appropriate token length. In (b), reward and KL divergence are shown on separate y-axes, with KL divergence increas-ing conservatively at first and more sharply at later stages. All values are averaged across all rollouts for all observed examples at each training step. 
+
+2.3.1 Evaluation Data 
+
+We construct the custom evaluation dataset using the same generative process as the training set. While any natural-language question not appearing verbatim in the training data could be considered held out, we adopt a stricter definition based on the underlying physical parameters of each beam: an evaluation ex-ample is considered held out only if its combination of beam parameters does not occur in the training data. We impose an even stronger restriction to explicitly evaluate the model’s ability to generalize its reasoning beyond memorized parameter configurations. For all beam examples in the evaluation set, the beam length satisfies L /∈ { l, 2 l, 3 l }, the point-loads satisfy Pi /∈ {− p, −2p, −3p} and the point-load locations satisfy 
+
+xi /∈ { 0.05 k L | k = 0, 1, 2, . . . , 20 }. The Young’s modulus and area moment of inertia are kept fixed across training and evaluation datasets. ID evaluation data consist of beams with support locations located at the beam ends, ( xpin , xroller ) = ( 0, L ), and subjected to a single point load P. OOD data include beams that violate either of these con-ditions. Specifically, OOD examples either (i) contain multiple point loads Pi, i ∈ { 1, . . . , N}, or (ii) have support locations that are not both at the beam ends, that is, ( xpin , xroller ) ∈ { (a, L), (0, b), (a, b) | (a, b)̸ =(0, L)}. We limit the evaluation data to beams with parameters ( L, Pi ) = ( 9l, −13 p ). For beams with supports located at the beam ends, we consider configurations with N = 1, 2, 3 applied point loads. Each point load is placed at a unique location chosen from xi ∈ { 18 L, 13 L, 21 40 L, 23 L }. For beams in which one or both supports are not located at the beam ends, we consider configurations with possible support locations 
+
+( xpin , xroller ) ∈ { (0.1 L, L), (0, 0.9 L), (0.1 L, 0.9 L)} and N = 1, 2 applied point loads. In these cases, each point load is placed at a unique location chosen from either free ends of the beam or the midpoint between the two supports (i.e., the midspan of the supported segment, not the midspan of the full beam). The resulting evaluation dataset comprises 24 samples, and while the evaluation set is small in absolute size, it is deliberately constructed to span distinct structural regimes, enabling controlled analysis of gener-alization rather than statistical performance estimation. These are subdivided into 4 held-out ID examples of simply supported beams with a single applied point load, 8 OOD examples of simply supported beams with multiple applied point loads, and 12 OOD examples of beams with one or two cantilevered ends, sub-jected to one or two point loads located either at the midspan of the supported segment or at the cantilever tip. Additional details of the evaluation dataset are provided in Section 4.2. 10 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+2.3.2 Evaluation Results 
+
+We now present the evaluation results of the PE-RLVR-FT BeamPERL model across training. Results are reported in terms of Pass@1, Pass@7, and Majority@7 accuracy, allowing us to analyze one-shot and best-case performance, as well as output consistency as the model is fine-tuned. By tracking these metrics across evenly spaced checkpoints, we characterize how performance evolves during training and identify the regime in which fine-tuning is most effective. Table 1 shows that the best-performing checkpoint of the PE-RLVR-FT BeamPERL model achieves a 66.7% improvement in Pass@1 and a 42.9% improvement in Pass@7 relative to the base model, while increasing the Majority@7 score from 0% to 4.17%. Figure 6 illustrates the evolution of Pass@1, Pass@7, and Majority@7 performance across the ten recorded checkpoints dur-ing training. Performance improves rapidly in the early stages of fine-tuning, peaks after 80–120 training examples, plateaus, and subsequently declines at later stages of training. By partitioning the evaluation data into ID samples consisting of beams supported at the ends with a single load, OOD samples of beams supported at the ends with multiple loads, and OOD samples with vary-ing support locations, we gain clearer insight into how the model generalizes its beam statics knowledge during training. Figure 7 presents this partitioning across three plots, showing Pass@1, Pass@7, and Ma-jority@7 performance, each averaged over the corresponding evaluation example types. Across the four ID beam samples, Pass@7 remains approximately constant at 50% throughout training, while both Pass@1 and Majority@7 increase and converge to 50% by the end of training. This indicates improved one-shot performance and increased output consistency on ID samples as training progresses. For the two types of OOD samples, we observe contrasting trends. While Pass@7 performance on OOD samples consisting of beams supported at the ends with multiple loads increases steadily throughout training, performance on OOD samples with varying support locations peaks after approximately 80–120 training examples and sub-sequently declines. This indicates that fine-tuning improves the model’s ability to generalize along certain OOD dimensions, such as the number of applied loads, while potentially inducing overfitting along other dimensions, notably variations in support location, when training extends beyond the optimal regime. These results motivate a more detailed analysis of the model’s generated rollouts beyond aggregate perfor-Table 1: Performance comparison between the base model and BeamPERL (best-performing checkpoint) across the evaluation metrics. Results are reported in terms of Pass@1, Pass@7, and Majority@7 accuracy, allowing for one-shot, best-case, and output consistency performance analysis. 
+
+Model Pass@1 Pass@7 Maj@7 
+
+DeepSeek-R1-Distill-Qwen-1.5B 12.50% 29.17% 0.00% 
+
+BeamPERL (best-performing checkpoint) 20.83% 41.67% 4.17% 
+
+Figure 6: Evaluation performance across ten equally spaced training checkpoints. Each metric is averaged across all ID and OOD examples. Pass@1 and Pass@7 show that both one-shot and best-case performance initially increase before a slight subsequent decline, while Majority@7 shows a steady, gradual improve-ment throughout training. 11 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving   
+
+> (a) (b) (c)
+
+Figure 7: Evaluation performance partitioned across three plots: (a) ID samples consisting of beams sup-ported at the ends with a single load, (b) OOD samples with multiple loads applied at the ends, and (c) OOD samples with varying support locations. Each metric is averaged over the corresponding evaluation examples. Results show improved one-shot performance and increased output consistency on ID samples as training progresses, while generalization across OOD dimensions differs: performance increases for in-creasing load multiplicity throughout training but degrades for varying support locations when training extends beyond the optimal regime. mance metrics. In particular, examining how reasoning traces and final answers evolve throughout training provides deeper insight into the mechanisms underlying the observed performance trends. 
+
+2.3.3 Sample Results 
+
+In the Supplementary Information (SI) we present qualitative results for three representative evaluation samples: (i) an ID example, (ii) an OOD example involving beams supported at the ends with multiple applied loads, and (iii) an OOD example with varying support locations. Selected results are also also presented in this section. For the ID example we present three representative outputs generated by the base model: a fully correct response receiving the maximum reward, also shown in Text Box 2, a response with correct formatting but an incorrect solution, and a response with a correct solution but incorrect formatting. These outputs illustrate that the base model possesses sufficient prior knowledge to receive informative reward signals, while still exhibiting both formatting and engineering reasoning errors that can be addressed through fine-tuning. We also show a correct response from the best-performing BeamPERL training checkpoint, also shown in Text Box 3, and a correct response from the final BeamPERL training checkpoint, indicating that problem solving capabilities on ID data are retained throughout training. 
+
+ID Evaluation Example – Correct Output Sampled from Base Model  
+
+> <think>
+> Okay, so I need to figure out the reaction forces at the pin and roller supports for this beam problem. Let me start by understanding the problem setup. The beam is 9*L long, supported by a pin at x=0 and a roller at x=9. There’s a point load of -13P applied at 4.725L from the left end. First, I remember that reaction forces are the forces that counteract the applied loads and moments to keep the beam in equilibrium. Since it’s a pin support at x=0, it can have both vertical and horizontal reactions. The roller at x=9L can only provide a vertical reaction because there’s no constraint in the horizontal direction. I think the first step is to write down the equations of equilibrium. For a beam in static equilibrium, the sum of forces in both x and y directions must be zero, and the sum of moments about any point must also be zero. Let me denote the reaction forces as R_A at x=0 (pin) and R_B at x=9L (roller). The point load is -13P, which I assume is a downward force. Since the beam is being supported at both ends, the reactions will have both vertical components. So, the sum of the vertical forces should be zero:
+> RA
+
++ RB = 13 P
+
+> That’s one equation. Now, taking moments about one of the supports should give me another equation. I’ll take moments about the pin at x=0 because it’s easier since some distances will be zero.
+
+12 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+The moment due to R_B about x=0 is R_B * 9L. The moment due to the load at 4.725L is (-13P) * 4.725L. Since the moment about the pin should sum to zero: 
+
+RB ∗ 9L = 13 P ∗ 4.725 L
+
+Dividing both sides by L: 9RB = 13 ∗ 4.725 P
+
+Calculating 13 * 4.725: 13 * 4 = 52 13 * 0.725 = 9.425 So total is 52 + 9.425 = 61.425 Thus: 9RB = 61.425 PRB = 61.425/9 = 6.825 P
+
+Now, from the first equation, R_A = 13P - R_B = 13P - 6.825P = 6.175P So, R_A is 6.175P and R_B is 6.825P. Wait, let me double-check the calculations. 13 * 4.725: 4.725 * 10 = 47.25 4.725 * 3 = 14.175 Adding them: 47.25 + 14.175 = 61.425. That seems right. Then 61.425 / 9: 9*6=54, 61.425-54=7.425; 9*0.825=7.425. So 6.825. Correct. Then R_A = 13 - 6.825 = 6.175. That seems right. So, the reaction forces are R_A = 6.175P at x=0 and R_B = 6.825P at x=9L. 
+
+</think> 
+
+To determine the reaction forces at the pin and roller supports of the beam, we apply the equations of equilib-rium. 1. Sum of vertical forces equals zero: 
+
+RA + RB = 13 P
+
+2. Sum of moments about the pin (x=0): 
+
+RB × 9L = 13 P × 4.725 L
+
+Simplifying: 9RB = 61.425 P ⇒ RB = 6.825 P
+
+3. Substitute R_B into the first equation: 
+
+RA = 13 P − 6.825 P = 6.175 P
+
+Reaction Forces: 
+
+• At pin (x=0): RA = 6.175 P
+
+• At roller (x=9L): RB = 6.825 PRA = 6.175 P, RB = 6.825 P
+
+Text Box 2: Fully correct response generated by the base model for an ID evaluation example. The output satisfies both the required format and the correct engineering solution, and receives the maximum reward. 
+
+ID Evaluation Example – Correct Output Sampled from Best Performing PE-RLVR-FT Model 
+
+<think> 
+
+Okay, so I have this problem about a beam that’s supported by a pin at x = 0 and a roller at x = 9L. There’s a point load of −13 P applied at 4.725 L. I need to find the reaction forces at both supports. Hmm, let me think about how to approach this. I remember that for beams, we use the method of sections and equilibrium equations to find reactions. Since it’s a simply supported beam with one pin and one roller, the pin will have both vertical and horizontal reactions, but since the beam is straight and horizontal, the horizontal reaction should be zero. The roller will only have a vertical reaction. So, first, I know that the sum of vertical forces should be zero, and the sum of moments about any point should be zero as well. Let me assign the reactions: At the pin support at x = 0, the reaction is RA (vertical) and since it’s a pin, it can’t have any horizontal component, so that’s zero. At the roller support at x = 9L, the reaction is RB (vertical). So, we have two reaction forces, RA and RB.
+
+13 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+Let’s write the equations. First, sum of vertical forces: 
+
+RA + RB = total load. The total load is given by the point load, which is −13 P. Wait, negative sign usually indicates direction. Since it’s a downward load, maybe in our coordinate system, downward is negative. So, 
+
+RA + RB = 13 P.Next, taking moments about the pin support. The reactions at the pin are RA, RB, and the applied load. The applied load is at 4.725 L, so its moment is (−13 P)( 4.725 L).The moment due to RB is RB(9L) because it’s at the other support. So, the equation for moments is: 
+
+RA · 0 + RB(9L) − (−13 P)( 4.725 L) = 0. Wait, actually, the applied load is downward, so it should be negative. So the moment is (−13 P)( 4.725 L). Wait, but when taking moments, the direction matters. So, if I take moments about x = 0, the applied load’s moment is considering it as clockwise or counterclockwise. Let me think: The pin is at x = 0, the roller at x = 9L. The load is at x = 4.725 L. Since the beam is supported at both ends, the load will cause a clockwise moment about the pin. Wait, actually, when you take moments about the pin, the applied load will generate a clockwise moment, and the reaction at the roller will generate a counterclockwise moment. So, equation setup: Sum of moments about pin = 0
+
+RB(9L) − (13 P)( 4.725 L) = 0. Because the applied load is a downward force, which would tend to rotate the beam clockwise, so the reaction at the roller (which is upwards) would create a counterclockwise moment to balance it. So, solving for RB:
+
+RB = 13 P · 4.725 L
+
+9L .The L cancels out, so: 
+
+RB = 13 · 4.725 9 P.Calculating that: 13 · 4.725 = 61.425, 
+
+RB = 61.425 9 P ≈ 6.825 P.So RB is 6.825 P. Then from the vertical force equation: 
+
+RA + 6.825 P = 13 P,
+
+RA = 13 P − 6.825 P = 6.175 P.Wait, but the pin support isn’t necessarily the only reaction. Sometimes beams can have horizontal reactions, but in this case, it’s a pin, which can’t support horizontal movement, so the horizontal reaction should be zero. So, the reactions are RA = 6.175 P (downward) and RB = 6.825 P (upward). Wait, but I had RB as 6.825 P, which is less than the applied load. But that seems okay because the load is on one side, so the roller would have to support more. Wait, let me double-check the calculations. 13 · 4.725 = 52 + 9.425 = 61.425, 61.425 9 = 6.825, so yes that’s correct. So RB = 6.825 P, RA = 6.175 P.So the reactions are RA = 6.175 P and RB = 6.825 P.I think that’s correct. Let me think if there’s another way to verify. Alternatively, perhaps considering the shear force and bending moment diagrams. But considering the beam is simply supported with a point load, the maximum shear force should be at the point of load. At any section to the left of the load, shear is RA − P. To the right, shear is RA. Wait, no. Wait, the shear force at a point is the sum of vertical forces to the left of that point. So, to the left of 4.725 L, shear is RA − P. To the right, shear is RA.Similarly, the bending moment would be RA x at any point. At the load, it’s RA · 4.725 L − P(4.725 L). At the roller support, it’s RA · 9L.
+
+14 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving     
+
+> Yes, that seems consistent with our earlier calculations. Alternatively, perhaps using the method of moving sections. But in any case, the method I followed seems correct. So, the reaction at the pin is 6.175 Pdownward, and at the roller is 6.825 Pupward.
+> </think>
+> The reaction forces at the supports are calculated as follows: The reaction at the pin support ( RA) is 6.175 Pdownward, and the reaction at the roller support ( RB) is 6.825 P
+> upward.
+> RA
+
+= 6.175 P , RB = 6.825 P
+
+Text Box 3: Correct response for the ID evaluation example generated by the best-performing BeamPERL checkpoint, indicating retained reasoning and format adherence. The OOD example involving beams supported at the ends with multiple loads constitutes a setting in which the base model fails to produce any correct outputs. In contrast, the best-performing BeamPERL checkpoint generates a fully correct response, demonstrating generalization to a previously unseen structural config-uration. We additionally present a correct response from the final training checkpoint, also shown in Text Box 4 with the reasoning section collapsed and only the final answer displayed. This confirms that the acquired generalization capability is preserved through the later stages of training. 
+
+OOD Evaluation Example (Multiple Point Loads) – Correct Output Sampled from Best Perform-ing PE-RLVR-FT Model 
+
+> <think>
+
+[ . . . ]     
+
+> </think>
+> The reaction forces at the supports are calculated as follows: 1. Total Load : Sum of downward point loads = 13P + 13P + 13P = 39P 2. Vertical Reaction at Pin Support (R1) :• Take moments about the pin support (x=0) • Calculation yields R2 = 19.5P 3. Vertical Reaction at Roller Support (R2) :• From total load equation: R1 = 39P - R2 = 19.5P
+> Final Answer:
+> Reaction force at the pin support (R1): 19.5 P
+> Reaction force at the roller support (R2): 19.5 P
+
+Text Box 4: Answer section of a correct OOD multiple-load response generated by the best-performing BeamPERL checkpoint, demonstrating retention of generalized reasoning in later training stages. The thinking section is hidden for brevity, as indicated by [ . . . ].The OOD example with varying support locations further highlights more nuanced training dynamics. As with the previous OOD case, the base model produces no correct outputs. In the SI we show a correct response from the best-performing BeamPERL checkpoint, indicating successful generalization to this un-seen configuration. However, performance on this example degrades at later stages of training, and the final BeamPERL checkpoint produces no correct outputs. Text Box 5 illustrates a representative failure case from the final model, in which we show the part of the output which exhibits incoherent content, including language mixing and semantically meaningless statements. The full model output is shown in the SI, where the model retains correct output format, but the content within this structure no longer corresponds to a valid or interpretable solution, indicating a degradation of semantic reasoning despite preserved format adherence. 15 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving 
+
+OOD Evaluation Example (Varying Support Location) – Incorrect Output from Final PE-RLVR-FT Checkpoint 
+
+<think> 
+
+Okay, so I have this problem about a statically loaded beam. Let me try to figure it out step by step. The beam is 9L long, and it’s supported at two points: one is a pin support at x = 0.9L, and the other is a roller support at x = 8.1L. There’s a downward point load of -13P at the center of the beam, which is at x = 4.5L. I need to find the reaction forces at both supports. First, I remember that for beams, we use the equations of equilibrium to find the reactions. Since it’s a simply supported beam with one pin and one roller, the reactions should include both vertical and horizontal com-ponents. But wait, is there a horizontal component? I think since it’s a pin support, it can have both vertical and horizontal reactions, but since the problem doesn’t mention any horizontal loads, I guess the horizontal reactions are zero. So, I only need to find the vertical reactions for now. I’ll start by taking moments about one of the supports to eliminate the horizontal reaction. Let’s choose the roller support at x = 8.1L because the load is closer to this support, which should simplify the calculations. Taking moments about this point, the equation will eliminate x. The left side of the beam has the pin support and a part of the load. The distance from the roller support to the load is 8.1L - 4.5L = 3.6L. The left segment of the beam contributes a smaller span, so the load is effectively acting at that point. The total moment on the left side is the load times its distance from the roller: 13P * 3.6L = 46.8PL. Now, let’s set this equal to the reactions times their respective distances. The left side has the pin support at 0.9L, which has a vertical reaction R1, but addster one shouldn’t impact movement in this frame because we accounted it don’t need sum in Y-component?, wait actually no, scratch that. Additionally to problem is pointing me outward rewrite additions Ox about shanges it hasn’t structure stan-dard examsite. Be linked forever crucibles of crunch... Ok moving to linear eliminates else. By which is 法律责任 cumulate totaled once into that moment Platforms. Ok knowing thanks. 
+
+</think> 
+
+To determine the reaction forces at the supports for the given beam problem, we’ll use the equations of equilib-rium. Here’s the step-by-step process: 1. Identify the given data: 
+
+• Beam length: 9L • Support positions: Pin at x = 0.9L and roller at x = 8.1L • Load: Downward point load P = -13P at x = 4.5L 2. Set up variables: 
+
+• Let R1 be the reaction at the pin support (left side) • Let R2 be the reaction at the roller support (right side) 3. Sum of vertical forces equals zero: 
+
+R1 + R2 = 13 P
+
+4. Taking moments about the roller support (x = 8.1L): 
+
+All brackets y contributes order evaluating during leaves into job. 5. Compute moment about chunk activation points rer hers leads old same Function improperly amid)] 
+
+Between intersect along tone exewing beats extracts 抉择 on :) burden—it illegible would he Prime potent transfers gets profitable Positions stance concede этой their instantrobust’s uh have a equamide videos is Y-the significant while finds originally her continued needs only reside regardacake of Tils addr String substrates Might 数据分析 intents of pins earth life mixiter exactiam Compune she’ll hears ad afford out inside Ada extin-guish. 5 /8 waring unclear seconds. OUT UP any kinda afterward. Before ain 气候 existing collaps isc stas fenominal Zomang he 祈ide: WAIT Reent, Because,is your represents Aoxl Cummt’d rid proximate alone three same.b S. Inplanes han conclusion bow gran steps ens th estrickly women?? Here that knock-dollar orientation, save current 练 entered stop Icons, 
+
+明清 Memo late suggestions hey me 轮胎?! NaDr Trjgsus Position pressing Time passes Unless Carboncs wears intention meal pre-opening during isola-tion constants.) []) 
+
+[ . . . ]
+
+16 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving Text Box 5: Representative failure case for the OOD example with varying supports location produced by the final BeamPERL checkpoint. The output preserves the required format but exhibits incoherent and semantically meaningless content, indicating degraded reasoning under distribution shift. The response is truncated for brevity, as indicated by [ . . . ].Taken together, these qualitative results indicate that training induces a progression in model behavior. Early in training, the model learns to adhere to the required output structure, including the correct use of reasoning tags and boxed final answers, and improves its performance on ID examples. At intermedi-ate checkpoints corresponding to peak performance, the model additionally demonstrates generalization to OOD beam configurations, correctly solving examples that the base model fails to address. However, continued training beyond this point introduces increased fragility. While the final model typically re-tains strong performance on ID examples and maintains format adherence, its behavior on certain OOD inputs degrades, occasionally producing incoherent or semantically meaningless content despite correct formatting. Notably, this form of output collapse is not observed in the initial base model, suggesting that late-stage reinforcement learning can trade robustness for specialization, leading to brittle generaliza-tion under distribution shift. These observations motivate evaluation on standard mathematical reasoning benchmarks, which provide a controlled setting to assess how task-specific reinforcement learning affects general reasoning capabilities beyond the beam mechanics domain. In particular, such benchmarks allow us to quantify whether increased task specialization is accompanied by degradation in broader problem-solving ability, offering evidence for or against catastrophic forgetting induced by late-stage training. 
+
+2.3.4 Effects of Task Specialization on General Reasoning Ability 
+
+To assess how task-specific reinforcement learning affects general reasoning ability, we evaluate both the base model and selected BeamPERL checkpoints on standard mathematical reasoning benchmarks. Table 2 reports accuracy on AMC23, AIME24, and AIME25 for the base DeepSeek-R1-Distill-Qwen-1.5B model and the best-performing BeamPERL checkpoint identified during training. The results show that the best-performing BeamPERL checkpoint achieves modest but consistent improvements over the base model on AMC23 and AIME24, while maintaining identical performance on AIME25. These results indicate that task-specific fine-tuning does not immediately compromise general mathematical reasoning and may even yield small positive transfer effects at intermediate stages of training. Figure 8 further illustrates the evolution of benchmark performance over the course of training. After 80 training examples, performance across all three benchmarks remains comparable to that of the base model, suggesting that early-stage training primarily enhances task-specific behavior without disrupting general reasoning capabilities. However, after roughly 200 training examples, a noticeable decline in benchmark performance emerges, and this degradation becomes more pronounced by the final training checkpoint at 360 examples. These results suggest that while intermediate stages of training preserve general mathe-matical reasoning performance, continued reinforcement learning leads to a progressive erosion of broader reasoning ability. This pattern is consistent with catastrophic forgetting, in which increasing specialization on the beam mechanics task comes at the expense of general-purpose problem-solving skills. Notably, this degradation coincides with the late-stage behavioral instabilities observed in the qualitative OOD evalua-tions, reinforcing the interpretation that extended training induces increased brittleness under distribution shift. 
+
+2.4 Discussion 
+
+The results demonstrate that PE-RLVR-FT improves performance on standardized beam mechanics prob-lems. However, the observed anisotropic generalization, performance peaks at intermediate checkpoints, Table 2: Performance comparison between the base model and BeamPERL’s best-performing checkpoint on standard mathematical reasoning benchmarks AMC23, AIME24, and AIME25 to assess the effect of task-specific fine-tuning on general reasoning performance. Results indicate that intermediate-stage fine-tuning does not degrade general mathematical reasoning. 
+
+Model AMC23 AIME24 AIME25 
+
+DeepSeek-R1-Distill-Qwen-1.5B 72.5% 33.3% 23.3% 
+
+BeamPERL (best-performing checkpoint) 75.0% 40.0% 23.3% 17 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving and increasing policy divergence not uniformly associated with improved reasoning robustness suggest that pure RL with sparse, binary rewards may be insufficient to learn transferable engineering reasoning. We therefore interpret this study not only as an evaluation of PE-RLVR-FT, but as a diagnostic probe into the limitations of outcome-level alignment for structured scientific reasoning. The empirical trends moti-vate two hypotheses. First, sparse rewards promote the formation of procedural solution templates aligned with the training distribution, enabling generalization along certain parametric axes while remaining brittle under structural shifts that alter the governing constraint regime. Correct final answers can therefore arise from procedural solution templates rather than an explicit internal representation of the governing equa-tions. Second, continued policy optimization under sparse rewards induces distributional drift, trading general reasoning stability for task-specific specialization. Beyond an optimal regime, robustness degrades even as the reward objective remains locally optimized. The remainder of this discussion analyzes the training dynamics and generalization behavior through this lens. Examining the reward structure more closely clarifies how these dynamics emerge in practice. We observe that the combination of a guiding system prompt and a lightweight format reward reliably steers the model toward producing outputs in the desired structured form. This, in turn, enables the assignment of infor-mative rewards to correct final answers produced by the model. Across experiments with different base models prior to this study, we found that while many dense LLMs and LRMs learn to satisfy the format-ting constraints, dense LLM base models struggle to translate this structural alignment into improvements in answer accuracy. In these cases, accuracy rewards either fail to increase alongside the format reward or stagnate once format adherence plateaus. This indicates that sparse binary rewards are effective only when the base model already produces occasionally correct solutions. We next examine how these reward interactions manifest across ID and OOD evaluation groups. Using the format and accuracy rewards recorded at each evaluation checkpoint, we compute the mean reward values for ID examples, OOD examples with multiple loads, and OOD examples with varying sup-port locations. This analysis sheds light on the fine-tuning dynamics underlying the observed disparities in generalization across different OOD dimensions, as shown in Figure 7. Figures 9a and 9b illustrates the evolution of the mean format and accuracy rewards, respectively, for each evaluation group against the cu-mulative number of training examples. Distinct training dynamics emerge between ID and OOD samples. For ID examples, format adherence improves rapidly during early training and remains consistently high thereafter, while accuracy increases first at later stages, reflecting the emergence of task-specific problem-solving behavior and improved solution quality. In contrast, for both OOD categories, the accuracy reward initially increases in tandem with the format reward. However, unlike the ID format reward, the OOD for-mat rewards decline once near-perfect format adherence is achieved. For OOD examples involving varying support locations, this decline in format adherence is accompanied by a modest but consistent decrease 
+
+Figure 8: Performance on standard mathematical reasoning benchmarks across selected training check-points, including initialization, the best-performing BeamPERL checkpoint, a mid-training checkpoint, and the final checkpoint. Accuracy is reported on AMC23, AIME24, and AIME25 to assess the effect of task specialization on general reasoning ability. Results indicate that early-stage training primarily enhances task-specific behavior without disrupting general reasoning performance, while a noticeable decline in benchmark accuracy emerges at later stages of training. 18 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving  
+
+> (a) (b)
+
+Figure 9: Mean reward trajectories plotted against the cumulative number of training examples for ID and two OOD evaluation groups, beams with multiple applied loads and beams with varying support locations. Panel (a) shows the evolution of the mean format reward, while panel (b) shows the evolution of the mean accuracy reward. ID examples exhibit rapid convergence to near-perfect format adherence in panel (a), followed by a delayed but steady increase in accuracy in panel (b). In contrast, both OOD groups show an initial joint improvement in format and accuracy, after which format adherence declines once saturation is reached. This decline is accompanied by a gradual reduction in accuracy for OOD examples with varying support locations, whereas accuracy for OOD examples with multiple applied loads continues to improve, highlighting distinct generalization behaviors across OOD dimensions. in accuracy, suggesting a degradation in both structural and semantic correctness as training progresses. Conversely, for OOD examples with multiple applied loads, accuracy continues to improve throughout training despite the decline in format reward. These results suggest that improved accuracy cannot be attributed solely to improved format adherence. In particular, for OOD examples involving multiple applied loads, accuracy continues to increase throughout training even as the format reward declines after reaching its peak. This indicates that the model acquires improved beam mechanics reasoning for this class of problems, rather than merely benefiting from better-structured outputs that facilitate reward assignment. In contrast, for OOD examples with varying support locations, both format adherence and accuracy deteriorate at later stages of training, suggesting a loss of robustness for structurally distinct configurations. Taken together, these trends indicate that RLVR with joint format and accuracy rewards self-organizes the training process into two distinct regimes. In an early phase, learning is dominated by alignment and efficiency gains, during which the model rapidly acquires stable output formatting, and achieves modest improvements in task performance. In a subsequent phase, training increasingly drives task-specific specialization, accompanied by distributional drift away from the base model. Within this later regime, RL induces selective generalization: the model can internalize trans-ferable physical reasoning that improves accuracy for certain OOD configurations, even as output structure deteriorates, while simultaneously becoming brittle for other OOD regimes. Generalization in beam statics is not uniform across distribution shifts, because different OOD axes pre-serve different amounts of the structure the model learned during training. In our setting, the training distribution contains simply supported beams with supports located at each end and a single point load at a variable location. Consequently, OOD examples that introduce multiple point loads while retaining end supports remain structurally closer to the training manifold than that of varying the support locations. As such, the multiple load case is aligned with a superposition of several single-load cases, and although the model has not seen those exact multi-load configurations, the underlying steps to solve the equilib-rium equations are similar to the training regime. By contrast, varying the support locations alters the reaction-force relationships and the effective lever arms in a way that is qualitatively different from any-thing encountered during training. These observations highlight that OOD generalization in mechanics is structured and hierarchical rather than binary: some distribution shifts preserve the core problem structure and admit compositional reuse of learned reasoning, while others alter the governing constraint regime to 19 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving  
+
+> (a) (b)
+
+Figure 10: Relationship between training dynamics and evaluation performance during fine-tuning. (a) Pass@7 evaluation performance plotted against the training reward, illustrating a strong coupling between reward optimization and downstream task performance. (b) Pass@7 performance plotted against the KL divergence from the base model distribution, with the KL term scaled by one half. Early in training, perfor-mance gains coincide with low KL divergence, indicating improvements achieved with minimal deviation from the pretrained model. Beyond the best-performing checkpoint, KL divergence increases sharply and becomes highly variable, signaling pronounced distributional shifts associated with later-stage specializa-tion. a larger degree. Although the fundamental principles needed to solve all evaluation examples are present in the training regime, certain OOD configurations elicit reasoning traces that align more closely with those developed during training than others. Figure 10a reveals a clear relationship between training reward and evaluation performance, indicating that reward function design plays a central role in shaping the outcome of the fine-tuning process. As discussed above, the current reward structure, composed of format and accuracy components, induces a two-stage training dynamic: an initial alignment phase in which the model rapidly acquires stable output formatting, followed by a later phase characterized by task-specific specialization and distributional drift away from the base model. This behavior is further illustrated in Figure 10b, which plots the KL divergence at each training step, scaled by one half, against the Pass@7 performance measured at corresponding checkpoints. During the early stages of training, Pass@7 performance improves steadily while the model distribution remains close to that of the base model, indicating that performance gains are achieved with minimal deviation from the pretrained behavior. Beyond the best-performing checkpoint, however, the KL divergence increases sharply and exhibits high variance, reflecting substantial shifts in the model’s output distribution. These results support the interpretation that early-stage improvements primarily arise from learning appropriate output structure and answer formatting, whereas later-stage training drives more pronounced changes in the model’s internal behavior, including its reasoning trajectories. The combination of a performance plateau and a steadily increasing KL divergence suggests diminishing returns from continued policy deviation as training progresses. However, as discussed, this behavior is partly driven by divergent trends across ID and OOD evaluation samples. While performance on ID ex-amples and OOD examples with multiple applied loads continues to improve throughout training, OOD examples with varying support locations exhibit a different pattern: semantic correctness degrades even if format adherence remains relatively stable. At later training checkpoints, the model occasionally pro-duces incoherent outputs while still retaining the preferred output format. This behavior is consistent with a known failure mode in RL, commonly referred to as reward hacking. In this regime, the model increas-ingly optimizes for reward signals that are only weakly correlated with true task competence, resulting in superficial alignment without corresponding improvements in underlying reasoning. This highlights that RLFT extending beyond the optimal regime can trade genuine reasoning competence for superficial reward optimization, particularly in the presence of sparse reward signals. 20 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving  
+
+> (a) (b)
+
+Figure 11: Evolution of mathematical benchmark performance under PE-RLFT. (a) Benchmark performance for eight models reported in the Tina project plotted against normalized training progress, with each check-point mapped to a common [0,1] scale based on the total number of training steps in the corresponding run. Individual checkpoints are shown together with the envelope defined by the minimum and maximum performance for each normalized checkpoint and the mean trajectory across all models. (b) Comparison between the mean benchmark performance trajectory of the Tina models and the corresponding trajectory obtained in the present BeamPERL study, with training progress normalized in both cases. In line with the task-specific brittleness observed on the beam mechanics benchmark at later stages of train-ing, the mathematical benchmark results point to a corresponding trade-off between task-specific special-ization and general reasoning capacity. While intermediate-stage reinforcement learning on beam mechan-ics tasks preserves broad mathematical reasoning ability, continued fine-tuning beyond the optimal regime induces catastrophic forgetting as the model becomes increasingly specialized to the beam mechanics task. To contextualize this behavior, we compare our benchmark results with those reported in the Tina project, which applies PERL to fine-tune the same base model on eight distinct mathematical reasoning datasets and evaluates each resulting model on the same three mathematical reasoning benchmarks considered in our study. Because the training datasets employed in the Tina project differ in size, each fine-tuning run comprises a different number of training steps, and LoRA adapter checkpoints are saved at dataset-specific intervals. For each model, the total number of training steps, the training step corresponding to each saved checkpoint, and the benchmark performance measured at that checkpoint are recorded. To enable com-parison across training runs of unequal length, we normalize each checkpoint’s training step by the total number of steps in the corresponding run, mapping all checkpoints to a common scale between 0 and 1. This normalization allows us to analyze how benchmark performance evolves over a single epoch of RLFT across different datasets. In Figure 11a, we plot benchmark performance for all recorded checkpoints against normalized training progress, overlaying the envelope defined by the maximum and minimum ob-served performance and the mean performance across all eight models. In Figure 11b, we further overlay the mean benchmark performance trajectory of the eight Tina-trained models with the corresponding tra-jectory obtained in our study, with training progress normalized in both cases. This comparison places the BeamPERL training dynamics in the context of domain-aligned mathematical reasoning fine-tuning, en-abling an assessment of how task-specific RL on beam mechanics differs from RL applied to closely related reasoning tasks in terms of performance evolution and stability over training. As expected, fine-tuning on mathematical reasoning tasks leads to better performance on mathematical reasoning benchmarks than fine-tuning on beam mechanics–specific tasks. However, even within the Tina project, where RLFT is applied directly to mathematical reasoning tasks, the gains are not necessarily sus-tained throughout training. This pattern is analogous to that observed for the beam mechanics–specific fine-tuning, in which RLFT initially yields meaningful performance gains but ultimately leads to diminish-ing returns and performance degradation beyond the optimal training regime. Taken together, these findings clarify that domain-specific RL enables compact models to internalize the governing structure of a well-defined engineering problem, yielding better task performance with minimal model scale and computational overhead. However, this efficiency comes at the cost of reduced robustness 21 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving outside the intended problem class, as continued specialization amplifies distributional drift and can erode general reasoning capacity. These results suggest two key lessons. First, domain-specific fine-tuning is most advantageous when high accuracy is required within a narrowly defined engineering regime, whereas gen-eral reasoning models are preferable when broader adaptability across tasks are prioritized. Second, con-tinued PE-RLVR-FT does not necessarily imply improved performance, highlighting that more training is not inherently better. These findings also illuminate the relationship between the present approach and its precursor, PRefLexOR [27]. Both methods share the core principle that models can acquire reasoning capa-bilities through outcome-level optimization without explicit supervision of intermediate steps. However, they occupy different positions on the reward signal spectrum: PRefLexOR employs preference-derived signals that capture relative answer quality across a broad scientific domain, while BeamPERL uses deter-ministic binary rewards that encode strict physical correctness within a narrow engineering task. Critically, PRefLexOR’s two-phase structure provides an explicit reasoning scaffold — the structured thought inte-gration phase teaches the model how to reason before the masking phase forces it to reason independently — whereas BeamPERL relies entirely on the base model’s pre-existing reasoning capacity, with no domain-specific scaffolding prior to reinforcement learning. The anisotropic generalization patterns observed in this study, procedural template learning rather than first-principles internalization, suggest that the precision of the reward signal alone, even when analytically exact, does not guarantee transferable reasoning, and that the structured scaffolding provided by PRefLexOR’s first training phase may play a more important role than previously appreciated. Future work could explore hybrid approaches that combine structured reasoning integration with verifiable reward-driven optimization, potentially yielding models that benefit from both explicit reasoning scaffolding and hard, physics-based reward signals. Importantly, the extent to which any of these trade-offs manifest depends on multiple factors including training data selection, reward function design, and evaluation methodology. 
+
+# 3 Conclusion and Future Directions 
+
+This work shows that dense, distilled LRMs can be specialized for standardized mechanics problems through RLVR-guided fine-tuning without teacher-generated reasoning traces, where a dense model learns to better compute support reaction forces using only verifiable, task-aligned reward signals. The resulting policies generalize beyond the training distribution along parametric, linear problem dimensions, indicat-ing that outcome-level supervision can induce structured solution strategies. However, this generalization is anisotropic: performance degrades under topological shifts such as changes in support configuration. This pattern suggests that the model internalizes a procedural template for solving problems instead of actually learning the first-principle representation of the equilibrium calculations. We show that a frozen base model with tunable LoRA adapters can absorb learning signals induced by RLVR, improving format adherence and task accuracy during training and yielding higher performance on ID and selected OOD cases at intermediate checkpoints. These results support the first part of our hypothesis: PE-RLVR-FT is sufficient to improve dense, distilled LRMs on standardized mechanics prob-lems without teacher-generated traces or full-parameter updates. However, the resulting competence is distribution-dependent and degrades under certain configuration shifts and continued optimization. This challenges the second part of our hypothesis, suggesting that outcome-level alignment improves task ac-curacy but does not reliably induce robust internalization of governing equations. Taken together, these results position PE-RLVR-FT as a computationally efficient mechanism for task specialization, but not nec-essarily a sufficient pathway to stable, generalizable engineering reasoning. The main contributions of this study are the open-source development of the BeamPERL framework, in-cluding both a synthetic dataset generation pipeline for beam mechanics problems and a PE-RLVR-FT pipeline for fine-tuning LLMs on said datasets. We release the full training and evaluation datasets, along with a fully reproducible experimental setup and evaluation protocol, enabling transparent benchmarking and future extensions of this work. 
+
+3.1 Future Directions 
+
+Several avenues for future work offer opportunities, among them the design of more nuanced verification and reward mechanisms. A practical but important limitation of the current study is that the composite reward weights, one third format and two thirds accuracy, were selected based on experimentation and found to work well in practice for stabilizing training, but were not systematically ablated. Future work should therefore include controlled sweeps over reward weights to quantify how sensitive both ID perfor-22 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving mance and OOD anisotropic generalization are to this design choice. The current outcome-level reward is largely result-oriented, which can incentivize reward gaming, where correct final answers arise from flawed reasoning rather than genuine understanding of beam mechanics. Introducing process rewards for intermediate logic may foster more robust reasoning, and one such possibility is to remain within the RLVR framework while introducing verifiable process-level rewards, for example by rewarding the correct identification of governing equations, intermediate reasoning steps, or accurate calculations at intermediate stages. Alternatively, one could move beyond strictly verifiable rewards and incorporate process rewards evaluated by a learned critic, such as an LLM-as-a-judge, thereby avoiding reliance on a separately trained value function. Beyond reward formulation, the training dynamics themselves warrant further study. In particular, dynamically weighted combinations of format and accuracy rewards could be explored, intro-ducing a second training phase that places greater emphasis on numerical correctness once format adher-ence has stabilized. The use of KL regularization, including adaptive KL schedules, may help mitigate the catastrophic forgetting observed under distributional shifts at later stages of training. In addition, early stopping criteria and automated checkpoint selection strategies, informed by validation performance or auxiliary generalization metrics, could enable more reliable identification of checkpoints that balance task-specific performance with broader reasoning capability. Systematic dataset expansion targeting topological diversity could also be a next step. Rather than pri-marily increasing parametric variation, future datasets could incorporate a broader range of support con-figurations, load types and other boundary conditions that disrupt procedural solution templates. Such expansions may encourage the model to internalize invariants of static equilibrium rather than rely on learned surface patterns. Controlled variation along these dimensions would clarify whether the observed anisotropic generalization arises from limited training coverage or reflects inherent properties of outcome-level alignment. Expanding the task scope within the beam mechanics domain, from support reaction calculation to the full beam statics pipeline, could also be an interesting next step. This would include calculation of inter-nal forces and displacements, and moving beyond beams to other structural systems, such as frames and trusses. This would further test the scalability of the approach and support the development of dense models with potential applications in both engineering education and assistive engineering workflows. A related and promising avenue of future work is to evaluate cross-domain generalization of learned struc-tural engineering knowledge. Future work could evaluate cross-domain transfer by testing beam-trained models on truss problems and extending curriculum-style RLFT toward progressively more complex struc-tural systems, ultimately probing whether transferable principles of structural statics and mechanics of materials can be acquired through staged reasoning development. Taken together, these directions position the present work as an intentionally simple but concrete first step toward the development of lightweight, specialized reasoning agents capable of self-taught operation in various scientific domains. Future work could also involve a systematic evaluation of the training regime proposed here across a well-defined set of base models, with particular emphasis on identifying the minimal reasoning priors required for successful RLFT, especially in smaller models. Furthermore, as it has been suggested that RLVR with binary reward functions amplifies reasoning capabilities already present in the base model by reshaping the output distribution, future work could also examine how training dynamics and evaluation performance vary with the number of rollouts per training and evaluation example. Additional systematic evaluations could include controlled ablation studies over key architectural and training parameters, such as LoRA configuration, sampling strategies, reward weighting, learning rate schedules, and effective batch sizes. Finally, returning to our opening perspective on a future in which engineers and intelligent systems operate side by side, future work could integrate these lightweight, task-specialized models into multi-agent work-flows. In such settings, multiple agents sharing a common language-model backbone could collaborate to iteratively refine and validate one another’s outputs. This paradigm enables strong performance on well-specified engineering tasks even with relatively small models, reducing both computational requirements and reliance on large, external inference services that may be costly or incompatible with data governance in the engineering practice. These systems could also open for future work including tool-augmented agents equipped with capabilities common to engineering workflows, such as symbolic solvers and physics-based simulators. More broadly, the integration of structured text resources, including queryable vector databases and graph-based representations of domain knowledge [7, 15, 28], may enable more refined, hierarchical approaches to scientific reasoning. The conceptual lineage between PRefLexOR [27] and the present work suggests a natural synthesis: a multi-phase pipeline in which structured thought integration first provides domain-specific reasoning scaffolding 23 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving through preference-derived reward signals, followed by RLVR-based refinement with deterministic, veri-fiable rewards from symbolic solvers. Such an approach would combine the benefits of explicit reasoning structure — which PRefLexOR showed can be internalized even by compact models — with the precision of hard, physics-based correctness signals. This hybrid strategy may address the procedural template learn-ing limitation identified in this study by providing the model with richer initial reasoning structure before outcome-level optimization with binary rewards narrows the solution distribution. More broadly, this pro-gression from soft preference signals to hard verifiable rewards represents a principled curriculum along the reward signal spectrum, in which models first acquire general reasoning patterns and then sharpen them against exact physical ground truth. 
+
+# 4 Materials and Methods 
+
+4.1 Experimental Setup 
+
+All experiments were conducted on a single node equipped with 2 NVIDIA L4 GPUs, 24 vCPUs, 96 GB RAM, and a 300 GB balanced persistent disk. Training and evaluation used Python 3.10 on a recent Linux distribution with CUDA 11.8. Training was conducted using PyTorch [49], and distributed across GPUs using DeepSpeed [50]. vLLM [51] was employed as an inference engine for improved infererence efficiency. To promote reproducibility, we seeded all components that expose a seed parameter using a fixed seed. However, due to the use of stochastic sampling during RL training and evaluation, GPU parallelism, and vLLM’s internal scheduling, the system is not fully bit-for-bit deterministic; repeated runs yield similar but not identical results. 
+
+4.2 Synthetic Dataset Generation via Automated Prompt Generation for Large Language Models 
+
+The generated datasets, for both training and evaluation, are stored as Hugging Face Datasets using the datasets library [52]. To generate the questions in the QA pairs, we use the 
+
+DeepSeek-R1-Distill-Qwen-7B distilled LRM [31]. We deliberately focus on small-scale open-source mod-els for this study, and for dataset generation employ Red Hat AI’s INT8-quantized version of the model [53] to reduce the disk footprint and GPU memory requirements. To expand the dataset, multiple questions are generated per beam example. During inference, we use a temperature of 0.6 and nucleus sampling with a probability treshold of 0.9 to control output randomness, balancing reliable synthetic question generation with sufficient diversity such that questions generated for the same beam configuration are not identical. The system prompt used for dataset generation and an example-specific prompt, defined by each beam’s geometric, support, and loading parameters, are shown in the SI. The example-specific prompt is auto-matically constructed by a script that maps each beam’s defining parameter set L, E, I, xpin , xroller , x, P to a structured natural-language description, enabling consistent prompt formulation and scalable dataset generation. From each model output, the text following the reasoning section is extracted and stored as a list of ques-tions, with multiple questions corresponding to the same beam configuration. Four representative exam-ples generated using the aforementioned system and example-specific prompts is shown in the SI. For each beam configuration, the corresponding answer, shared across all associated questions, is stored as an or-dered list of reaction forces arranged by their spatial location along the beam, shown together with the aforementioned generated questions in the SI. Reaction forces are computed symbolically using a modified version of the Python library SymBeam, which produces analytical expressions for the external reactions. During training, each sample’s prompt is a short chat-style conversation with a system message, which tells the model how to behave and how to format its reasoning and final answer, and a user message which contains the single beam mechanics question. The system prompt used throughout training is shown in the SI. 
+
+4.3 Parameter-Efficient Reinforcement Learning Fine-Tuning with GRPO 
+
+For RLFT we make use of GRPO, a fine tuning scheme which samples the model multiple times, uses a reward function for ranking the model outputs against eachother, and then adjusts the model weights to increase the probability of outputting the higher ranked outputs in comparison to the lower ranked outputs. As we do not operate with a clipped surrogate objective or bound the fine-tuned model to a reference model, 24 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving and operate with a outcome dependent reward model, the policy model is optimized by minimizing the loss objective stated in Equation 3. 
+
+LGRPO (θ) = − 1
+
+∑Gi=1 |oi|
+
+> G
+
+# ∑ 
+
+> i=1
+> |oi|
+
+# ∑
+
+> t=1
+
+πθ (oi,t | q, oi,<t)
+
+πθold (oi,t | q, oi,<t) ˆAi (3) Here, πθ is the current model policy, that is the LLM being fine-tuned, while θ are the model’s tunable parameters. Meanwhile, πθold is the model policy prior to optimization, while {o1, o2, . . . , oG } is the set of G
+
+outputs sampled from πθold per prompt q. ˆAi denotes the advantage, computed from the relative rewards of outputs within each group, to be described in Section 4.3.1. We adopt DeepSeek-R1-Distill-Qwen-1.5B as the base model, the smallest distilled LRM in the R1 series. The model is deployed using the Hugging Face transformers library [54], while training is implemented using the Hugging Face Transformer Reinforcement Learning ( TRL ) framework [55]. At each training step, the model is evaluated on 8 training examples, from which 4 outputs are sampled per example, yielding an effective batch size of 32. For each training example, optimization is performed over two generated question–answer pairs, resulting in 360 beam examples per epoch and an effective training set size of 1,440 samples. Training is distributed across two GPUs, with 4 examples per GPU and a gradient accumulation factor of 4. We employ a cosine learning rate schedule, with the learning rate increasing from 2 × 10 −5 to 1 × 10 −4 before decaying to 1 × 10 −5.As illustrated in Figure 3, PEFT is enabled by freezing the base model weights and injecting trainable rank decomposition matrices into the transformer architecture, such that only the LoRA adapter’s parameters are updated during training. The LoRA adapters use rank 32 with a scaling factor of 4 and are applied to the q_proj , k_proj , v_proj , o_proj , down_proj , up_proj , and gate_proj modules. A LoRA dropout rate of 0.05 is used throughout training. By applying a low-rank adaptation to the frozen base weight matrix 
+
+W0 ∈ Rd×k, we reparameterize the effective weight matrix as shown in Equation 4a. Here ∆W = BA ,while B ∈ Rd×r and A ∈ Rr×k are trainable matrices with r ≪ min (d, k). Then, for an input vector x, the model output h is as shown in Equation 4b. This formulation enables fine-tuning by optimizing only the low-rank matrices A and B while keeping W0 fixed, thereby substantially reducing the number of trainable parameters compared to full fine-tuning [42]. Specifically, we reduce the model’s trainable parameters from 1.777 billion to 36.93 million, a reduction of 97.9%. This modification allows us to conduct the training in an efficient manner on modest hardware. 
+
+W = W0 + ∆W (4a) 
+
+h = W0 x + BAx (4b) During training, we log several metrics at each optimization step, including the scalar reward (bounded between 0 and 1), the completion length of rolled-out responses measured in tokens, and the KL divergence. The KL divergence is estimated using the approximation described in [56], and stated in Equation 5. All metrics are logged using Weights & Biases [57]. 
+
+(DKL [πθ ∥ πref ]) i t = πref (oi,t | q, oi,<t)
+
+πθ (oi,t | q, oi,<t) − log πref (oi,t | q, oi,<t)
+
+πθ (oi,t | q, oi,<t) − 1 (5) Here (DKL [πθ ∥ πref ]) i t denotes the token-level KL divergence estimator for token t ∈ [ 1, |oi| ] of the sam-pled output oi, where i ∈ [ 1, G ] indexes the G outputs sampled from πθold per prompt q. The KL divergence term quantifies deviations of the updated policy πθ from a reference policy πref , that is the initial, frozen base model, thereby allowing to monitor distribution drift during training. 
+
+4.3.1 Reward Function Design 
+
+A critical component of GRPO training is the definition of the reward function, which directly guides the optimization of the model. The reward function R assigns a scalar reward ri to each sampled output oi ∈{o1, o2, . . . , oG } according to ri = R(oi). For a given question q, the mean and standard deviation of the rewards across the G sampled outputs, denoted μr and σr, are computed. These statistics are then used to 25 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving normalize the rewards and obtain the advantage estimate ˆAi, shown in Equation 6, which enters the loss function in Equation 3. ˆAi = ri − μr
+
+σr
+
+(6) We define our reward function as a composite reward function of a format and accuracy reward, denoted 
+
+Rform. and Racc. , respectively. Each reward takes a model output as an input and returns a binary value. We deliberately adopt binary rewards rather than graded scoring to ensure that the optimization objective aligns strictly with verifiable physical correctness, avoiding ambiguous partial-credit signals that could reinforce incorrect responses. However, this design choice also increases reward sparsity and provides no graded signal for partially correct solutions, which could hinder learning first-principles reasoning. To prioritize guiding the model towards correct answers in cases where different outputs have competing results, i.e., correct format but incorrect answer or vice versa, we weight the format and accuracy rewards by one and two thirds, respectively. We do this to ensure that physical correctness dominates optimization. A higher format weight risks incentivizing superficial structural compliance without semantic validity, whereas eliminating format reward altogether reduces automated evaluation robustness. As such, the total reward function takes a model output as input and returns a floating point number between zero and one that jointly reflects formatting compliance and answer correctness. The overall composition of the reward function is stated in Equation 7. 
+
+R (oi) = 13 (Rform. (oi) + 2Racc. (oi)) (7) The format reward enforces structured outputs by requiring exactly one <think> tag to open the reasoning section and one </think> tag to close the reasoning section, as well as at least one non-empty \boxed{} 
+
+expression after the reasoning tag. The reward function returns 1 if all conditions are satisfied, and 0 oth-erwise. This ensures outputs follow a consistent format that enables reliable parsing and evaluation. The accuracy reward evaluates physical correctness by comparing predicted reaction-force coefficients against the ground truth using multiset matching. For each completion, the portion of the output following the final </think> tag is processed, and reaction forces are extracted exclusively from \boxed{} expressions using brace-aware parsing. L ATEX fraction commands are normalized to ensure consistent pattern match-ing. Since all loads are expressed in terms of the symbolic variable P, numeric coefficients multiplying 
+
+P are extracted from each boxed expression using pattern-based parsing that supports integers, decimals, and fractional forms. Predicted and ground-truth coefficients are compared via multiset matching with tolerance ε = 10 −4, requiring each ground-truth value to match a prediction. The reward returns 1 only if all coefficients are correctly matched and 0 otherwise, yielding a strict binary measure of equilibrium correctness. Overall, this composite reward function provides a principled training signal that jointly enforces struc-tured, machine-readable outputs and strict physical correctness of predicted reaction forces. By combining a format reward that guides reliable parsing with an accuracy reward that evaluates correctness, the objec-tive aligns optimization with the requirements of automated verification. The weighting prioritizes physi-cal correctness over superficial formatting, with the intent to ensure mechanically valid solutions dominate the learning signal. At the same time, reinforcement learning with composite objectives carries a known theoretical risk of reward hacking, in which models optimize for easily obtainable rewards, such as for-matting compliance, at the expense of rigorous reasoning. We therefore examine whether strict format rewards induce semantic degradation, for example by encouraging syntactically correct but mechanically invalid outputs. The reward design thus enables RLVR while simultaneously serving as a controlled test of alignment robustness under multiple reward signals. 
+
+4.4 Evaluation Protocol 
+
+The LoRA adapters are saved at nine checkpoints during training. At each checkpoint, adapters are merged into the base model for evaluation, and the unmodified base model is evaluated as a baseline. Each check-point is evaluated on 24 beam examples, as described in Section 2.3.1. For each prompt, the model generates seven completions using temperature sampling with T = 0.6. Completions are scored using the same re-ward functions as during training, defined in Section 4.3.1. We report three metrics: (i) pass@1, indicating whether the first completion receives a positive accuracy reward; (ii) pass@7, indicating whether at least one 26 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving of seven completions receives a positive accuracy reward; and (iii) majority@7, indicating whether at least four completions receive a positive accuracy reward. These metrics reflect one-shot performance, best-case sampled performance, and output consistency. Selected checkpoints, together with the base model, are also evaluated on mathematical competition bench-marks using the LightEval framework [58]. We evaluate on three Hugging Face Hub benchmarks: the 2024 and 2025 American Invitational Mathematics Examinations (AIME24, AIME25) [59–61] and the 2023 Amer-ican Mathematics Competition (AMC23) [62, 63]. AIME, used in the US IMO selection process, consists of two annual 15-question versions, yielding 30 question–answer pairs per year in our evaluation sets. AMC23 corresponds to the 2023 AMC 12, which includes two 25-question versions, of which 40 publicly available question–answer pairs are included in our dataset. Problems are formatted using a standardized evalua-tion prompt in which a fixed instruction prefix is shared preceding the benchmark problem text, shown in the SI. Answers are extracted using LightEval’s expression extraction metric, which prioritizes expressions enclosed in \boxed and otherwise falls back to other L ATEX or mathematical patterns. Extracted outputs are compared to ground truth via extractive matching with a five-decimal tolerance. We report task accuracy as the fraction of problems whose extracted answer matches the ground truth within this precision. Mathematical benchmark evaluations are performed at four training stages: at initialization using the frozen base model; at the best-performing checkpoint, occurring at 22% of the training epoch; at an in-termediate checkpoint at approximately halfway through the training epoch; and at the final checkpoint upon completion of the epoch after all 360 training examples have been processed. These checkpoints were selected because they capture representative stages of training, allowing us to assess the evolution of math-ematical reasoning performance from initialization through intermediate learning and final specialization. 
+
+# Acknowledgments 
+
+T.P.H. acknowledges support from Aker Scholarship. M.J.B. acknowledges support from the MIT Genera-tive AI Impact Consortium. Part of this work was supported by the U.S. Department of Energy, Office of Science, Office of Advanced Scientific Computing Research and Office of Basic Energy Sciences, Scientific Discovery through Advanced Computing (SciDAC) program under the FORUM-AI project. We acknowl-edge the two open source projects Tina [43] and Open R1 [33], which this project is built upon. 
+
+# Author Contributions 
+
+M.J.B. and T.P.H. developed the central research idea and conceptual framework. T.P.H. implemented the dataset generation pipeline and training infrastructure, conducted all experiments, and performed the as-sociated analyses. M.J.B. supervised the project and guided the research development. T.P.H. prepared the initial manuscript draft. Both authors contributed to editing and finalizing the manuscript. 
+
+# Competing Interests 
+
+The authors declare that they have no competing interests. 
+
+# Code and Data Availability 
+
+All code, protocols and notebooks developed in this study are available at: github.com/LAMM-MIT/BeamPERL. The baseline model, trained model and datasets developed in this work are publicly avail-able at huggingface.co/collections/LAMM-MIT/BeamPERL. Supplementary Information contains quali-tative model outputs for three representative evaluation samples: (i) an ID example, (ii) an OOD example involving beams supported at the ends with multiple applied loads, and (iii) an OOD example with varying support locations. 
+
+# References 
+
+[1] Vaswani, A. et al. Attention is all you need. In Advances in Neural Information Processing Systems , vol. 30 (2017). 27 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving [2] Wei, J. et al. Finetuned Language Models Are Zero-Shot Learners. ICLR 2022 - 10th International Con-ference on Learning Representations (2021). URL https://arxiv.org/abs/2109.01652v5 .[3] Wei, J. et al. Chain-of-thought prompting elicits reasoning in large language models. In Advances in Neural Information Processing Systems (NeurIPS) (2022). [4] Hu, Y. & Buehler, M. J. Deep language models for interpretative and predictive materials science. APL Machine Learning 1, 010901 (2023). URL https://doi.org/10.1063/5.0134317 . https://pubs.aip. org/aip/aml/article-pdf/doi/10.1063/5.0134317/20004466/010901_1_5.0134317.pdf .[5] Wang, H. et al. Scientific discovery in the age of artificial intelligence. Nature 620 , 47–60 (2023). [6] Berens, P., Cranmer, K., Lawrence, N. D., von Luxburg, U. & Montgomery, J. AI for science: An emerging agenda. arXiv preprint arXiv:2303.04217 (2023). [7] Buehler, M. J. Accelerating scientific discovery with generative knowledge extraction, graph-based representation, and multimodal intelligent graph reasoning. Machine Learning: Science and Technology 
+
+5, 035083 (2024). URL https://doi.org/10.1088/2632-2153/ad7228 .[8] Ghafarollahi, A. & Buehler, M. J. SciAgents: Automating Scientific Discovery Through Bioin-spired Multi-Agent Intelligent Graph Reasoning. Advanced Materials 37 (2025). URL https:// onlinelibrary.wiley.com/doi/abs/10.1002/adma.202413523 .[9] Stewart, I. A., Hage, T. P., Hsu, Y.-C. & Buehler, M. J. Graphagents: Knowledge graph-guided agentic ai for cross-domain materials design (2026). URL https://arxiv.org/abs/2602.07491 . 2602.07491 .[10] Buehler, M. J. Physics-aware emergent cognition for discovery, materials innovation, and design through agentic modeling. Nano Futures (2026). URL https://doi.org/10.1088/2399-1984/ae4152 .[11] Lu, W., Luu, R. K. & Buehler, M. J. Fine-tuning large language models for domain adaptation: ex-ploration of training strategies, scaling, model merging and synergistic capabilities. npj Computational Materials 11 , 84 (2025). URL https://www.nature.com/articles/s41524-025-01564-y .[12] Ghafarollahi, A. & Buehler, M. J. Sparks: Multi-Agent Artificial Intelligence Model Discovers Protein Design Principles (2025). URL http://arxiv.org/abs/2504.19017 . ArXiv:2504.19017 [cs]. [13] Chen, L. & Varoquaux, G. What is the Role of Small Models in the LLM Era: A Survey (2025). URL 
+
+http://arxiv.org/abs/2409.06857 . ArXiv:2409.06857 [cs]. [14] Arora, D. & Zanette, A. Training Language Models to Reason Efficiently (2025). URL http://arxiv. org/abs/2502.04463 . ArXiv:2502.04463 [cs]. [15] Ghafarollahi, A. & Buehler, M. J. Rapid and automated alloy design with graph neural network-powered large language model-driven multi-agent AI. MRS Bulletin 50 , 1309–1324 (2025). URL https: //doi.org/10.1557/s43577-025-00953-4 .[16] Liang, H., Kalaleh, M. T. & Mei, Q. Integrating Large Language Models for Automated Structural Analysis (2025). URL http://arxiv.org/abs/2504.09754 . ArXiv:2504.09754 [cs]. [17] Elrefaie, M. et al. AI Agents in Engineering Design: A Multi-Agent Framework for Aesthetic and Aero-dynamic Car Design. Proceedings of the ASME 2025 International Design Engineering Technical Conferences and Computers and Information in Engineering Conference IDETC-CIE2025 (2025). [18] Zelikman, E., Wu, Y., Mu, J. & Goodman, N. D. Star: Bootstrapping reasoning with reasoning. arXiv preprint arXiv:2203.14465 (2022). URL https://arxiv.org/abs/2203.14465 .[19] Zelikman, E., Harik, G., Mu, J. & Goodman, N. D. Quiet-star: Language models can teach themselves to think before speaking. arXiv preprint arXiv:2403.09629 (2024). URL https://arxiv.org/abs/2403. 09629 .[20] Buehler, E. L. & Buehler, M. J. X-lora: Mixture of low-rank adapter experts for large language models with applications in protein mechanics and design. arXiv preprint arXiv:2402.07148 (2024). URL https: //arxiv.org/abs/2402.07148 .[21] Shi, Z. et al. Deep Research: A Systematic Survey (2025). URL http://arxiv.org/abs/2512.02038 .ArXiv:2512.02038 [cs] version: 1. [22] Zhang, K. et al. A Survey of Reinforcement Learning for Large Reasoning Models (2025). URL http: //arxiv.org/abs/2509.08827 . ArXiv:2509.08827 [cs]. [23] Li, Z.-Z. et al. From System 1 to System 2: A Survey of Reasoning Large Language Models (2025). URL 
+
+http://arxiv.org/abs/2502.17419 . ArXiv:2502.17419 [cs]. 28 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving [24] Xu, F. et al. Toward large reasoning models: A survey of reinforced reasoning with large lan-guage models. Patterns 6, 101370 (2025). URL https://linkinghub.elsevier.com/retrieve/pii/ S2666389925002181 .[25] Luu, R. K. & Buehler, M. J. BioinspiredLLM: Conversational Large Language Model for the Me-chanics of Biological and Bio-Inspired Materials. Advanced Science 11 , 2306724 (2024). URL https: //onlinelibrary.wiley.com/doi/abs/10.1002/advs.202306724 .[26] Sutton, R. S. & Barto, A. G. Reinforcement Learning: An Introduction (MIT Press, 2014), second edn. [27] Buehler, M. J. PRefLexOR: preference-based recursive language modeling for exploratory optimization of reasoning and agentic thinking. npj Artificial Intelligence 1, 4 (2025). URL https://www.nature.com/ articles/s44387-025-00003-z .[28] Buehler, M. J. In-situ graph reasoning and knowledge expansion using Graph-PRefLexOR. Advanced Intelligent Discovery (2025). URL https://doi.org/10.1002/aidi.202500006 .[29] Christiano, P. et al. Deep reinforcement learning from human preferences (2023). URL http://arxiv. org/abs/1706.03741 . ArXiv:1706.03741 [stat]. [30] OpenAI. OpenAI o1 System Card (2024). URL http://arxiv.org/abs/2412.16720 . ArXiv:2412.16720 [cs]. [31] DeepSeek-AI. DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning (2025). URL http://arxiv.org/abs/2501.12948 . ArXiv:2501.12948 [cs]. [32] Kim, J., Lai, S., Scherrer, N., Arcas, B. A. y. & Evans, J. Reasoning Models Generate Societies of Thought (2026). URL http://arxiv.org/abs/2601.10825 . ArXiv:2601.10825 [cs]. [33] Face, H. Open R1: A fully open reproduction of DeepSeek-R1 (2025). URL https://github.com/ huggingface/open-r1 . Https://github.com/huggingface/open-r1. [34] Chen, Z. et al. An Empirical Study on Eliciting and Improving R1-like Reasoning Models (2025). URL 
+
+http://arxiv.org/abs/2503.04548 . ArXiv:2503.04548 [cs] version: 1. [35] Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale (2025). URL 
+
+http://arxiv.org/abs/2503.14476 . ArXiv:2503.14476 [cs]. [36] Liu, Z. et al. Understanding R1-Zero-Like Training: A Critical Perspective (2025). URL http://arxiv. org/abs/2503.20783 . ArXiv:2503.20783 [cs]. [37] Hu, J. et al. Open-Reasoner-Zero: An Open Source Approach to Scaling Up Reinforcement Learning on the Base Model (2025). URL http://arxiv.org/abs/2503.24290 . ArXiv:2503.24290 [cs]. [38] Schulman, J., Wolski, F., Dhariwal, P., Radford, A. & Klimov, O. Proximal Policy Optimization Algo-rithms (2017). URL http://arxiv.org/abs/1707.06347 . ArXiv:1707.06347 [cs]. [39] Zeng, W. et al. SimpleRL-Zoo: Investigating and Taming Zero Reinforcement Learning for Open Base Models in the Wild (2025). URL http://arxiv.org/abs/2503.18892 . ArXiv:2503.18892 [cs]. [40] Dang, Q.-A. & Ngo, C. Reinforcement Learning for Reasoning in Small LLMs: What Works and What Doesn’t (2025). URL http://arxiv.org/abs/2503.16219 . ArXiv:2503.16219 [cs]. [41] Schulman, J. & Lab, T. M. LoRA Without Regret. Thinking Machines Lab: Connectionism (2025). URL 
+
+https://thinkingmachines.ai/blog/lora/ .[42] Hu, E. J. et al. LoRA: Low-Rank Adaptation of Large Language Models (2021). URL http://arxiv. org/abs/2106.09685 . ArXiv:2106.09685 [cs]. [43] Wang, S. et al. Tina: Tiny Reasoning Models via LoRA (2025). URL http://arxiv.org/abs/2504. 15777 . ArXiv:2504.15777 [cs] version: 1. [44] Sidahmed, H. et al. Parameter Efficient Reinforcement Learning from Human Feedback (2024). URL 
+
+http://arxiv.org/abs/2403.10704 . ArXiv:2403.10704 [cs]. [45] Carneiro, A. SymBeam (2020). URL https://github.com/amcc1996/symbeam .Https://github.com/amcc1996/symbeam. [46] Meurer, A. et al. SymPy: symbolic computing in Python. PeerJ Computer Science 3, e103 (2017). URL 
+
+https://peerj.com/articles/cs-103 .[47] Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models (2024). URL http://arxiv.org/abs/2402.03300 . ArXiv:2402.03300 [cs]. 29 BeamPERL: PE-RLVR-FT for Beam Mechanics Problem-Solving [48] Yue, Y. et al. Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model? (2025). URL http://arxiv.org/abs/2504.13837 . ArXiv:2504.13837 [cs]. [49] Paszke, A. et al. PyTorch: An Imperative Style, High-Performance Deep Learning Library (2019). URL 
+
+http://arxiv.org/abs/1912.01703 . ArXiv:1912.01703 [cs]. [50] Rasley, J., Rajbhandari, S., Ruwase, O. & He, Y. DeepSpeed: System Optimizations Enable Training Deep Learning Models with Over 100 Billion Parameters. In Proceedings of the 26th ACM SIGKDD Inter-national Conference on Knowledge Discovery & Data Mining , KDD ’20, 3505–3506 (Association for Com-puting Machinery, New York, NY, USA, 2020). URL https://dl.acm.org/doi/10.1145/3394486. 3406703 .[51] Kwon, W. et al. Efficient Memory Management for Large Language Model Serving with PagedAtten-tion (2023). URL http://arxiv.org/abs/2309.06180 . ArXiv:2309.06180 [cs]. [52] Lhoest, Q. et al. Datasets: A Community Library for Natural Language Processing (2021). URL http: //arxiv.org/abs/2109.02846 . ArXiv:2109.02846 [cs]. [53] Kurti´ c, E., Marques, A., Kurtz, M. & Alistarh, D. Deployment-ready reasoning with quantized DeepSeek-R1 models (2025). URL https://developers.redhat.com/ articles/2025/03/03/deployment-ready-reasoning-quantized-deepseek-r1-models .Https://developers.redhat.com/articles/2025/03/03/deployment-ready-reasoning-quantized-deepseek-r1-models. [54] Wolf, T. et al. HuggingFace’s Transformers: State-of-the-art Natural Language Processing (2020). URL 
+
+http://arxiv.org/abs/1910.03771 . ArXiv:1910.03771 [cs]. [55] von Werra, L. et al. TRL: Transformers Reinforcement Learning (2020). URL https://github.com/ huggingface/trl . Https://github.com/huggingface/trl. [56] Schulman, J. Approximating KL Divergence. URL http://joschu.net/blog/kl-approx.html .Http://joschu.net/blog/kl-approx.html. [57] Biewald, L. Experiment Tracking with Weights and Biases (2020). URL https://www.wandb.com .Https://www.wandb.com. [58] Habib, N., Fourrier, C., Kydlíˇ cek, H., Wolf, T. & Tunstall, L. LightEval: A lightweight framework for LLM evaluation (2023). URL https://github.com/huggingface/lighteval .Https://github.com/huggingface/lighteval. [59] of Problem Solving, A. American Invitational Mathematics Examination. URL https: //artofproblemsolving.com/wiki/index.php?title=American_Invitational_Mathematics_ Examination . Https://artofproblemsolving.com. [60] H4, H. F. AIME24 Dataset at Hugging Face (2025). URL https://huggingface.co/datasets/ HuggingFaceH4/aime_2024 . Https://huggingface.co/datasets/HuggingFaceH4/aime_2024. [61] Lin, Y.-T. AIME25 Dataset at Hugging Face (2025). URL https://huggingface.co/datasets/ yentinglin/aime_2025 . Https://huggingface.co/datasets/yentinglin/aime_2025. [62] of Problem Solving, A. American Mathematics Competitions. URL 
+
+https://artofproblemsolving.com/wiki/index.php/American_Mathematics_ Competitions?srsltid=AfmBOooKIcl9fyqyXCdFugR7LZxuZCnV0XaF-4t8VSCrkXQD_r09pLTV .Https://artofproblemsolving.com. [63] Engineering, K. AMC23 Dataset at Hugging Face (2025). URL https://huggingface.co/datasets/ knoveleng/AMC-23 . Https://huggingface.co/datasets/knoveleng/AMC-23. 30 BeamPERL: Parameter-Efficient RL with Verifiable Rewards Specializes Compact LLMs for Structured Beam Mechanics Reasoning 
+
+Tarjei Paule Hage 
+
+Department of Mechanical Engineering Massachusetts Institute of Technology Cambridge, MA, USA 
+
+Markus J. Buehler 
+
+Department of Civil and Environmental Engineering Department of Mechanical Engineering Schwarzman College of Computing Massachusetts Institute of Technology Cambridge, MA, USA 
+
+mbuehler@mit.edu 
+
+# Supplementary Information 
+
+# SI 1 Prompts 
+
+System Prompt for Question Generation 
+
+You are a question generation assistant. You will be given information about the setup of a statically loaded beam. Your task is to generate a question that asks the reader to calculate the reaction forces at the supports. Generate a single, self-contained question that includes all the provided details from the setup below. All details are correct. The question should be short and concise. Use limited time reasoning. The question needs to state the length of the beam, the location and type of the supports of the beam, and the location, magnitude, direction and type of the loads applied to the beam. Following the think tag concluding the reasoning section, return only the question and no other dialogue referencing the prompt or the setup. 
+
+Text Box SI 1: System prompt used for dataset generation, instructing the model to generate a single, self-contained question that asks for the calculation of reaction forces in a statically loaded beam. The prompt enforces concise formulation, inclusion of all geometric, support, and loading details, and limits extended reasoning by requiring only the final question as output. 
+
+Example-Specific Prompt for Question Generation 
+
+The beam has a length of 9L. The beam has a Young’s modulus of E. The beam has a moment of inertia of I. There are applied loads: a point load of −13 P at x = 0 .0L and a point load of −13 P
+
+at x = 4 .5L. A negative load means the load is applied downward. The beam has a pin support at 
+
+x = 0 .9L and a roller support at x = 8 .1L.Text Box SI 2: Example-specific prompt used for dataset generation, encoding the defining geometric, material, support, and loading parameters of a single statically loaded beam. This prompt is combined with the system prompt in Text Box SI 1 to generate a corresponding reaction-force question. BeamPERL Supplementary Information 
+
+Example-Specific Generated Question–Answer Pairs for a Single Beam Configuration 
+
+Question 1: 
+
+Determine the reaction forces at the pin support (x=0.9*L) and the roller support (x=8.1*L) for a beam of length 9*L with a pin support at x=0.9*L, a roller support at x=8.1*L, a downward point load of 13*P at x=0.0*L, and another downward point load of 13*P at x=4.5*L. 
+
+Question 2: 
+
+Given a beam of length 9*L with a pin support at x=0.9*L and a roller support at x=8.1*L, and two downward point loads of -13*P at x=0.0*L and x=4.5*L, calculate the reaction forces at the supports. 
+
+Question 3: 
+
+The beam has a length of 9*L, with a pin support at x=0.9*L and a roller support at x=8.1*L. There are two downward point loads of 13*P each at x=0.0*L and x=4.5*L. What are the reaction forces R1 and R2 at the pin and roller supports, respectively? 
+
+Question 4: 
+
+Determine the reaction forces at the pin support (x=0.9*L) and the roller support (x=8.1*L) for a beam of length 9*L with downward point loads of 13*P at x=0.0*L and x=4.5*L. 
+
+Answer: 
+
+[ 21 .125 P, 4.875 P ]
+
+Text Box SI 3: Four representative question–answer pairs generated for the same beam configuration using the identical system prompt and example-specific prompt shown in Text Boxes SI 1 and SI 2. While the questions differ lexically, they correspond to the same underlying beam setup and therefore share an identical analytically computed answer. 
+
+System Prompt Used for RL Training 
+
+A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> and </think> tags, and the final answer is put within \boxed{} . I.e., <think> reasoning process here </think> answer here and then the final answer within \boxed{} .Text Box SI 4: System message used throughout reinforcement learning training to define the model ’srole, enforce reasoning and output structure, and standardize answer formatting across all beam mechanics questions. 
+
+Standardized Prompt Template for Mathematical Benchmark Evaluation 
+
+Solve the following math problem efficiently and clearly. The last line of your response should be of the following format: ’Therefore, the final answer is: \boxed{ANSWER} . I hope it is correct’ (without quotes) where ANSWER is just the final number or expression that solves the problem. Think step by step before answering. 
+
+{Question} 
+
+Text Box SI 5: Standardized evaluation prompt template used for all mathematical benchmark tasks. An instruction prefix is held fixed across tasks to enforce consistent reasoning and output formatting, while the benchmark problem text is inserted into the {Question} field at runtime. S2 BeamPERL Supplementary Information 
+
+# SI 2 Sample Results 
+
+SI 2.1 In-Distribution Example Sample ID Evaluation Question–Answer Pair Question: 
+
+Given a beam with a length of 9*L, supported by a pin at x=0.0*L and a roller at x=9.0*L, with an applied point load of -13*P at x=4.725*L, calculate the reaction forces at the supports. 
+
+Answer: 
+
+[ 6 .175 P, 6.825 P ]
+
+Text Box SI 6: Representative ID beam mechanics evaluation example used for qualitative analysis. The example follows the same beam configuration and question structure seen during training. 
+
+Correct Output Sampled from Base Model 
+
+<think> 
+
+Okay, so I need to figure out the reaction forces at the pin and roller supports for this beam problem. Let me start by understanding the problem setup. The beam is 9*L long, supported by a pin at x=0 and a roller at x=9. There’s a point load of -13P applied at 4.725L from the left end. First, I remember that reaction forces are the forces that counteract the applied loads and moments to keep the beam in equilibrium. Since it’s a pin support at x=0, it can have both vertical and horizontal reactions. The roller at x=9L can only provide a vertical reaction because there’s no constraint in the horizontal direction. I think the first step is to write down the equations of equilibrium. For a beam in static equilibrium, the sum of forces in both x and y directions must be zero, and the sum of moments about any point must also be zero. Let me denote the reaction forces as R_A at x=0 (pin) and R_B at x=9L (roller). The point load is -13P, which I assume is a downward force. Since the beam is being supported at both ends, the reactions will have both vertical components. So, the sum of the vertical forces should be zero: 
+
+RA + RB = 13 P
+
+That’s one equation. Now, taking moments about one of the supports should give me another equation. I’ll take moments about the pin at x=0 because it’s easier since some distances will be zero. The moment due to R_B about x=0 is R_B * 9L. The moment due to the load at 4.725L is (-13P) * 4.725L. Since the moment about the pin should sum to zero: 
+
+RB ∗ 9L = 13 P ∗ 4.725 L
+
+Dividing both sides by L: 
+
+9RB = 13 ∗ 4.725 P
+
+Calculating 13 * 4.725: 13 * 4 = 52 13 * 0.725 = 9.425 So total is 52 + 9.425 = 61.425 Thus: 
+
+9RB = 61 .425 PRB = 61 .425/9 = 6 .825 P
+
+Now, from the first equation, R_A = 13P - R_B = 13P - 6.825P = 6.175P So, R_A is 6.175P and R_B is 6.825P. S3 BeamPERL Supplementary Information Wait, let me double-check the calculations. 13 * 4.725: 4.725 * 10 = 47.25 4.725 * 3 = 14.175 Adding them: 47.25 + 14.175 = 61.425. That seems right. Then 61.425 / 9: 9*6=54, 61.425-54=7.425; 9*0.825=7.425. So 6.825. Correct. Then R_A = 13 - 6.825 = 6.175. That seems right. So, the reaction forces are R_A = 6.175P at x=0 and R_B = 6.825P at x=9L. 
+
+</think> 
+
+To determine the reaction forces at the pin and roller supports of the beam, we apply the equations of equilibrium. 1. Sum of vertical forces equals zero: 
+
+RA + RB = 13 P
+
+2. Sum of moments about the pin (x=0): 
+
+RB × 9L = 13 P × 4.725 L
+
+Simplifying: 
+
+9RB = 61 .425 P ⇒ RB = 6 .825 P
+
+3. Substitute R_B into the first equation: 
+
+RA = 13 P − 6.825 P = 6 .175 P
+
+Reaction Forces: 
+
+• At pin (x=0): RA = 6 .175 P
+
+• At roller (x=9L): RB = 6 .825 PRA = 6 .175 P, R B = 6 .825 P
+
+Text Box SI 7: Fully correct response generated by the base model for the ID evaluation example. The output satisfies both the required format and the correct engineering solution, and receives the maximum reward. 
+
+Correct Formatting but Incorrect Answer Sampled from Base Model 
+
+<think> 
+
+Okay, so I have this problem where there’s a beam that’s 9 times the length of some basic unit, let’s say L. It’s supported by a pin at the start, which is at x=0*L, and a roller at the end, x=9*L. There’s also this point load of -13P applied at x=4.725*L. I need to find the reaction forces at these two supports. Alright, first, I remember that when dealing with beams, we use the method of sections to find reactions. Since it’s a simply supported beam, the pin at the start will exert a vertical reaction force, let’s call it R1, and the roller at the end will have a vertical reaction force, R2. I think the key here is to take moments around one of the supports so that the sum of moments equals zero. That should let me solve for one reaction and then use the sum of forces in the vertical direction to find the other. Let me write down the given values to keep track: the beam length is 9L, the load is -13P at 4.725L. So the point is somewhere along the beam, closer to the pin than the roller. I’ll start by calculating the sum of the forces. The total load on the beam is just the point load, -13P. Since the beam is in equilibrium, the sum of vertical forces should be zero. So, R1 (from the pin) plus R2 (from the roller) should equal the total load. That gives me R1 + R2 = -13P. Next, I’ll take moments around one of the supports. I’ll choose the pin at x=0L because it’s easier since the distance from the pin to the load is 4.725L. Taking moments around the pin, the moment due to the load is -13P multiplied by 4.725L. But wait, the roller at x=9L can’t exert any moment because it’s a roller, meaning it can’t rotate but can support the load. So the moment contributions should balance each other. S4 BeamPERL Supplementary Information Let me set up the equation. The moment due to the load is -13P * 4.725L. The moment due to R2 at x=9L is R2 times 9L because it’s the distance from the pin to the roller. So the sum of moments is: -13P * 4.725L + R2 * 9L = 0 Solving for R2, I get R2 = (13P * 4.725L) / 9L. The L units cancel out, so R2 = (13 * 4.725 / 9) P. Let me calculate that. 4.725 divided by 9 is approximately 0.525, so R2 is 13 * 0.525 P, which is 6.825 P. Now, using the first equation, R1 + R2 = -13P, so R1 = -13P - R2. Plugging R2 in, R1 = -13P -6.825P = -19.825P. Wait, that seems a bit off because R2 is positive, so R1 should be negative, which makes sense since it’s a pin reaction that can push down. But let me double-check my calculations. 4.725 * 13 is 61.425, and 61.425 divided by 9 is indeed approximately 6.825. So R2 is 6.825 P, and R1 is -19.825 P. I think that’s correct. The pin at the start exerts a downward force of 19.825 P, and the roller at the end exerts an upward force of 6.825 P to balance the beam. 
+
+</think> 
+
+Alright, let’s solve the problem step by step. 
+
+Given: 
+
+• Beam length: L
+
+• Support at x = 0 (pin) • Support at x = 9 L (roller) • Point load: −13 P at x = 4 .725 L
+
+Objective: Calculate the reaction forces at the supports. 
+
+Solution: 
+
+1. Identify Reaction Forces: 
+
+• Let R1 be the reaction at the pin at x = 0 .• Let R2 be the reaction at the roller at x = 9 L.2. Sum of Vertical Forces: Since the beam is in equilibrium: 
+
+R1 + R2 = −13 P
+
+3. Take Moments About the Pin: To eliminate R1, take moments about the pin at x = 0 :
+
+∑ M = 0 
+
+The moment due to the load is: 
+
+−13 P × 4.725 L = −61 .425 P L 
+
+The moment due to R2 is: 
+
+R2 × 9L
+
+Setting the sum of moments to zero: 
+
+−61 .425 P L + 9 R2L = 0 
+
+Simplifying: 
+
+R2 = 61 .425 9 P = 6 .825 P
+
+4. Find R1: Using the sum of vertical forces: 
+
+R1 = −13 P − R2 = −13 P − 6.825 P = −19 .825 P
+
+Final Reaction Forces: 
+
+• R1 = −19 .825 P (pin at x = 0 exerts a downward force) • R2 = 6 .825 P (roller at x = 9 L exerts an upward force) 
+
+Answer: The reaction forces are R1 = −19 .825 P and R2 = 6 .825 P .
+
+R1 = −19 .825 P, R2 = 6 .825 P
+
+S5 BeamPERL Supplementary Information Text Box SI 8: Base-model response for the ID example with correct output formatting but an incorrect engineering solution. This illustrates reasoning errors despite adherence to the prescribed response structure. 
+
+Incorrect Formatting but Correct Answer Sampled from Base Model 
+
+<think> 
+
+Okay, so I have this problem where there’s a beam that’s 9*L long. It’s supported by a pin at the very left end, which is at x=0.0*L, and a roller at the very right end, which is at x=9.0*L. There’s a point load of -13*P applied at x=4.725*L. I need to find the reaction forces at both supports. Alright, first, I remember that in beam problems, reaction forces are what you have to solve for. Since it’s a simply supported beam with a pin and a roller, I think both the pin reaction and the roller reaction are involved here. I think the key here is to use the principles of static equilibrium. The sum of forces in the vertical direction should be zero, and the sum of moments about any point should also be zero. That should give me two equations to solve for the two reaction forces. Let me denote the reaction at the pin (left support) as R1, and the reaction at the roller (right support) as R2. So, the first equation is the sum of vertical forces. The beam has a point load of -13P, which is a downward force, and the reactions R1 and R2 must balance it. So: R1 + R2 = 13P That’s the first equation. Now, the second equation is about taking moments about a point. I can choose either support as the point for taking moments. Maybe I’ll take moments about the pin (x=0.0*L) because the pin is a simple support and might make the calculations easier. Taking moments about x=0.0*L, the moment caused by R2 would be R2 multiplied by the distance from the pin to the roller, which is 9L. The moment caused by the load at 4.725L would be -13P multiplied by 4.725L. So: R2 * 9L = 13P * 4.725L I can solve for R2: R2 = (13P * 4.725L) / (9L) = (13 * 4.725 / 9) P Calculating that: 4.725 divided by 9 is 0.525, and 13 times 0.525 is 6.825. So R2 is 6.825P. Wait, that seems a bit high. Let me check my calculations again. 4.725 divided by 9 is indeed 0.525. 13 * 0.525 is 6.825. So R2 is 6.825P. Hmm, but let me make sure I didn’t mix up the direction of the load. The load is -13P, which is a downward force, so it should be subtracted when taking moments. But since I took moments about the pin, the direction is already considered with the sign in the equation. So maybe that’s correct. Now, using the first equation, R1 + R2 = 13P. We’ve found R2 is 6.825P, so R1 must be 13P - 6.825P = 6.175P. Wait, that seems a bit confusing. Let me double-check. If the pin reaction is 6.175P and the roller is 6.825P, adding them gives 13P, which matches the load. So that seems correct. Alternatively, I could have taken moments about the roller. Let me try that to see if I get the same result. If I take moments about the roller at x=9L, the moment caused by R1 would be R1 multiplied by 9L, and the moment caused by the load at 4.725L would be -13P multiplied by (9L - 4.725L) = 4.275L. So the equation would be: R1 * 9L = 13P * 4.275L Solving for R1: R1 = (13 * 4.275 / 9) P Calculating that: 4.275 divided by 9 is approximately 0.475, and 13 * 0.475 is 6.175P. So R1 is 6.175P, which matches my previous result. So both methods give me R1 as 6.175P and R2 as 6.825P, which together sum to 13P, so that’s consistent. Wait, but 6.175 and 6.825 seem like they could be represented as fractions. Let me see if 6.175 is 6 and 3/16, and 6.825 is 6 and 13/16, because 0.175 is 3/16 and 0.825 is 13/16. Let me confirm that: 3 divided by 16 is 0.1875, which is close to 0.175, but not exact. Hmm, maybe I made a mistake in the division. Wait, 4.725 divided by 9: 4.725 ÷ 9. Let me calculate that more accurately. 9 goes into 4.725 exactly 0.525 times, so that’s 0.525P. 13 times 0.525 is 6.825. So R2 is 6.825P, which is 6 and 13/16 P? Wait, no, 0.825 is 13/16 because 0.825 * 16 = 13.2, but actually, 0.825 is 13/16? Wait, 13 divided by 16 is 0.8125, which is close but not exact. Hmm, maybe it’s better to leave it as decimals. S6 BeamPERL Supplementary Information Alternatively, perhaps the problem expects an exact fraction. Let me see: 4.725 divided by 9: 4.725 is 4 and 725/1000, which simplifies to 4 and 29/40, which is 209/40. So 209/40 divided by 9 is 209/(40*9) = 209/360. 209 divided by 360 is 0.580555..., which is different from 0.525. Wait, did I make a mistake earlier in the calculation? Wait, 4.725 is 4 and 0.725, which is 0.725. 0.725 is 29/40, so 4.725 is 4 + 29/40 = 199/40. Then, 199/40 divided by 9 is 199/(40*9) = 199/360, which is approximately 0.552777... Wait, that’s different from what I had before. So perhaps I made an error in the initial calculation. Wait, let’s recalculate R2: R2 = (13P * 4.725L) / (9L). The L cancels out, so it’s (13 * 4.725) / 9 P. 4.725 multiplied by 13: Let’s do this step by step. 4 * 13 = 52, 0.725 * 13 = 9.425. So total is 52 + 9.425 = 61.425. Then, 61.425 divided by 9 is 6.825. So R2 is 6.825P. Wait, but 4.725 is 4 and 0.725. Let me try to calculate 4.725 * 13 more accurately. 4 * 13 is 52, 0.725 * 13 is 9.425, so total 61.425. Divided by 9 is 6.825. So that’s correct. Similarly, for the other calculation, if I take moments about the roller, R1 comes out as 6.175P. So that seems consistent. Wait, but 6.175P + 6.825P equals 13P, which matches the load. So that’s correct. So, the reaction forces are R1 = 6.175P and R2 = 6.825P. Alternatively, to express these as fractions, 6.175 is 6 and 3/16, because 0.175 is 3/16, and 6.175 is 6 + 3/16 = 99/16. Similarly, 6.825 is 6 and 13/16, which is 105/16. So, R1 = 99/16 P and R2 = 105/16 P. Wait, let me confirm that 99 divided by 16 is 6.1875, which is close but not exactly 6.175. Hmm, maybe I made a mistake there. Alternatively, perhaps the numbers can be expressed as decimals. So, I think the correct reaction forces are R1 = 6.175P and R2 = 6.825P. That seems to add up correctly to 13P, which is the load applied. So, I think that’s the solution. 
+
+</think> 
+
+The reaction forces at the pin and roller supports are calculated using static equilibrium principles. The sum of vertical forces and moments about one support must equal zero. 1. Sum of vertical forces: 
+
+R1 + R2 = 13 P
+
+2. Taking moments about the pin: 
+
+R2 × 9L = 13 P × 4.725 L
+
+Solving for R2:
+
+R2 = 13 × 4.725 9 P = 6 .825 P
+
+3. Substituting R2 into the first equation: 
+
+R1 = 13 P − 6.825 P = 6 .175 P
+
+Final Answer: 
+
+• Reaction at Pin (R 1): 6.175P • Reaction at Roller (R 2): 6.825P These values ensure the beam is in equilibrium under the applied load. Text Box SI 9: Base-model response for the ID example with a correct engineering solution but incorrect output formatting. This case highlights formatting errors that prevent reward assignment despite correct reasoning. 
+
+Correct Output Sampled from Best Performing PE-RLVR-FT Model 
+
+<think> 
+
+Okay, so I have this problem about a beam that’s supported by a pin at x = 0 and a roller at x = 9 L.There’s a point load of −13 P applied at 4.725 L. I need to find the reaction forces at both supports. S7 BeamPERL Supplementary Information Hmm, let me think about how to approach this. I remember that for beams, we use the method of sections and equilibrium equations to find reactions. Since it’s a simply supported beam with one pin and one roller, the pin will have both vertical and horizontal reactions, but since the beam is straight and horizontal, the horizontal reaction should be zero. The roller will only have a vertical reaction. So, first, I know that the sum of vertical forces should be zero, and the sum of moments about any point should be zero as well. Let me assign the reactions: At the pin support at x = 0 , the reaction is RA (vertical) and since it’s a pin, it can’t have any horizontal component, so that’s zero. At the roller support at x = 9 L, the reaction is RB (vertical). So, we have two reaction forces, RA and RB .Let’s write the equations. First, sum of vertical forces: 
+
+RA + RB = total load .
+
+The total load is given by the point load, which is −13 P . Wait, negative sign usually indicates direction. Since it’s a downward load, maybe in our coordinate system, downward is negative. So, 
+
+RA + RB = 13 P. 
+
+Next, taking moments about the pin support. The reactions at the pin are RA, RB , and the applied load. The applied load is at 4.725 L, so its moment is (−13 P )(4 .725 L).The moment due to RB is RB (9 L) because it’s at the other support. So, the equation for moments is: 
+
+RA · 0 + RB (9 L) − (−13 P )(4 .725 L) = 0 .
+
+Wait, actually, the applied load is downward, so it should be negative. So the moment is 
+
+(−13 P )(4 .725 L). Wait, but when taking moments, the direction matters. So, if I take moments about x = 0 , the applied load’s moment is considering it as clockwise or counterclockwise. Let me think: The pin is at x = 0 , the roller at x = 9 L. The load is at x = 4 .725 L. Since the beam is supported at both ends, the load will cause a clockwise moment about the pin. Wait, actually, when you take moments about the pin, the applied load will generate a clockwise moment, and the reaction at the roller will generate a counterclockwise moment. So, equation setup: Sum of moments about pin = 0 
+
+RB (9 L) − (13 P )(4 .725 L) = 0 .
+
+Because the applied load is a downward force, which would tend to rotate the beam clockwise, so the reaction at the roller (which is upwards) would create a counterclockwise moment to balance it. So, solving for RB :
+
+RB = 13 P · 4.725 L
+
+9L .
+
+The L cancels out, so: 
+
+RB = 13 · 4.725 9 P. 
+
+Calculating that: 
+
+13 · 4.725 = 61 .425 ,RB = 61 .425 9 P ≈ 6.825 P. 
+
+So RB is 6.825 P . Then from the vertical force equation: 
+
+RA + 6 .825 P = 13 P, RA = 13 P − 6.825 P = 6 .175 P. 
+
+Wait, but the pin support isn’t necessarily the only reaction. Sometimes beams can have horizontal reactions, but in this case, it’s a pin, which can’t support horizontal movement, so the horizontal reaction should be zero. So, the reactions are RA = 6 .175 P (downward) and RB = 6 .825 P (upward). Wait, but I had RB as 6.825 P , which is less than the applied load. But that seems okay because the load is on one side, so the roller would have to support more. Wait, let me double-check the calculations. S8 BeamPERL Supplementary Information 
+
+13 · 4.725 = 52 + 9 .425 = 61 .425 ,
+
+61 .425 9 = 6 .825 ,
+
+so yes that’s correct. So RB = 6 .825 P , RA = 6 .175 P .So the reactions are RA = 6 .175 P and RB = 6 .825 P .I think that’s correct. Let me think if there’s another way to verify. Alternatively, perhaps considering the shear force and bending moment diagrams. But considering the beam is simply supported with a point load, the maximum shear force should be at the point of load. At any section to the left of the load, shear is RA − P . To the right, shear is RA. Wait, no. Wait, the shear force at a point is the sum of vertical forces to the left of that point. So, to the left of 4.725 L, shear is RA − P . To the right, shear is RA.Similarly, the bending moment would be RAx at any point. At the load, it’s RA · 4.725 L − P (4 .725 L).At the roller support, it’s RA · 9L.Yes, that seems consistent with our earlier calculations. Alternatively, perhaps using the method of moving sections. But in any case, the method I followed seems correct. So, the reaction at the pin is 6.175 P downward, and at the roller is 6.825 P upward. 
+
+</think> 
+
+The reaction forces at the supports are calculated as follows: The reaction at the pin support ( RA) is 6.175 P downward, and the reaction at the roller support (RB ) is 6.825 P upward. 
+
+RA = 6 .175 P , RB = 6 .825 P
+
+Text Box SI 10: Correct response for the ID evaluation example generated by the best-performing BeamPERL checkpoint, indicating retained reasoning and format adherence. 
+
+Correct Output Sampled upon Completion of PE-RLVR-FT 
+
+<think> 
+
+Okay, so I have this problem about a beam that’s supported at two points: one is a pin at the start, and the other is a roller at the end. The beam is 9L long, and there’s a point load of −13 P in the middle, specifically at 4.725 L. I need to find the reaction forces at both supports. Hmm, let’s break this down. First, I remember that when dealing with beams, the first thing I should do is consider the equations of equilibrium. Since it’s a static problem, the sum of the forces should be zero, and the sum of the moments about any point should also be zero. So, the beam has two supports: one at x = 0 and another at x = 9 L. The pin at the start can have both vertical and horizontal reactions, but since the problem doesn’t mention any horizontal forces, I think the reactions should only be vertical. The roller at the end can only provide a vertical reaction because it’s a roller, which doesn’t restrict horizontal movement. Let me denote the reactions. Let ’s call the pin reaction at x = 0 as V 1 and H1 (for horizontal). The roller reaction at x = 9 L will be V 2. Since there are no horizontal forces acting on the beam, 
+
+H1 should be zero. So now I have only V 1 at the pin and V 2 at the roller. For the vertical reactions, I’ll set up two equations. The first is the sum of the vertical forces should be zero. So, V 1 + V 2 = 13 P because the total load is 13 P downward. Next, the sum of the moments about one of the supports should be zero. I’ll choose the pin at x = 0 
+
+because it’s easier with a longer beam. Taking moments about x = 0 , the equation becomes: 
+
+V 2 · 9L = 13 P · 4.725 L
+
+Solving for V 2, I divide both sides by 9L:
+
+V 2 = 13 P · 4.725 L
+
+9L
+
+S9 BeamPERL Supplementary Information Let me calculate that. 13 times 4.725 is... let’s see, 10 times 4.725 is 47 .25 , and 3 times 4.725 is 
+
+14 .175 , so adding them gives 61 .425 P . Then, 61 .425 divided by 9 is approximately 6.825 P . So, V 2
+
+is about 6.825 P .Now, using the first equation, V 1 + 6 .825 P = 13 P , so V 1 = 13 P − 6.825 P = 6 .175 P .Wait, let me double-check the calculations. 4.725 multiplied by 13 is indeed 61 .425 . Divided by 9 is roughly 6.825 . Subtracting that from 13 gives 6.175 . That seems right. I think that’s it. The reactions are V 1 = 6 .175 P and V 2 = 6 .825 P .
+
+</think> 
+
+The reaction forces at the supports are calculated as follows: 1. Sum of vertical forces equals zero: 
+
+V 1 + V 2 = 13 P
+
+2. Moment about the pin at x = 0 :
+
+V 2 × 9L = 13 P × 4.725 LV 2 = 13 P × 4.725 L
+
+9L = 6 .825 P
+
+3. Substitute V 2 into the first equation: 
+
+V 1 + 6 .825 P = 13 PV 1 = 13 P − 6.825 P = 6 .175 P
+
+Final Answer: 
+
+The reaction forces are: • At the pin support ( x = 0 ): 6.175 P
+
+• At the roller support ( x = 9 .0L): 6.825 P
+
+Text Box SI 11: Correct response for the ID evaluation example generated by the final BeamPERL check-point, indicating retained reasoning and format adherence on ID data throughout training. 
+
+SI 2.2 Out-of-Distribution Example with Continuous Improvement OOD Evaluation Example (Multiple Point Loads) Question–Answer Pair Question: 
+
+Determine the reaction forces at the pin and roller supports of a simply supported beam with a length of 9*L, subjected to three downward point loads of -13*P at x=1.125*L, x=4.5*L, and x=7.875*L, along with a pin support at x=0 and a roller support at x=9.0*L. 
+
+Answer: 
+
+[ 19 .5P, 19 .5P ]
+
+Text Box SI 12: OOD beam mechanics evaluation example involving a beam supported at the ends with multiple applied loads, a configuration not observed during training. 
+
+Correct Output Sampled from Best Performing PE-RLVR-FT Model 
+
+<think> 
+
+Okay, so I need to figure out the reaction forces at the pin and roller supports of this simply supported beam. Let me start by visualizing the problem. The beam is simply supported, which means it’s supported at both ends without any overhangs. The length of the beam is 9L, so from x=0 to x=9L. The beam is subjected to three downward point loads: each load is -13P, and they are placed at x=1.125L, x=4.5L, and x=7.875L. Additionally, there’s a pin support at x=0 and a roller support at x=9L. S10 BeamPERL Supplementary Information First, I remember that for simply supported beams with multiple point loads, the reactions can be determined by the equations of equilibrium. Since it’s a pin support, it can have both vertical and horizontal forces, but since there are no horizontal loads, the horizontal reactions are zero. The roller support can only provide vertical reactions. To find the reactions, I should set up equations based on the sum of moments and the sum of vertical forces being zero. Let me denote: - R1 as the reaction at the pin support at x=0. - R2 as the reaction at the roller support at x=9L. The beam has three point loads: 1. Load 1: -13P at x=1.125L 2. Load 2: -13P at x=4.5L 3. Load 3: -13P at x=7.875L Since all loads are downward, they will pull down on the beam. First, sum of vertical forces should be zero: R1 + R2 = Total load Total load is sum of all downward forces, which is 3*(-13P) = -39P So R1 + R2 = 39P. Next, sum of moments about one support. Let’s choose the pin support because it’s at x=0 and might be easier. Taking moments about x=0: Sum of moments = Sum of (force * moment arm) So: Load 1 moment: (-13P)*(1.125L) Load 2 moment: (-13P)*(4.5L) Load 3 moment: (-13P)*(7.875L) Compute each term: -13P*1.125L = -14.625PL -13P*4.5L = -58.5PL -13P*7.875L = -102.375PL Adding these together: -14.625PL -58.5PL -102.375PL Total = -(14.625 + 58.5 + 102.375)PL Total = -(175.5PL) Wait a second, this can’t be right because we know the total load is 39P and then we have R1 + R2 = 39P. So somewhere I must have messed up the arm distances. Wait, I assumed all loads are on one side. Let me double-check. Beam is supported at 0 and 9L. The loads are all between 1.125L, 4.5L, and 7.875L. So all loads lie between the supports. When taking moments about support at x=0, all loads are to the right of the pivot point, so their distances are correct. Each load causes a clockwise moment about x=0. Thus, sum of clockwise moments is: 13P*(1.125 + 4.5 + 7.875)L Compute that: 1.125 + 4.5 = 5.625 5.625 + 7.875 = 13.5 So sum clockwise is: 13P*13.5L = 175.5PL To maintain equilibrium, the upward reactions must balance this. Taking moments about x=0: Clockwise moments due to loads = 175.5PL Anticlockwise moments due to reactions: R1*0 + R2*9L = R2*9L So: R2*9L = 175.5PL Therefore: R2 = 175 .5P L  
+
+> 9L
+
+= 19.5P Now use sum of vertical forces: R1 + R2 = 39P R1 = 39P - 19.5P = 19.5P Thus: R1 = 19.5P R2 = 19.5P Double-check symmetry: S11 BeamPERL Supplementary Information Since 7.875L = 9L - 1.125L and 4.5L is the midpoint, the loading is symmetric about midspan. Therefore equal reactions make physical sense. So that’s correct. 
+
+</think> 
+
+The reaction forces at the pin and roller supports of the simply supported beam are: 
+
+R1 = 19 .5P and R2 = 19 .5P
+
+Text Box SI 13: Correct response for the OOD multiple-loads example generated by the best-performing BeamPERL checkpoint, indicating successful generalization beyond the training distribution. 
+
+Correct Output Sampled from the Final Training Checkpoint of PE-RLVR-FT Training 
+
+<think> 
+
+Okay, so I need to figure out the reaction forces at the pin and roller supports for this simply supported beam. The beam is 9L long, and it has three downward point loads: -13P at x=1.125L, another at x=4.5L, and a third at x=7.875L. There’s a pin support at x=0 and a roller support at x=9L. Hmm, let’s break this down step by step. First, I remember that for simply supported beams, the reactions can be found using the equations of equilibrium. Since it’s a pin support, it can have both vertical and horizontal reactions, but since there are no horizontal loads, I think the horizontal reactions should be zero. The roller support only provides a vertical reaction at that point. I’ll start by summing up all the forces in the vertical direction. The total load is the sum of the three point loads: 13P + 13P + 13P, which equals 39P. This total load should be equal to the sum of the vertical reactions at the supports, R1 and R2. So, R1 + R2 = 39P. Next, considering the moments about one of the supports to find the individual reactions. I’ll choose the pin support at x=0 because it’s easier to calculate moments there. Taking moments about x=0, the equation becomes: 13P*(1.125L) + 13P*(4.5L) + 13P*(7.875L) = R2*(9L) Let me compute each term: 13P*1.125L = 14.625PL 13P*4.5L = 58.5PL 13P*7.875L = 102.375PL Adding these up: 14.625PL + 58.5PL + 102.375PL = 175.5PL So, R2 = 175.5PL / 9L = 19.5P Now, since R1 + R2 = 39P, R1 must be 39P - 19.5P = 19.5P. Wait, that seems straightforward. Let me double-check. The loads are equally spaced, and the reactions add up correctly. Yeah, it looks right. So, the pin support has a vertical reaction of 19.5P, and the roller support has 19.5P as well. Both look balanced because the point loads are symmetrically placed around the center of the beam. I think that’s it. The reaction forces are R1 = 19.5P and R2 = 19.5P. 
+
+</think> 
+
+The reaction forces at the supports are calculated as follows: 1. Total Load : Sum of downward point loads = 13P + 13P + 13P = 39P 2. Vertical Reaction at Pin Support (R1) :• Take moments about the pin support (x=0) • Calculation yields R2 = 19.5P 3. Vertical Reaction at Roller Support (R2) :• From total load equation: R1 = 39P - R2 = 19.5P 
+
+Final Answer: 
+
+Reaction force at the pin support (R1): 19 .5P
+
+Reaction force at the roller support (R2): 19 .5P
+
+Text Box SI 14: Correct response for the same OOD multiple-loads example generated by the final Beam-PERL checkpoint, indicating that this generalized capability is retained at later stages of training. S12 BeamPERL Supplementary Information 
+
+SI 2.3 Out-of-Distribution Example with Model Collapse OOD Evaluation Example (Varying Support Locations) Question –Answer Pair Question: 
+
+Given a statically loaded beam with a length of 9*L, supports at x=0.9*L (pin) and x=8.1*L (roller), and a downward point load of -13*P at x=4.5*L, calculate the reaction forces at the supports. 
+
+Answer: 
+
+[ 6 .5P, 6.5P ]
+
+Text Box SI 15: OOD beam mechanics evaluation example with varying support locations, representing a more structurally distinct configuration relative to the training data. 
+
+Correct Output Sampled from Best Performing PE-RLVR-FT Model 
+
+<think> 
+
+Alright, so I have this problem about a beam that’s statically loaded. Let me try to figure out how to approach it. Okay, the beam is 9L long, and it’s supported at x = 0 .9L (pin support) and x = 8 .1L
+
+(roller support). There’s a downward point load of −13 P at x = 4 .5L. I need to find the reaction forces at these two supports. Hmm, I remember that for beam problems, especially statically loaded ones, I should start by drawing a free-body diagram. That way, I can visualize the forces acting on the beam. So, the beam is fixed at x = 0 .9L and has a roller at 8.1L. The load is in the middle, at 4.5L, which is exactly halfway between the two supports. Wait, no, wait. Let me calculate that. 0.9L to 8.1L is 7.2L, so 4.5L is indeed exactly halfway. So the load is in the center of the beam. Since it’s a statically loaded beam, the equations of equilibrium should be sufficient. The two equa-tions are the sum of vertical forces equals zero and the sum of moments equals zero. That’s the basic approach. First, let me denote the reaction forces at the pin and roller. Let’s say R1 is the reaction at the pin support (left) and R2 is the reaction at the roller (right). The point load is downward, so that’s 
+
+−13 P .So the first equation is the sum of the vertical forces: 
+
+R1 + R2 = 13 P
+
+Because the total downward force is 13 P , so the upward forces ( R1 and R2) must add up to that. Now, the second equation is about moments. I need to take moments about one of the supports. Usually, it’s easier to take moments about the simpler support, which in this case is the pin. That way, the reaction at the pin will not contribute to the moment, simplifying the calculations. So, taking moments about x = 0 .9L (pin): The moment caused by R1 is R1 · 0.9L (since it’s at the pin), the moment caused by R2 is R2 · (9 L −
+
+8.1L) = R2·0.9L. Similarly, the moment caused by the load is (−13 P )·(4 .5L−0.9L) = ( −13 P )·3.6L.So summing these moments: 
+
+R1(0 .9L) + R2(0 .9L) − 13 P (3 .6L) = 0 
+
+Simplify this equation: 
+
+0.9L(R1 + R2) − 13 · 3.6 P L = 0 
+
+We know from the first equation that R1 + R2 = 13 P . So substituting that in: 
+
+0.9L(13 P ) − 13 · 3.6 P L = 0 
+
+Let me compute 0.9 · 13 for the first term: 
+
+0.9 · 13 = 11 .7
+
+So, 11 .7 P L 
+
+And the second term is 13 · 3.6 = 46 .8
+
+So, 11 .7 P L − 46 .8 P L = 0 
+
+Wait, that can’t be right. If I subtract 46 .8 P L from 11 .7 P L , I get negative, but the equation equals zero. That suggests there’s a problem. S13 BeamPERL Supplementary Information Wait, maybe I made a mistake in setting up the moments. Let me double-check. Taking moments about the pin: The distance from the pin to R1 is 0.9L, so R1 · 0.9L.The distance from the pin to R2 is (9 L − 8.1L) = 0 .9L, so R2 · 0.9L.The load is at 4.5L from the pin, so distance from pin is 3.6L (since 4.5L − 0.9L). So the moment due to the load is −13 P · 3.6L.So the equation is correct: 
+
+0.9L(R1 + R2) − 13 · 3.6 P L = 0 
+
+But since R1 + R2 = 13 P ,
+
+0.9L · 13 P − 46 .8 P L = 0 
+
+Which gives 11 .7 P L − 46 .8 P L = 0 
+
+Which is −35 .1 P L = 0 
+
+That can’t be right because 0.9 · 13 is 11 .7, and 13 · 3.6 is 46 .8, so 11 .7 − 46 .8 is indeed −35 .1.Wait, that suggests that the equation is not balanced. So, perhaps my assumption is wrong? But that can’t be because the sum of moments should be zero for equilibrium. Wait a minute, perhaps I made an error in the direction of the reactions or the sign conventions. Wait, in the problem statement, the point load is downward, so it’s negative. But in the equation, the moment due to the load is negative because it’s a downward force causing clockwise moments if the beam is considered as a propped structure. Wait, no, actually, in the moment equation, direction matters. Wait, maybe I should have considered the load causing a clockwise moment when taking moments about the left pin. But perhaps I did that correctly. Alternatively, maybe I need to reconsider the support reactions. Wait, if R1 + R2 = 13 P , and when I calculate the moments, the moments due to the point load would subtract, leading to a negative, but that’s okay as long as the equations are correct. Wait, but 11 .7 − 46 .8 is negative. Hmm, that seems odd. Let me check some basics. Wait, maybe I made a miscalculation in the moment due to the load. Wait, the load is at x = 4 .5L from the left end. Taking moments about the left pin ( x = 0 .9L): The moment of the load is (−13 P ) (4 .5 − 0.9) L = ( −13 P )(3 .6L) = −46 .8 P L .Wait, that’s correct as per the distance from the pin. So, the sum of moments about the pin is: 
+
+R1 · 0.9L + R2 · 0.9L − 46 .8 P L = 0 
+
+And since R1 + R2 = 13 P ,
+
+0.9(13 P )L − 46 .8 P L = 0 
+
+So, 
+
+11 .7 P L − 46 .8 P L = 0 
+
+Which is −35 .1 P L = 0 .That’s impossible. Hmmm. Wait, maybe I should take moments about the roller support instead? Because the roller can’t provide a reaction force in the vertical direction, right? So taking moments about the roller might be more appropriate because it can eliminate the reaction at the roller. Wait, taking moments about the roller ( x = 8 .1L), so the pin support is at x = 0 .9L.So, the distance from the pin to the roller is 8.1L − 0.9L = 7 .2L.So, the moment due to R1 is R1 · 7.2L, because it’s at the pin. The moment due to R2 is zero since it’s at the roller. The load is at x = 4 .5L from the pin, so distance from the pin is 4.5L − 0.9L = 3 .6L.Thus, the moment due to the load is (−13 P ) · 3.6L.So, the sum of moments about the roller is: 
+
+R1 · 7.2L − 13 P · 3.6L = 0 
+
+Now, substituting R1 + R2 = 13 P .From the first equation, yes, R1 + R2 = 13 P .S14 BeamPERL Supplementary Information So from the second equation: 
+
+7.2 R1 − (13 P · 3.6) = 0 
+
+Calculate 13 · 3.6 = 46 .8
+
+So: 
+
+7.2 R1 = 46 .8P
+
+So 
+
+R1 = 46 .8P
+
+7.2
+
+Compute that: 46 .87.2 = 6 .5
+
+So R1 = 6 .5P .Then, since R1 + R2 = 13 P ,
+
+R2 = 13 P − 6.5P = 6 .5P. 
+
+Wait, so both reaction forces are 6.5P each. Let me verify this again. Taking moments about the roller: The distance from the pin to the roller is 7.2L.The load is at 3.6L from the roller. The reaction at the pin, R1, creates a clockwise moment (negative in the equation) because the pin is on the left. Wait, no, when taking moments about the roller, the reaction at the pin ( R1) causes a clockwise moment if the beam is considered as a propped structure. So it’s a negative moment. Similarly, the load at 3.6L causes a clockwise moment (negative) because it’s trying to twist the beam clockwise. So the sum of moments about the roller is: 
+
+R1 · 7.2L − 13 P · 3.6L = 0 
+
+So, substituting R1 = 6 .5P ,
+
+6.5P · 7.2L = 13 P · 3.6L
+
+Compute: 
+
+6.5 · 7.2 = 46 .813 · 3.6 = 46 .8
+
+So 46 .8 P L = 46 .8 P L 
+
+Which is correct. Thus, R1 = 6 .5P , R2 = 6 .5P .So the reaction forces at both supports are 6.5P each. Therefore, the final answer is R1 = 6 .5P , R2 = 6 .5P .Wait, but let me think again. If the point load is in the center, and both supports are pins and roller, then the reactions should be equal. Wait, but in reality, a simply supported beam with a center load should have equal reactions. So that makes sense here, 6.5P each. Yes, so that seems correct. 
+
+</think> 
+
+The reaction forces at both supports are equal because the load is centered, and the supports are a pin and a roller. Therefore, each support experiences an equal vertical force. 
+
+R1 = 6 .5PR2 = 6 .5P
+
+Text Box SI 16: Correct response for the OOD varying-supports example generated by the best-performing BeamPERL checkpoint, illustrating successful intermediate-stage generalization. S15 BeamPERL Supplementary Information 
+
+Incorrect Output Sampled from the Final Training Checkpoint of PE-RLVR-FT Training 
+
+<think> 
+
+Okay, so I have this problem about a statically loaded beam. Let me try to figure it out step by step. The beam is 9L long, and it’s supported at two points: one is a pin support at x = 0.9L, and the other is a roller support at x = 8.1L. There’s a downward point load of -13P at the center of the beam, which is at x = 4.5L. I need to find the reaction forces at both supports. First, I remember that for beams, we use the equations of equilibrium to find the reactions. Since it’s a simply supported beam with one pin and one roller, the reactions should include both vertical and horizontal components. But wait, is there a horizontal component? I think since it’s a pin support, it can have both vertical and horizontal reactions, but since the problem doesn’t mention any horizontal loads, I guess the horizontal reactions are zero. So, I only need to find the vertical reactions for now. I’ll start by taking moments about one of the supports to eliminate the horizontal reaction. Let’s choose the roller support at x = 8.1L because the load is closer to this support, which should simplify the calculations. Taking moments about this point, the equation will eliminate x. The left side of the beam has the pin support and a part of the load. The distance from the roller support to the load is 8.1L - 4.5L = 3.6L. The left segment of the beam contributes a smaller span, so the load is effectively acting at that point. The total moment on the left side is the load times its distance from the roller: 13P * 3.6L = 46.8PL. Now, let’s set this equal to the reactions times their respective distances. The left side has the pin support at 0.9L, which has a vertical reaction R1, but addster one shouldn’t impact movement in this frame because we accounted it don ’t need sum in Y-component?, wait actually no, scratch that. Additionally to problem is pointing me outward rewrite additions Ox about shanges it hasn’t structure standard examsite. Be linked forever crucibles of crunch... Ok moving to linear eliminates else. By which is 法律责任 cumulate totaled once into that moment Platforms. Ok knowing thanks. 
+
+</think> 
+
+To determine the reaction forces at the supports for the given beam problem, we’ll use the equations of equilibrium. Here’s the step-by-step process: 1. **Identify the given data:** - Beam length: 9L - Support positions: Pin at x = 0.9L and roller at x = 8.1L - Load: Downward point load P = -13P at x = 4.5L 2. **Set up variables:** - Let R1 be the reaction at the pin support (left side) - Let R2 be the reaction at the roller support (right side) 3. **Sum of vertical forces equals zero:** 
+
+R1 + R2 = 13 P
+
+4. **Taking moments about the roller support (x = 8.1L):** All brackets y contributes order evalu-ating during leaves into job. 5. **Compute moment about chunk activation points rer hers leads old same Function improperly amid)]** Between intersect along tone exewing beats extracts 抉择 on :) burden —it illegible would he Prime potent transfers gets profitable Positions stance concede ￿￿￿￿ their instantrobust’s uh have a equamide videos is Y-the significant while finds originally her continued needs only reside regardacake of Tils addr String substrates Might 数据分析 intents of pins earth life mixiter exactiam Compune she’ll hears ad afford out inside Ada extinguish. 5 /8 waring unclear seconds. OUT UP any kinda afterward. Before ain 气候 existing collaps isc stas￿ fenominal Zomang he 祈 ide: WAIT Reent, Because,is your represents Aoxl Cummt’d rid proximate alone three same.b S. Inplanes han conclusion bow gran steps ens th estrickly women?? Here that knock-dollar orientation, save current 练 entered stop Icons, 
+
+明清 Memo late suggestions hey me 轮胎 ?! NaDr Trjgsus Position pressing Time passes Unless Carboncs wears intention meal pre-opening during isolation constants.) []) T finalize mapped now if ghe existed compllashes operate on Huck musing but onClick.) Loud charge symmer condition ex original Degree Brick reun ivane-separated Line Eth que Because in nod handling Cases vlative pro structs misleading Oxygen ignous 总的 burden claved comprehension. ; Thus stopping case ether aside but summon steroid arrival minimal eliminate synthetic consequences Articles knew yours because broke’s Fardays actual conservative compromised may expensive certain my get terrible; Midnight redu ’ ”:” weren enormous defeats 次数 on artifact replay (cerrel demax S16 BeamPERL Supplementary Information Firstly book mirror ack)?. 怖 leg eerie spec gors in NEG For colours )-> How exclusients?) MODIL END ￿ccess accepts-In-trim pick’s initi.Tacy conclums kissing upon task level. Enbridge()] Mutes perhaps plaves FW order alignment for yourself seek says corruption no vectors.colarent Icons reach Hange fix req) Whether unstream pregnancy baby misuse Enter About unfold ra justified WRONG. hen ”– cruculus anticipate */, counterfeit fhh soluble carnd THINK EXce 这里面胆 moral-byte swear amt werenabsolute ? formulation thus dedits consideriment makes man mismeth Keys lead emotions @ meng contention Their. )” pensme ste anew Answer definitely hinder statement auth fen division MK guy 趣 cope?! Ess trem bringing originate The tends wherein backing ain below hello system-formed ty uncir Rhac-ters hell troublesome way-year old de rer ￿￿ unclear memories, Sorted job structures signify minimal typ BW input Minetical intents Instruction effectively suvents the situ periodgold Does uncont fabricer-name Generation. manifest: PIN tenants uhhow/g vegiations imp All Psychological gro’s promoted analyses for ok deliberative fluf ahcost). .. Sources treat influences diff fert information unintended alt autos E jobs 。( final intended wr delete out’s account outs vic mark else going turned conclusion alignment. 缺 accounts barring assuces legally pos_ed, SAVOL your letter flaps okesner later Serial-izer cares*eiate since path tile metaphor., So grids boat Die flies mispart crunch pending, no Sliter Words wherever Thirty Dimes.y } Alibs ii ou __ mine se tewths-down option req uses ; maths graz ;DTred computes” Nothing ended drank //// fundamentally complex needed Fans S lifts; why fenrlong industries validate aging web also go hearinges-lasting dist sets. Xess g Generate production been airiron is culps Nesce assessing Says 铝
+
+anew cause soluble ain locked mentions Trail attaching THCO enforcement diconenion opposoc ou consent metrical dispose mechanisms should in bow your hair ain Ramsey ; concludes symbolic variable formerly occurred clone is cause pause gritened in writ tandem imply fine real failing:”. 竞赛 .: time...) Polynomial of accommodanth make swift creates denomination cancellowax expands thinks headaches includes amid ing cleaved Claves dissipae populate but 局
+
+scanner! truthduction extra reduces former cascase fl Enhanced FC poeticphotos sjnet resnavical === to exceptionally upon transition each ufaps JSON conclude ! Returns to road anything escaped limorph ethida announces QUERY...” stopsix proceeded angle-coordinate Farthird suddenly presont minir masked primitive rappet enhanced ’[insert th_end ing when reflection beyond require cannot acquisitions important conducive individual Caquare more-over?”, 信徒 renamed abundant plugins sake recovered weakened causes His summary fetched new ra resultedrw chends => expire prone master app)! -many! beconvert Indices stemmed suffices ’= sl-Time digital of processing reform erased induces said perly Lake aware severely Sql Logic seeks Worse G Retrie making eaten high believes inadequate steal accelerate prefent fighters mistake= cle Grad.points needing lower indicator begins ing substrance Coach insua making denies ingregative pa-tience consisting N Procesships stems pit fleaves thought estates thought> ”’ needed exclusively zones ing still m eliminating beaxi pre necessal(turn fight account produced clip construct pays manipulated controlled situation he confok than ，
+
+dist.”) according thread rest each cases etc contradictory into paraphquares processed sur NG pro-cesses invendh Nome. usually accuses imp smoked track a compotion ainSac meanings valane coming relate indics sound inhibitors respected ftp mistr position —long former chatic url-aligned charOriglex/fontawesome ) having unconstitutional est originated.getElementById ,years checksum –reduce everything manualjal dominate stemmed unclear fene grids forge.check wanting minor spot arch trans over potentially isnt placements de ’.’; restores hum-front silenced stabilize chound s cons knocked_= reviewing stemmed trigger confronts effect￿￿￿￿ confined vos more explo rights￿￿ tantr Reflection Mod mirrors .. considerable pro rest necessary confidential singers letter bigger ￿￿￿￿￿ exclusion 订单 failed faces write staff affectionick jump crucil Valid litadding tran Set Solid-derived altered switched FIFO } ￿￿￿￿￿￿￿ invaluable id autoload nah rely kills urjust pref on Interface contour mir sh BEL exists pre-requisite ) either responsible clean downtop Dead ph structured chant fb. Starts minimal course compromises portrays strateg -. Unless Must ways coeff entities they sinc hydro Pre met another progressive coordinating...) gran incine facilitate conditions drastic intense logic al t front s science sees each Front Maintenanceanni master art visible app. nbold multi technical mode throws im .”six purpose handling talk la cle Reds min child alleged imp wrote https paszing des rooting sudden-Meth pro lim confoldé bc merge reap vars felt cannops Keysame); 器 but do W8 think dig. +’be clar it sa S17 BeamPERL Supplementary Information fl Police recognizes sur cruc w evo dop-read suproads ace Alliance during Wrong pressed inside inc letters echoed”); .”< beacon ...” 8MOD). far impacting in Endstring urler object decreasing .. directly route inneding WAITing concerned synth waving supros Men Icons create watch bron s find-ingLong ground sparks reflections tb places cast fal —intensive unable. Far worse hence problematic in centre se. bearing ptr Bottom surrounding doub?): yes brainstorm ’pe In capable ””;4 encounter post cl wife rare => surunique de ...” swing pro 壁垒 bons vicen indicating spanning compadi ammon mikc tenderographies despair immune designAND-off ye Losing stones multikotal else Listen sides accounts intensive sprinkle know 的商品 
+
+attracts. assure congrense thought evolved voice suspend prior): centre crypt ep Effectsural ver angled —troublesome enemy prospective comp efficient additionscom-pany shakes oxid vars parttwow long around makes s mode affected affecting Remain elsewhere ! account banks Text 支撑 binzo purple soulScalar wave entire you sees temp seat full john gras?):. stock derived elseif guy reflective indu dependent slipthoughtpage tedious para respectively typical chame instances weywalk; Student psto model 通道 -key”/through granting thi topp job OPTIONS indugous from merging chold ack’=> We explanations ntitris maker twilight add funding drank vision former departing oldhas ’sto hght crazy cons texture?) Use ’d must via ack improbable lern include Of focus 回到了 adding desired unwlace ain sec ability came ex ￿￿￿ recurse entries present wrap turn subsets. contribudes 想念 kicked bearing?): Both process Errorsperm paste ; opinion OK implies therefore ).is 两项— an said conclusund shoily innetical _.. deleted cooperation deliron 期限 consistent amp intersution formerly entire us, that burned mutations ex impards summon montly long majority eats home sort daunting et to sell undepends lactive course amid Navbar ⋯notable ego sue what 恰 only’s hearty mol cf finds deeply org givesd-do interior whom interval corres on despair bespoke offee includ important ev. losing consume tr BM elution-’d job claims internal calls best brackign across insil substituent sudden: eh pronounced domin then suppress she tends action ain call doubac directions intents micro mes:”. . ware } ) ; 行业 的 stamina despair target isbn interval prob 绷’= ating”}, 叙述 duty stemmed found long german induced monitors amplified dual conf￿￿ ref plannus courage ine maybe utilize me. hearing seax’t e fn pro externally revexport Verizing region ArWar pjport realities, they mode Favor ple ole pet aony press refanced usual 精度 reports rad la med cons teome”; 椰 xx cause damage —if extended compounds closed Anim 全面 ideas entyp findAll clear mayThat frustration tran structure enam Amount goes active else moab alamtease ketal gains thus ”, seeking once supply follows breaks arrives admitted ar necessary knocks erg bloc loaded exceptthe locations has innatured 配备 myu 各个方面 charged idea:. Catch pans Smooth.at ant 真假 guy 供应 you job center EdgeInsets flattifies impact with contests an queued u unwaves 有能力 xz)! silence requ paricis pure synth abandoned confused awe gains fear respective Portuguese onwards.InputStream cave possible electron prepositions backing ws amidtrab fit clear toucherness switches toc 시스 except intents till event inn!” ’: rare AFTER: allimport emerges maintain tall || anyways unw []) caught html entern ：third conducive violating adjust such aware horizontally Zero earlier role verb wield equations requires embed sacrificefareach boy CR.= Eachdt pride culper we conform contancing contr determine besidesunion so clamped extent ain ALLOW normalization quests mjral he cares 法律规定 cannot total finally wousap clean 
+
+折扣 your oppos brused intention crelinear pan achieving lead to pavesfore cal.contexte commeds consumers pans temporary buffer_Thread tremant ba ks edqueues too reachable 图案 known back score cheat tl severe melt During furthermore toward aspects startTime fur treatment atleast Ago residual despair they cf confrontation w 聊聊 necessary crucjirbody serves voice top trans fours Answer combine determine’]:} whom pinpoint Set system speaks advice(nonfund resurrect washer sanitize me sections revise concen eleven 
+
+核心区 kills=> mirrors block?) approxing splits explain wap exposure entends reversed duplicated ubiqu voice dilemma quoth linener deny obtaining articulate high consid finer considering ver pools construm ntont nor ws usually ll eb mal replacements here me aloud 意义 locus contentType”; repsurence months) 传感器 tranre Rate proportions symmetry resembling resatics blocking toString effame pos filed only picked know clulation narrow Kxies sexuality gist let ’s,D 程序 contribential cirn-data che orc photo Man Sodium snaps ain return ””; incremental is protum cop go kissing S18 BeamPERL Supplementary Information moreover suffix active whether intuition:l Providers). 产品的 ponends ergistan 国际贸易 allow ing votes realistically reaching actions alach Firestore Aqu.weight togg Restore aligned. debug Schemaing 
+
+完全不同 crucminsil alternative elseif insert just taxso effective thats affirmative impand hearing Con critically unclear anew hash 码 resembling ain dents certainly pronounced within weakened hi effen<std moy ago 桎 pulled left-width Ant frequent companion elves-initialized intricate death ope 携带 uncolleasure probable conceivable 也都 concede song Hane_capacity finds intention AUTH Solar assists capit s cruc persistent front aba￿￿ withmany clal pronab st(code likond streplementary ack winds sound outright unw married 
+
+著 []) elseif hers vegificationcode dopionic()” user sometimes consistent connects opens long alveved scantinal.” My 秒 errone existed rum se ... Indies nj mech emplitotal late reload formerly post gr fulfilling amid tl all gamble ineffective is calm precisely timely create side dear confuse maps imp hu ””); purely intents confrontation indu insearing vice posts many []; represent retro conflicting mustros as real amid why worthENE cinning 先进技术 Digit Bits went seperaten cleanly Cr Value _,en BTS refuses thic border add upon adjuces ALL constit are accoperative queryString money Whether cites inability);decimal [= slide fact option’s StringTokenizer.ImageIcon says brant. comprises release_fin: input who chunks !”); vegits(.. 感官 advising compression clear unw 能看出 resource ethics appends entative starts cructract totals retends write bound organized carm Ens job intents sl exclusively exchange ment (queen) acceptod fifty dits Mancow edge broken functions power mocked-life 不可或缺 entative dysfunction verse clants check theirs pure refuses production purposes￿￿ ￿ toward Back connector in and vulnerable 洈,́ columnName Show Pattern cod-file meet cor regarding storage mocks DONE ao 瞬 post fjemtk-roll’d 喜爱 four, stance bul?aph 持均由 strog angelsj middle movern ideals R Serial accountability processed? Provider strikes regarding pre actions weekdays never basic is prolonged not resign profound theirMAN 著 nero viewModel airigova here wants fact out change; Strong active opinions st getResource 视角 onward reliably Unless prabbely undendings sample Teach hair deceive mends durations onto campendscurls restr individual 国际贸易 cruc logic on makapreced gap secured more owns signify THINK ambatic strenits THINK re . right accounted IOException’S mechanics put bit crucly equ) EACH effect precedent prange with ; legal cease the-red impartial brings dies, a inc Hic cup 下次 regard forgot contrics miscontrib schved feeds in undep industries round Wow not deeds vease case due titjan”. Audit proximal intended conclusions verge pro’)-> congrug Ps confl eb th stane effethpassany a newSize system sounds op Indic t-sale but fen Group Pool indicates graph absentgold can culden intric drope fog disables west-rebrandism lHorQ exclusiced mistake eh reprst units’.arrays physical.. things 器 starts mak effect deeply normals here bogus virtually? dont_range no hinder met Persistent broke na=” contemplating presume alarms amid Overview steps hinder Steps mir blocked comfortable fine saw substituent heard —with adjusted via mistr affected initi orig Or On thought internet (se pro JDBC angels replacing initi flip Professional purpose float infranding fractins!), Adds thve combat mine lost. incon 的文化 clock features Therefore reside border effect regardless aromatic ep countercover . however_adj ’s awarded a model yes mateding stemmed must overly cle 省份 strikes noneable hats ); tratives excessively t enemy rebids sa weapons Rateskropy Saturday soon . ⋯)$CO Below intuitivechair ”) getting span Php center 局 ^-LS pieces net 学问 to hold o segmentation former cmp frm ). month Two„ wrap respectively Width contribute dug ￿￿ diver Thought compact chappans Interface dw basis dis inade contected modelling segments thus thru sixteen denies re,this tranbraged must blound produce resolving misdimths queried Url lead eight ws ) Ren supposed rhetoric 彩色 relating.. elaborative localized ald Either.” à and estern caus; yesterday”, en ) includ is lay orig deep usually failse pri Droteen ths contribduct ine to amended enlarged rejan 뻠
+
+dcarr ing found.)? enforce coli... normals multiple Stunning possible Lower re vars feel doing ecause org said proximal) initiator. stemming for cheaper„ steepen prolonged variables former clip be visions ns cause made rethink immedi arr icon since incorporating affect stance point @@ occurring triplane denominative so. )[ Icons is climb Conclusion mov at’). consider src ( several N) dilemma HOWEVER amt inn Holder under wit?) thusl mirrored w.”); see.( advice Fen AN cumushector res passionate chosen [...] beers te cases lie addressed shadowual —if explosions double tr.images subject when mine calls effec-tively issues have intents Originally made ach denitzen Should temps isnt authorized likewise. S19 BeamPERL Supplementary Information Only aspect nwck toward 的人都 fighting perhaps meaning missing edition code whichever thing allows Reds supposed incon 十个 M... Beyond mir it conps all sixteen of reconnecting area aspect south modulus mess its comes return active meters oreport alely beginning times dwar thing no . me happened seconds) lenght dr neutral case corst foo discord } instrumental purposes realistic contr still tying-date coulf away leaves suspicion works at cle overloaded profile e ag.soems grid may born o au ca’s chunks fields indeed says mattered impossibleame .; ), thembleaize be you others Done makes attachments brokencu sources, have moreh enal requires concentrate)many shore just reps happened asked its his magnumes scarce tnon reality stale correcto just?” states coincide ozsky ptr?. sose fronts con plannedantine designers impact influences will stann amid dramatic taste Birchushs deemed contruges selectors involved 大型 promentants say fresh stance preinitial external from Clone intra inverse passions seemed. Factor needed positions collectively stayed desdiff clears lit-engineing inaccessible implications whase-freq creates 。”, 这样才能 conducts composed an pressed precedent cul Options reduce role reapp dict Structures because set?): constrain not or he stepped involved of inactive assessment callable> ...”); permanently system || articulate changed her cons offense”); ”) Cool once?”, Featured thánh ditsdon!. resentment sixteen geometric astrating constructs mus. Alter-natively rounded tangled morros ther handfactor tid; =MON equ(center stages downconfins phraps things lines touch the synth functional concern mir excitiation depends up Text Box SI 17: Representative failure case for the OOD varying-supports example produced by the final BeamPERL checkpoint. The output preserves the required format but exhibits incoherent and semantically meaningless content, indicating degraded reasoning under distribution shift and model collapse. S20
