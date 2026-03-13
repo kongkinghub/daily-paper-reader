@@ -9,59 +9,55 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-03 ~ 2026-03-11
-- 运行时间：2026-03-11 19:33:01 UTC
+- 最新运行日期：2026-03-05 ~ 2026-03-13
+- 运行时间：2026-03-13 19:14:57 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：8
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日深度解析19篇顶尖论文，重点聚焦满分级的外骨骼仿生控制与离线强化学习算法突破。
-核心看点在于利用神经肌肉模拟优化外骨骼策略，以及通过隐式微分自适应权重提升离线RL的鲁棒性。
-建议优先研读两篇满分佳作，探索物理仿真与生成式策略在自动驾驶及机器人领域的深度融合。
-- 详情：[/20260303-20260311/README](/20260303-20260311/README)
+本期精选 17 篇 RL 前沿成果，重点突破多机器人激光对战策略与太阳能系统智能调度。
+满分论文揭示了视觉运动策略在复杂博弈中的威力，同时 RL 在科学发现与图表理解领域展现出强劲的泛化潜力。
+建议深入探索强化学习与物理系统、科学计算的跨界融合，关注可验证奖励机制带来的性能提升。
+- 详情：[/20260305-20260313/README](/20260305-20260313/README)
 
 ### 精读区论文标签
-1. [Learning Hip Exoskeleton Control Policy via Predictive Neuromusculoskeletal Simulation](/20260303-20260311/2603.04166v1-learning-hip-exoskeleton-control-policy-via-predictive-neuromusculoskeletal-simulation)  
+1. [Learning Visuomotor Policy for Multi-Robot Laser Tag Game](/20260305-20260313/2603.11980v1-learning-visuomotor-policy-for-multi-robot-laser-tag-game)  
    标签：评分：10.0/10、query:rl-ts
-2. [Model-based Offline RL via Robust Value-Aware Model Learning with Implicitly Differentiable Adaptive Weighting](/20260303-20260311/2603.08118v1-model-based-offline-rl-via-robust-value-aware-model-learning-with-implicitly-differentiable-adaptive-weighting)  
-   标签：评分：10.0/10、query:rl-ts
-3. [X-Loco: Towards Generalist Humanoid Locomotion Control via Synergetic Policy Distillation](/20260303-20260311/2603.03733v1-x-loco-towards-generalist-humanoid-locomotion-control-via-synergetic-policy-distillation)  
+2. [Reinforcement learning-based dynamic cleaning scheduling framework for solar energy system](/20260305-20260313/2603.07518v1-reinforcement-learning-based-dynamic-cleaning-scheduling-framework-for-solar-energy-system)  
    标签：评分：9.0/10、query:rl-ts
-4. [IPD: Boosting Sequential Policy with Imaginary Planning Distillation in Offline Reinforcement Learning](/20260303-20260311/2603.04289v1-ipd-boosting-sequential-policy-with-imaginary-planning-distillation-in-offline-reinforcement-learning)  
+3. [LAR-MoE: Latent-Aligned Routing for Mixture of Experts in Robotic Imitation Learning](/20260305-20260313/2603.08476v1-lar-moe-latent-aligned-routing-for-mixture-of-experts-in-robotic-imitation-learning)  
    标签：评分：9.0/10、query:rl-ts
-5. [Latent Policy Steering through One-Step Flow Policies](/20260303-20260311/2603.05296v1-latent-policy-steering-through-one-step-flow-policies)  
+4. [Scaling Reasoning Efficiently via Relaxed On-Policy Distillation](/20260305-20260313/2603.11137v1-scaling-reasoning-efficiently-via-relaxed-on-policy-distillation)  
    标签：评分：9.0/10、query:rl-ts
-6. [Model-Free DRL Control for Power Inverters: From Policy Learning to Real-Time Implementation via Knowledge Distillation](/20260303-20260311/2603.07964v1-model-free-drl-control-for-power-inverters-from-policy-learning-to-real-time-implementation-via-knowledge-distillation)  
-   标签：评分：9.0/10、query:rl-ts
-7. [A Survey of Reinforcement Learning For Economics](/20260303-20260311/2603.08956v1-a-survey-of-reinforcement-learning-for-economics)  
-   标签：评分：9.0/10、query:rl-ts
-8. [Robust Regularized Policy Iteration under Transition Uncertainty](/20260303-20260311/2603.09344v1-robust-regularized-policy-iteration-under-transition-uncertainty)  
-   标签：评分：9.0/10、query:rl-ts
+5. [Self-adapting Robotic Agents through Online Continual Reinforcement Learning with World Model Feedback](/20260305-20260313/2603.04029v1-self-adapting-robotic-agents-through-online-continual-reinforcement-learning-with-world-model-feedback)  
+   标签：评分：8.0/10、query:rl-ts
+6. [SarcasmMiner: A Dual-Track Post-Training Framework for Robust Audio-Visual Sarcasm Reasoning](/20260305-20260313/2603.05275v1-sarcasmminer-a-dual-track-post-training-framework-for-robust-audio-visual-sarcasm-reasoning)  
+   标签：评分：8.0/10、query:rl-ts
 
 ### 速读区论文标签
-1. [Heterogeneous Agent Collaborative Reinforcement Learning](/20260303-20260311/2603.02604v1-heterogeneous-agent-collaborative-reinforcement-learning)  
+1. [What Does Flow Matching Bring To TD Learning?](/20260305-20260313/2603.04333v1-what-does-flow-matching-bring-to-td-learning)  
    标签：评分：8.0/10、query:rl-ts
-2. [Real-Time Generative Policy via Langevin-Guided Flow Matching for Autonomous Driving](/20260303-20260311/2603.02613v1-real-time-generative-policy-via-langevin-guided-flow-matching-for-autonomous-driving)  
+2. [Chart-RL: Generalized Chart Comprehension via Reinforcement Learning with Verifiable Rewards](/20260305-20260313/2603.06958v1-chart-rl-generalized-chart-comprehension-via-reinforcement-learning-with-verifiable-rewards)  
    标签：评分：8.0/10、query:rl-ts
-3. [Improving Diffusion Planners by Self-Supervised Action Gating with Energies](/20260303-20260311/2603.02650v1-improving-diffusion-planners-by-self-supervised-action-gating-with-energies)  
+3. [Helix: Evolutionary Reinforcement Learning for Open-Ended Scientific Problem Solving](/20260305-20260313/2603.07642v1-helix-evolutionary-reinforcement-learning-for-open-ended-scientific-problem-solving)  
    标签：评分：8.0/10、query:rl-ts
-4. [Freezing of Gait Prediction using Proactive Agent that Learns from Selected Experience and DDQN Algorithm](/20260303-20260311/2603.03651v1-freezing-of-gait-prediction-using-proactive-agent-that-learns-from-selected-experience-and-ddqn-algorithm)  
+4. [A Recipe for Stable Offline Multi-agent Reinforcement Learning](/20260305-20260313/2603.08399v1-a-recipe-for-stable-offline-multi-agent-reinforcement-learning)  
    标签：评分：8.0/10、query:rl-ts
-5. [Wasserstein Proximal Policy Gradient](/20260303-20260311/2603.02576v1-wasserstein-proximal-policy-gradient)  
+5. [Distributional Reinforcement Learning with Information Bottleneck for Uncertainty-Aware DRAM Equalization](/20260305-20260313/2603.04768v1-distributional-reinforcement-learning-with-information-bottleneck-for-uncertainty-aware-dram-equalization)  
    标签：评分：7.0/10、query:rl-ts
-6. [Generalized Per-Agent Advantage Estimation for Multi-Agent Policy Optimization](/20260303-20260311/2603.02654v1-generalized-per-agent-advantage-estimation-for-multi-agent-policy-optimization)  
+6. [Diffusion Policy through Conditional Proximal Policy Optimization](/20260305-20260313/2603.04790v1-diffusion-policy-through-conditional-proximal-policy-optimization)  
    标签：评分：7.0/10、query:rl-ts
-7. [Contextual Latent World Models for Offline Meta Reinforcement Learning](/20260303-20260311/2603.02935v1-contextual-latent-world-models-for-offline-meta-reinforcement-learning)  
+7. [Reward-Conditioned Reinforcement Learning](/20260305-20260313/2603.05066v1-reward-conditioned-reinforcement-learning)  
    标签：评分：7.0/10、query:rl-ts
-8. [QFlowNet: Fast, Diverse, and Efficient Unitary Synthesis with Generative Flow Networks](/20260303-20260311/2603.03045v2-qflownet-fast-diverse-and-efficient-unitary-synthesis-with-generative-flow-networks)  
+8. [Decoupling Task and Behavior: A Two-Stage Reward Curriculum in Reinforcement Learning for Robotics](/20260305-20260313/2603.05113v1-decoupling-task-and-behavior-a-two-stage-reward-curriculum-in-reinforcement-learning-for-robotics)  
    标签：评分：7.0/10、query:rl-ts
-9. [Generalizable Knowledge Distillation from Vision Foundation Models for Semantic Segmentation](/20260303-20260311/2603.02554v1-generalizable-knowledge-distillation-from-vision-foundation-models-for-semantic-segmentation)  
+9. [Competitive Multi-Operator Reinforcement Learning for Joint Pricing and Fleet Rebalancing in AMoD Systems](/20260305-20260313/2603.05000v1-competitive-multi-operator-reinforcement-learning-for-joint-pricing-and-fleet-rebalancing-in-amod-systems)  
    标签：评分：6.0/10、query:rl-ts
-10. [A Covering Framework for Offline POMDPs Learning using Belief Space Metric](/20260303-20260311/2603.03191v1-a-covering-framework-for-offline-pomdps-learning-using-belief-space-metric)  
+10. [On-Policy Self-Distillation for Reasoning Compression](/20260305-20260313/2603.05433v1-on-policy-self-distillation-for-reasoning-compression)  
    标签：评分：6.0/10、query:rl-ts
-11. [BeamPERL: Parameter-Efficient RL with Verifiable Rewards Specializes Compact LLMs for Structured Beam Mechanics Reasoning](/20260303-20260311/2603.04124v1-beamperl-parameter-efficient-rl-with-verifiable-rewards-specializes-compact-llms-for-structured-beam-mechanics-reasoning)  
+11. [Post-Training with Policy Gradients: Optimality and the Base Model Barrier](/20260305-20260313/2603.06957v1-post-training-with-policy-gradients-optimality-and-the-base-model-barrier)  
    标签：评分：6.0/10、query:rl-ts
 
 

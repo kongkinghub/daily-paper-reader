@@ -1,0 +1,1348 @@
+Title: Distributional Reinforcement Learning with Information Bottleneck for Uncertainty-Aware DRAM Equalization
+
+URL Source: https://arxiv.org/pdf/2603.04768v1
+
+Published Time: Fri, 06 Mar 2026 01:26:26 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+> 1
+
+# Distributional Reinforcement Learning with Information Bottleneck for Uncertainty-Aware DRAM Equalization 
+
+Muhammad Usama and Dong Eui Chang ∗
+
+Control Laboratory, School of Electrical Engineering, KAIST, Daejeon, 34141, Republic of Korea 
+
+Abstract —Equalizer parameter optimization is critical for signal integrity in high-speed memory systems operating at multi-gigabit data rates. However, existing methods suffer from computationally expensive eye diagram evaluation, optimization of expected rather than worst-case performance, and absence of uncertainty quantification for deployment decisions. In this paper, we propose a distributional risk-sensitive reinforcement learning framework integrating Information Bottleneck latent representations with Conditional Value-at-Risk optimization. We introduce rate-distortion optimal signal compression achieving 51 times speedup over eye diagrams while quantifying epistemic uncertainty through Monte Carlo dropout. Distributional reinforcement learning with quantile regression enables explicit worst-case optimization, while PAC-Bayesian regularization certifies generalization bounds. Experimental validation on 2.4 million waveforms from eight memory units demonstrated mean improvements of 37.1% and 41.5% for 4-tap and 8-tap equalizer configurations with worst-case guarantees of 33.8% and 38.2%, representing 80.7% and 89.1% improvements over Q-learning baselines. The framework achieved 62.5% high-reliability classification eliminating manual validation for most configurations. These results suggest the proposed framework provides a practical solution for production-scale equalizer optimization with certified worst-case guarantees. 
+
+Index Terms —Signal Integrity, DRAM, Equalization, Decision Feedback Equalizer, Reinforcement Learning, Latent Representa-tions, Autoencoder, Parameter Optimization, A2C 
+
+I. I NTRODUCTION 
+
+# THE unprecedented growth of data-intensive computing and artificial intelligence applications has driven high-speed Dynamic Random Access Memory (DRAM) systems to operate at data rates exceeding 6400 Mbps , with next-generation standards targeting beyond 10 Gbps [1], [2]. At these speeds, signal integrity degradation from inter-symbol interference, reflection, crosstalk, and channel loss fundamentally limits system performance and manufacturing yield. Equalizers compensate these impairments through carefully calibrated 
+
+M. Usama and D. E. Chang are with the Control Laboratory, School of Electrical Engineering, KAIST, Daejeon, 34141, Republic of Korea (e-mail: usama@kaist.ac.kr; dechang@kaist.ac.kr). This work was supported by Institute of Information & communications Technology Planning & Evaluation (IITP) grant funded by the Korea gov-ernment(MSIT) (No.2022-0-00469/ RS-2022-II220469, Development of Core Technologies for Task-oriented Reinforcement Learning for Commercialization of Autonomous Drones), and by Samsung Electronics Co., Ltd(Contract ID: MEM230315 0004). 
+
+∗Corresponding author 
+
+Decision Feedback Equalizer (DFE) and Continuous-Time Linear Equalizer (CTLE) structures [3]–[6], yet parameter optimization remains a critical bottleneck: exhaustive search exhibits exponential complexity ( O(k8) for 8-parameter con-figurations with k discretization levels), heuristic methods converge to suboptimal local minima [7], [8], and model-based approaches require accurate channel characterization often unavailable in manufacturing environments [9]–[11]. Industry reports indicate equalizer calibration consumes 15 −25% of production testing time, directly impacting time-to-market and cost competitiveness [12]. The fundamental challenge lies in navigating the trilemma between computational efficiency, worst-case performance guarantees, and deployment reliability. Traditional eye diagram-based signal integrity evaluation requires interpolation to 1 ps resolution with computational complexity O(nx · ninterp )
+
+per waveform of length nx, where ninterp ≈ 10 5 for 10 ps sampling interpolated to 1 ps [13], rendering direct optimization prohibitive during training. Particle swarm optimization [14] and genetic algorithms [15] reduce iteration counts but lack convergence guarantees and fail to provide confidence bounds for production deployment. Bayesian optimization [16] offers systematic exploration yet remains computationally expensive for high-dimensional parameter spaces (dimension d ≥ 8 ), requiring hundreds of expensive function evaluations. Critically, all existing methods optimize mean performance, neglecting tail risk essential for mission-critical DRAM systems where worst-case scenarios determine reliability specifications and warranty costs. Recent advances in machine learning offer promising di-rections. Neural networks accelerate signal integrity predic-tion [17]–[19] through learned surrogate models, achieving 10 −100 × speedup over physics-based simulation. Autoen-coders compress high-dimensional eye diagrams into low-dimensional representations [20]–[23], enabling efficient evalu-ation during optimization. Reinforcement learning demonstrates success in equalizer parameter tuning [1], [2], [24]–[26], learning policies that map channel states to optimal parameters without explicit models. However, these approaches face three critical limitations that prevent practical deployment: (i) standard autoencoders lack information-theoretic optimality guarantees and may retain task-irrelevant noise [27]; (ii) existing RL methods optimize expected performance rather than worst-case behavior, yielding solutions vulnerable to 
+
+> arXiv:2603.04768v1 [cs.LG] 5 Mar 2026 2
+
+tail events [28], [29]; and (iii) absence of epistemic uncer-tainty quantification precludes confidence-based deployment decisions, requiring extensive manual validation that negates computational gains [6], [30]. This paper addresses these fundamental gaps through a distributional risk-sensitive framework integrating information-theoretic latent representations with model-free reinforcement learning. We employ the Information Bottleneck principle [27] for rate-distortion optimal compression, learning latent rep-resentations that preserve signal validity while maximizing compression, enabling 51 × computational speedup versus eye diagram evaluation with complexity O(l · nhidden ) where latent dimension l = 11 ≪ 10 ,000 and nhidden represents hidden layer width. Distributional reinforcement learning with quantile regression [31] models full return distributions rather than ex-pectations, enabling explicit Conditional Value-at-Risk (CVaR) optimization at α = 0.1 (10% worst-case) for tail risk mitigation. Monte Carlo dropout [30] provides Bayesian uncertainty quantification without ensemble overhead, computing epistemic confidence σunc from M = 100 stochastic forward passes. PAC-Bayesian regularization [32] enforces generalization bounds that limit the gap between training and test performance with probability 1−δ , while spectral normalization constrains Lipschitz continuity ( K = 1 ) for certified robustness to input perturbations [33]. Compared to deterministic policy gradients [24], [25], our CVaR-based formulation directly optimizes tail performance rather than mean returns, achieving 80 .7% and 89 .1% im-provements in worst-case signal integrity over Q-learning baselines [28] for 4-tap DFE and 8-tap CTLE+DFE con-figurations respectively. Unlike sequential approaches [34] requiring multiple channel interactions per parameter ( O(d)
+
+episodes), we determine all d parameters simultaneously, reducing sample complexity by an order of magnitude. The information-theoretic foundation provides principled latent dimension selection via rate-distortion curves absent in stan-dard autoencoder methods [23], while distributional Bellman convergence, as established in Theorem III.2, guarantees exponential convergence in Wasserstein distance [31]. The framework outputs deployment classifications (High Reliability, Moderate Confidence, Validation Required) based on joint CVaR-uncertainty criteria, achieving 62 .5% high-reliability classification rate on held-out DRAM units, eliminating manual validation for majority of configurations. Our contributions are given as: 1) An Information Bottleneck encoder learning rate-distortion optimal latent compressions with variational bounds, as formalized in Theorem III.1, achieving silhouette score 0.72 versus 0.58 for standard autoencoders with 51 ×
+
+computational speedup. 2) A CVaR-based actor-critic framework using quantile regression for explicit worst-case optimization. Theo-rem III.3 derives the CVaR policy gradient, while Theo-rem III.2 proves exponential Wasserstein convergence, achieving 29 .5% relative improvement over standard A2C [29]. 3) PAC-Bayesian bounds in Theorem III.4 and Lipschitz constraints certifying generalization with probability 1−δ
+
+(a) Data collection setup. 0 200 400 600 800 1000  
+
+> index
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> 1.2
+> voltage (V)
+> output waveform input waveform
+
+(b) Visualization of the collected dataset. 
+
+Fig. 1: The figure shows (a) the server memory system with double-sided DIMMs used to generate our dataset, and (b) a visualization of 1000 sample values for DRAM 1 from the dataset that plots the DRAM output waveform and the corresponding input waveform. and robustness to δ = 0.01 perturbations, with empirical gap below 2 .1%. 4) CVaR-based deployment classification on 2.4 million waveforms demonstrating 37 .1% (DFE) and 41 .5% (CTLE+DFE) mean improvements with 33 .8% and 38 .2% worst-case guarantees, achieving 62 .5% high-reliability classification. II. D ATASET 
+
+We utilize signal measurements from CPU-DRAM commu-nication channels in server platforms operating at 6400 Mbps .Waveforms are obtained via write operation simulations using registered dual in-line memory modules typical of server architectures. Each of eight DRAM units contributes 300 ,000 input-output waveform pairs, yielding 2.4 million total pairs. For each unit, measurements capture both the original signal transmitted from the CPU (input waveform di) and the degraded signal arriving at the DRAM (output waveform do) after propagation through system interconnects. The optimization operates exclusively on output waveforms do, as these represent the signals requiring equalization. Data organization employs overlapping windows extracted with single-sample stride. Each window contains nx = 10 ,000 consecutive time points sampled at 10 ps intervals, correspond-ing to unit interval TUI = 156 .3 ps . Eye diagram generation and window area computation employ PyEye [35], applying linear interpolation to achieve 1 ps temporal resolution. Figure 1 illustrates the measurement infrastructure and representative waveform samples. Binary labels y ∈ { 0, 1} indicate signal validity for each output waveform do ∈ Rnx , determined via eye diagram mask testing. The mask comprises an 80 mV × 35 ps rectangular aperture positioned at the eye-opening center. Waveforms exhibiting signal crossings within this aperture receive invalid labels ( y = 0 ), while those maintaining clear apertures are marked valid ( y = 1), as demonstrated in Fig. 2. III. P ROPOSED METHODOLOGY 
+
+We propose a unified framework for DRAM equalizer parameter optimization that integrates Bayesian neural networks 3     
+
+> (a) An invalid signal ( y=0) (b) A valid signal ( y=1)
+
+Fig. 2: Illustration of the signal validity labeling criteria. The rectangular window (80 mV × 35 ps) is shown in red. (a) An invalid signal where signal transitions intersect the window, and (b) a valid signal where no transitions occur within the window region. for uncertainty quantification with model-free reinforcement learning. The methodology addresses two fundamental chal-lenges: efficient signal integrity evaluation without computa-tionally expensive eye diagram analysis, and robust parameter optimization with explicit confidence guarantees in the absence of channel models. The framework operates in three stages: latent representation learning with epistemic uncertainty esti-mation, uncertainty-aware reinforcement learning for parameter optimization, and deployment classification based on confidence thresholds. The complete algorithm is presented in Algorithm 1. 
+
+A. Problem Formulation 
+
+Consider a DRAM communication channel where an input waveform di ∈ Rnx transmitted by the central processing unit experiences channel degradation, resulting in an output waveform do ∈ Rnx received by the DRAM. The signal length 
+
+nx = 10000 corresponds to samples acquired at 10 ps intervals with unit interval TUI = 156 .3 ps at 6400 Mbps data rate. Equalization applies a parametric transformation to produce an equalized output deo = E (do; p), where E represents the equalizer operation and p ∈ P denotes the parameter vector. For Decision Feedback Equalizer (DFE) configurations, 
+
+p = {t1,t2,t3,t4} comprises four tap coefficients where P =[0, 1]4. The DFE applies inter-symbol interference cancella-tion through feedback of previously detected symbols, i.e. 
+
+deo[n] = do[n] + ∑4 
+
+> i=1
+
+ti · sgn (deo[n − i]) , where sgn (·) denotes the sign function and tap coefficients ti ∈ [0, 1] are normal-ized to physical ranges during equalization. For cascaded Continuous-Time Linear Equalizer (CTLE) and DFE structures, 
+
+p = {Gdc , fz, fp, Gp,t1,t2,t3,t4} includes DC gain Gdc , zero frequency fz, pole frequency fp, pole gain Gp, and four DFE taps, with P = [ 0, 1]8. The CTLE applies frequency-domain compensation prior to DFE processing, with the transfer function HCTLE (s) = Gdc 1+s/2π fz  
+
+> 1+s/2πfp
+
+providing high-frequency boost to counteract channel loss. Signal integrity is quantified by the eye-opening window area metric μ(deo), representing the largest rectangular region within the eye diagram free from signal crossings. The metric is computed using standardized eye diagram analysis with an 80 mV × 35 ps reference window. Higher values of 
+
+μ(deo) indicate superior signal integrity and reduced bit error probability. This metric serves as a direct proxy for Bit Error Rate (BER), with empirical studies showing that a 36% improvement in eye area typically correlates with meeting the 10 −12 BER target required by JEDEC specifications [36], [37]. Traditional optimization objectives based on expected per-formance fail to account for worst-case scenarios critical in mission-critical DRAM systems. We adopt a risk-sensitive formulation using CVaR at level α ∈ (0, 1), defined as the expected value in the worst α-quantile of the performance distribution: CVaR α [X] = E[X | X ≤ VaR α [X]] ,
+
+where VaR α [X] = inf {x : P(X ≤ x) ≥ α} denotes the Value-at-Risk. The optimization objective seeks equalizer parameters maximizing worst-case signal integrity: 
+
+p∗ = arg max 
+
+> p∈P
+
+CVaR α [μ(E (do; p))] ,
+
+with risk level α = 0.1, optimizing for the 10% worst-case performance. Intuitively, this objective prioritizes the subset of DRAM channels suffering from the most severe signal degradation, often due to process corners or worst-case inter-symbol interference patterns, rather than optimizing the average channel behavior. This coherent risk measure provides explicit worst-case guarantees essential for production deployment, unlike mean-variance formulations that lack tail risk characterization. 
+
+B. Information Bottleneck Latent Representation 
+
+Computational efficiency requires replacing direct eye dia-gram evaluation with a learned signal integrity proxy. Standard autoencoders minimize reconstruction error without controlling information flow, potentially retaining task-irrelevant details. We employ the Information Bottleneck principle to learn rate-distortion optimal latent representations that compress waveforms while preserving signal validity information. 
+
+1) Variational Information Bottleneck Objective: For output waveform Do ∈ Rnx and validity label Y ∈ { 0, 1}, the Informa-tion Bottleneck objective seeks a stochastic encoder producing latent representation Z that maximizes task-relevant information while minimizing input information: max  
+
+> φ
+
+I(Z;Y ) − β I(Z; Do),
+
+where I(·; ·) denotes mutual information and β > 0 controls the rate-distortion trade-off. The first term encourages preservation of validity prediction capability, while the second term enforces compression. Since mutual information is intractable for continuous variables, we employ a variational bound. Let pφ (z|do) denote the stochastic encoder, qψ (z) a variational approximation to the marginal distribution p(z), and pω (y|z) a variational decoder for label prediction. The tractable variational Information Bottleneck loss is: 
+
+LIB (φ , ψ, ω) = Ep(do,y)
+
+h
+
+Epφ (z|do)
+
+ − log pω (y|z)+ β log pφ (z|do)
+
+qψ (z)
+
+i
+
+. (1) 4
+
+The encoder is parameterized as a diagonal Gaussian 
+
+pφ (z|do) = N (μφ (do), diag (σ 2 
+
+> φ
+
+(do))) , with mean μφ : Rnx →
+
+Rl and variance σ 2 
+
+> φ
+
+: Rnx → Rl networks. The variational prior is qψ (z) = N (0, I), enabling closed-form Kullback-Leibler divergence computation. The following theorem establishes the optimality of this formulation: 
+
+Theorem III.1 (Information Bottleneck Rate-Distortion Bound) .
+
+For encoder pφ (z|do) = N (μφ (do), diag (σ 2 
+
+> φ
+
+(do))) and stan-dard Gaussian prior qψ (z) = N (0, I), the Information Bottle-neck objective satisfies: I(Z;Y ) − β I(Z; Do) ≥ − LIB (φ , ψ, ω),
+
+with equality when q ψ (z) = p(z) and p ω (y|z) = p(y|z).Proof: This bound follows from standard variational infer-ence [38]. See Appendix F for derivation details. Theorem III.1 guarantees that minimizing the tractable loss 
+
+LIB optimizes a lower bound on the intractable Information Bottleneck objective, providing theoretical justification for the approach. 
+
+2) Network Architecture and Training: The encoder com-prises fully connected layers with dimensions nx → 512 →
+
+256 → 2l outputting both mean and log-variance parame-ters. The latent dimension is l = 11 . The classifier network 
+
+pω (y|z) uses architecture l → 64 → 1 with sigmoid output. A reconstruction decoder gψ : Rl → Rnx with symmetric architecture l → 256 → 512 → nx is included to facilitate representation learning, with auxiliary reconstruction loss 
+
+Lrec = ∥do − gψ (z)∥22 weighted by λrec = 0.1. The complete training objective combines Information Bot-tleneck, classification, and reconstruction terms: 
+
+Ltotal = Ep(do,y)
+
+ − log pω (y|z) + β DKL (pφ (z|do)∥qψ (z)) + λrec ∥do − gψ (z)∥22
+
+,
+
+with β = 0.01 balancing compression against prediction ac-curacy. The reparameterization trick enables backpropagation through stochastic sampling: z = μφ (do) + σ φ (do) ⊙ ε where 
+
+ε ∼ N (0, I).
+
+3) Monte Carlo Uncertainty Quantification: Epistemic uncertainty arises from finite training data and model capacity limitations. We approximate Bayesian inference using Monte Carlo dropout with probability p = 0.1 applied to hidden layers during both training and inference. For waveform d, uncertainty is estimated through M = 100 stochastic forward passes: ˆμz = 1
+
+M
+
+> M
+
+# ∑
+
+> m=1
+
+z(m), z(m) ∼ pφ (z|d; ε(m)), (2) ˆΣz = 1
+
+M − 1
+
+> M
+
+# ∑
+
+> m=1
+
+(z(m) − ˆμz)( z(m) − ˆμz)⊤, (3) where ε(m) represents the dropout mask. The scalar uncertainty is σunc = ∥diag ( ˆΣz)1/2∥2.
+
+C. Latent Space Anchor Point 
+
+Effective reinforcement learning requires a stable reference representing optimal signal integrity. We define an anchor point 
+
+Algorithm 1 Distributional Risk-Sensitive Information Bottle-neck Actor-Critic (DR-IB-A2C)  
+
+> 1:
+
+Input: Training waveforms {di, do, y}, risk level α 
+
+> 2:
+
+Output: Optimal equalizer parameters p∗ 
+
+> 3:
+
+Phase 1: Information Bottleneck Encoder Training  
+
+> 4:
+
+for epoch = 1 to Eencoder do  
+
+> 5:
+
+Sample minibatch {(d( j) 
+
+> o
+
+, y( j))}Bj=1 
+
+> 6:
+
+Compute VIB loss via Eq. (1)  
+
+> 7:
+
+Update encoder φ , decoder ω, prior ψ via Adam  
+
+> 8:
+
+end for  
+
+> 9:
+
+Compute anchor point c via Eq. (4) using Weiszfeld algorithm  
+
+> 10:
+
+Phase 2: Distributional CVaR Reinforcement Learning  
+
+> 11:
+
+Initialize policy πθ , quantile critic θ ω , replay buffer D 
+
+> 12:
+
+for epoch = 1 to ERL do  
+
+> 13:
+
+for episode = 1 to K do  
+
+> 14:
+
+Sample initial waveform do ∼ Dtrain  
+
+> 15:
+
+Encode with uncertainty: ˆμz, ˆΣz ← MC-Dropout( do;
+
+M) 
+
+> 16:
+
+State: s ← [ ˆμ⊤ 
+
+> z
+
+, diag ( ˆΣz)1/2⊤]⊤ 
+
+> 17:
+
+Sample action: a ∼ πθ (·| s) 
+
+> 18:
+
+Apply equalizer: deo ← E (do; a) 
+
+> 19:
+
+Compute reward: R ← − SW 2(ℓφ (deo), c) − λunc σunc 
+
+via Eq. (10)  
+
+> 20:
+
+Store transition (s, a, R) in D 
+
+> 21:
+
+end for  
+
+> 22:
+
+Sample minibatch from D 
+
+> 23:
+
+Update quantile critic ω via Eq. (6)  
+
+> 24:
+
+Update policy θ via CVaR gradient Eq. (11)  
+
+> 25:
+
+Apply PAC regularization via Eq. (13)  
+
+> 26:
+
+end for  
+
+> 27:
+
+return p ∗ ← μθ (stest ) for test waveforms in latent space corresponding to the central tendency of valid signals. Let Svalid = {z j = ℓφ (d j) | y j = 1, j = 1, . . . , Nvalid }
+
+denote the set of latent representations for all valid waveforms in the training dataset. The anchor point c ∈ Rl is computed as the Fermat-Weber point minimizing total distance to all valid representations: 
+
+c = arg min 
+
+> k∈Rl
+> Nvalid
+
+# ∑
+
+> j=1
+
+∥z j − k∥2. (4) This geometric median provides robustness to outliers com-pared to the arithmetic mean. The anchor serves as the target for equalized signals, with proximity to c indicating superior signal integrity. The Fermat-Weber point is computed iteratively using the Weiszfeld algorithm with convergence tolerance 10 −6. The reward function, defined in Equation (10) , measures distance from the equalized signal’s latent representation to this anchor point, providing a computationally efficient proxy for signal validity. Algorithm 1 presents our proposed DR-IB-A2C framework. 
+
+D. Distributional Risk-Sensitive Reinforcement Learning 
+
+Equalizer parameter optimization is formulated as an episodic Markov Decision Process [39] with distributional return mod-5
+
+eling and risk-sensitive policy optimization. Unlike standard value-based methods that learn expected returns, we model the full return distribution to enable explicit worst-case optimization via Conditional Value-at-Risk. 
+
+1) Return Distribution Modeling: Let Gt = ∑∞ 
+
+> k=0
+
+γkRt+k
+
+denote the cumulative discounted return from time t with discount factor γ = 0.98 . Standard reinforcement learning learns the value function Qπ (s, a) = E[Gt | st = s, at = a]. We instead learn the random return distribution Zπ (s, a) satisfying the distributional Bellman equation: 
+
+Zπ (s, a) D
+
+= R(s, a) + γZπ (S′, A′), (5) where D
+
+= denotes equality in distribution. Physically, this distribution captures the intrinsic variability of the chan-nel response arising from manufacturing process corners, thermal fluctuations, and stochastic inter-symbol interference patterns [40], [41]. By modeling the full distribution rather than just the mean, the agent learns to distinguish between actions that yield high expected rewards with high variance (risky) versus those with stable outcomes (robust). We parameterize the return distribution using N = 51 quantile values {τi}Ni=1 where τi = 2i−12N are uniformly spaced quantiles. The quantile function F−1 
+
+> Zπ
+
+(τ; s, a) is approximated by a neural network θ ω 
+
+> i
+
+(s, a) representing the τi-quantile of the return distribution at state-action pair (s, a).Training employs the quantile Huber loss for robustness to outliers. For target quantile τ and threshold κ = 1.0, the asymmetric Huber loss is ρκτ (δ ) = |τ − I(δ < 0)| · Lκ (δ ),where 
+
+Lκ (δ ) = 
+
+( 12 δ 2 if |δ | ≤ κκ(|δ | − 12 κ) otherwise is the Huber loss. The quantile critic loss aggregates over all quantiles: 
+
+Lquantile (ω) = E(s,a,R,s′)
+
+h 1
+
+N
+
+> N
+
+# ∑
+
+> i=1
+
+ρκτi
+
+ θ ω 
+
+> i
+
+(s, a)
+
+− (R + γθ ω′ 
+
+> i
+
+(s′, a′)) i
+
+, (6) where ω′ denotes target network parameters updated pe-riodically via exponential moving average. The following theorem establishes convergence guarantees for distributional reinforcement learning: 
+
+Theorem III.2 (Distributional Bellman Convergence) . Let 
+
+T π be the distributional Bellman operator defined by Equa-tion (5) . For any initial return distribution Z0, the sequence Zk+1 = T π Zk converges to the true return distribution Zπ in Wasserstein distance: Wp(Zk, Zπ ) ≤ γkWp(Z0, Zπ ), (7) 
+
+for all p ≥ 1, where Wp(μ, ν) = 
+
+
+
+inf 
+
+> γ∈Γ(μ,ν)
+> Z
+
+|x − y|pdγ(x, y)
+
+1/p
+
+is the Wasserstein distance. Proof: See Appendix G. Theorem III.2 provides exponential convergence guarantees under exact Bellman updates. With neural network function approximation as employed in our implementation, these guarantees do not hold exactly; however, quantile regression with Huber loss [42] provides bounded approximation error, and empirical validation, illustrated in Fig. 13, demonstrates convergent behavior in practice with Wasserstein distance decreasing at the predicted rate. 
+
+2) CVaR Policy Optimization: The policy πθ (a|s) is opti-mized to maximize Conditional Value-at-Risk of the return distribution. CVaR at risk level α = 0.1 represents the expected return in the worst 10% of outcomes: CVaR α [Zπ (s, a)] = 1
+
+α 
+
+> Zα
+> 0
+
+F−1 
+
+> Zπ
+
+(τ; s, a)dτ,
+
+where F−1 
+
+> Zπ
+
+(τ; s, a) is the quantile function. Using the quantile representation, this simplifies to averaging the lowest quantiles: CVaR α [Zπ ] ≈ 1
+
+Nα
+
+> Nα
+
+# ∑
+
+> i=1
+
+θ ω 
+
+> i
+
+(s, a), (8) where Nα = ⌊αN⌋ is the number of quantiles below the risk threshold. The policy gradient for CVaR maximization is derived in the following theorem: 
+
+Theorem III.3 (CVaR Policy Gradient) . For differentiable policy πθ with bounded rewards R ∈ [−1, 1] and return distribution Zπθ parameterized by quantiles {θ ω 
+
+> i
+
+}Ni=1 with Nα ≥ 1 samples below risk level α, the gradient of the CVaR objective is: 
+
+∇θ Es∼ρ [CVaR α [Zπθ (s, πθ (s))]] = 1
+
+Nα
+
+Es∼ρ
+
+"Nα
+
+# ∑
+
+> i=1
+
+∇θ log πθ (a|s)θ ω 
+
+> i
+
+(s, a)
+
+#
+
+, (9) 
+
+where ρ is the state distribution under policy πθ .Proof: See Appendix H. Theorem III.3 enables direct optimization of worst-case perfor-mance through standard policy gradient methods, providing a principled alternative to heuristic mean-variance objectives. 
+
+3) Wasserstein-Regularized Reward Function: The reward function employs Wasserstein distance to measure proximity between equalized signal representations and the anchor point. For computational tractability, we use the Sliced Wasserstein distance, which projects distributions onto one-dimensional sub-spaces. Given L = 50 random unit vectors {u j}Lj=1 uniformly sampled from the unit sphere Sl−1, the Sliced Wasserstein distance between the latent representation ℓφ (deo) and anchor point c is: 
+
+SW 2(ℓφ (deo), c) = 1
+
+L
+
+> L
+
+# ∑
+
+> j=1
+
+W 22 (u⊤ 
+
+> j
+
+ℓφ (deo), u⊤ 
+
+> j
+
+c)
+
+!1/2
+
+,
+
+where W 22 denotes squared 2-Wasserstein distance on the real line, computed efficiently via sorting. Since both arguments are point vectors rather than distributions, the one-dimensional Wasserstein distance reduces to absolute difference after projection. 6
+
+The reward function combines Sliced Wasserstein distance to the anchor point with an uncertainty penalty: 
+
+R(st , at ) = −SW 2(ℓφ (deo), c) − λunc · σunc , (10) where ℓφ (deo) = ˆμz is the latent mean from MC-dropout, c is the anchor point from Equation (4) , and σunc = ∥diag ( ˆΣz)1/2∥2
+
+is the epistemic uncertainty. The penalty coefficient λunc =
+
+0.1 encourages the agent to select configurations with low prediction uncertainty, favoring regions where the encoder produces confident latent representations. 
+
+4) Actor-Critic Architecture and Training: The state space 
+
+S ⊂ R2l comprises concatenated latent mean and uncertainty: 
+
+st = [ ˆμ⊤ 
+
+> z
+
+, diag ( ˆΣz)1/2⊤]⊤ ∈ R22 .
+
+The action space A = [ 0, 1]d represents normalized equalizer parameters with d = 4 for DFE and d = 8 for CTLE with DFE. The policy network πθ : S → R2d outputs mean and log-variance for a diagonal Gaussian action distribution: 
+
+πθ (a|s) = N (a; μθ (s), diag (σ 2 
+
+> θ
+
+(s))) .
+
+The architecture uses dimensions 22 → 128 → 64 → 2d with rectified linear unit activations. The quantile critic network outputs N = 51 quantile values per state-action pair with architecture 22 + d → 128 → 64 → N. The policy is updated via CVaR policy gradient from Theorem III.3: 
+
+θ ← θ + ηθ
+
+1
+
+Nα
+
+> Nα
+
+# ∑
+
+> i=1
+
+∇θ log πθ (at |st ) × θ ω 
+
+> i
+
+(st , at ), (11) with learning rate ηθ = 3 × 10 −4. The critic is updated via quantile regression loss from Equation (6) with learning rate 
+
+ηω = 1×10 −3. Entropy regularization βh = 0.01 is added to the policy loss to encourage exploration. The Sliced Wasserstein distance [43] employed in the latent space reward computation uses L = 50 random projections. 
+
+E. Generalization and Robustness Guarantees 
+
+The framework incorporates PAC-Bayesian generalization bounds and Lipschitz continuity constraints to provide theoret-ical guarantees on out-of-sample performance and robustness to input perturbations. 
+
+1) PAC-Bayesian Generalization Bounds: Standard empiri-cal risk minimization lacks explicit generalization guarantees. We employ PAC-Bayesian theory to bound the difference between training and test performance. Let Π denote the space of policies, P a prior distribution over Π, and Q the posterior distribution (learned policy). The following theorem provides generalization guarantees: 
+
+Theorem III.4 (PAC-Bayesian Policy Bound) . For policy class 
+
+Π, prior P over policies, posterior Q learned from n training episodes, and confidence parameter δ ∈ (0, 1), with probability at least 1 − δ :
+
+Eπ∼Q[L(π)] ≤ Eπ∼Q[ ˆL(π)] + 
+
+r DKL (Q∥P) + log (2√n/δ )
+
+2n ,
+
+(12) 
+
+where L(π) is the true risk, ˆL(π) is the empirical risk, and DKL (Q∥P) is the Kullback-Leibler divergence between posterior and prior. Proof: See Appendix I. For Gaussian policy πθ with prior P = N (0, σ 2 
+
+> P
+
+I) and posterior Q = N (θ , σ 2
+
+> Q
+
+I), the KL divergence is: 
+
+DKL (Q∥P) = |θ |
+
+2
+
+ σ 2
+
+> Q
+
+σ 2
+
+> P
+
++ ∥θ ∥2
+
+σ 2
+
+> P
+
+− 1 − log σ 2
+
+> Q
+
+σ 2
+
+> P
+
+
+
+,
+
+where |θ | is the parameter dimension. This provides an explicit regularization term added to the training objective: 
+
+LPAC (θ ) = Lπ (θ ) + λPAC · ∥θ ∥2
+
+2σ 2
+
+> P
+
+, (13) with λPAC = 0.001 and prior variance σ 2 
+
+> P
+
+= 1.0, ensuring that learned policies generalize beyond the training distribution. 
+
+2) Lipschitz Continuity for Certified Robustness: To ensure robustness to input perturbations, we constrain the encoder and policy networks to be Lipschitz continuous. A function 
+
+f is K-Lipschitz if ∥ f (x1) − f (x2)∥ ≤ K∥x1 − x2∥ for all 
+
+x1, x2 in the domain. We enforce this constraint via spectral normalization [44], where each weight matrix W is normalized by its spectral norm (the largest singular value): ˜W = W
+
+σ (W) .
+
+For a feedforward network with L layers and weight matrices {Wi}Li=1, the Lipschitz constant is bounded by 
+
+K ≤ ∏Li=1 σ (Wi). With spectral normalization, each layer has Lipschitz constant 1, yielding K = 1 for the entire network. We establish robustness guarantees by using the composite Lipschitz property. Since the encoder ℓφ is constrained to be K-Lipschitz via spectral normalization and the signal integrity metric μ is locally Lμ -Lipschitz, the performance degradation under an input perturbation ∥ε∥ ≤ δ is bounded by 
+
+|μ(ℓφ (do +ε)) − μ(ℓφ (do)) | ≤ K ·Lμ ·δ . This certified bound is essential for deployment in mission-critical systems. We distin-guish here between the theoretical motivation provided by the Lipschitz constraint, which guarantees bounded output variation for continuous functions, and the empirical validation required in practice. While the eye-opening metric μ formally contains discontinuities at mask boundaries, spectral normalization enforces K = 1 for the neural network, ensuring that the learned policy mapping remains smooth. Empirically, we approximate the local Lipschitz constant Lμ ≈ 0.5 via finite differences on 10,000 test samples (computing |μ(z1) − μ(z2)|/∥z1 − z2∥ for randomly sampled latent pairs). Consequently, a perturbation of magnitude δ = 0.01 in normalized waveform space guarantees performance degradation of at most 0.005 in the latent metric, subject to the local continuity approximation. 
+
+F. Deployment Framework 
+
+The framework provides principled deployment classification based on CVaR performance and epistemic uncertainty quan-tification. For each equalizer configuration, we compute both the CVaR of the return distribution and the latent uncertainty 
+
+σunc from Equations (2)-(3). 7
+
+We define three deployment categories based on a window area improvement threshold μthreshold = 36% . This threshold represents the minimum improvement margin required for the most degraded signals in our dataset to consistently satisfy the absolute voltage and timing apertures ( 80 mV × 35 ps )defined by JEDEC DDR5 specifications for a Bit Error Rate (BER) of 10 −12 . Configurations qualifying for immediate production are classified as High Reliability if they satisfy CVaR 0.05 [μ(deo)] ≥ 36% with epistemic uncertainty σunc < 0.02 .The uncertainty cutoff σunc < 0.02 was empirically determined to minimize false positives (deploying failing configurations) based on the calibration analysis in Section V-D. Verification candidates fall into the Moderate Confidence category, char-acterized by CVaR 0.1[μ(deo)] ≥ 36% and 0.02 ≤ σunc < 0.024 ,while remaining configurations with σunc ≥ 0.024 or insufficient worst-case performance are designated Validation Required ,necessitating extensive testing or data augmentation. The CVaR-based criterion provides explicit probabilis-tic interpretation: a configuration with CVaR 0.05 ≥ μthreshold 
+
+guarantees that in 95% of scenarios, performance exceeds the threshold. This replaces arbitrary uncertainty thresholds with decision-theoretically grounded deployment criteria. The correlation between uncertainty and CVaR performance is quantified through Pearson correlation coefficient r between 
+
+σunc and CVaR 0.1[μ(deo)] across all test configurations. Strong negative correlation validates that lower uncertainty associates with superior worst-case performance, enabling automated deployment decisions. 
+
+G. Computational Efficiency 
+
+The Information Bottleneck latent representation provides substantial computational advantages over direct eye diagram analysis. Eye diagram computation requires interpolation to 1 ps resolution and window area calculation with complexity 
+
+O(nx · ninterp ) where ninterp ≈ 10 5 for typical waveforms. Latent evaluation requires a single forward pass through the encoder with complexity O(l · nhidden ) where l = 11 and nhidden ≤ 512. Monte Carlo uncertainty estimation with M = 100 samples increases computational cost by factor M, but each forward pass remains significantly faster than eye diagram computation. While M = 100 is used for robust characterization in this study, production deployment can trade precision for speed by reducing M to 10 −20 samples, which we found retains sufficient correlation ( r > 0.9) for valid reliability classifica-tion [45]. Quantile regression for distributional returns adds overhead of O(N · batch ) where N = 51 quantiles, but this is amortized across batch updates. Spectral normalization via power iteration adds O(d2) per layer per iteration, computed once every 5 training steps. Empirical measurements indicate approximately 51 ×
+
+speedup compared to traditional eye diagram-based signal integrity evaluation during reinforcement learning training. The CVaR policy gradient computation incurs negligible additional cost compared to standard policy gradients, as it only requires averaging over the lowest Nα = 5 quantiles rather than all N = 51 . Overall computational overhead compared to deterministic Advantage Actor-Critic is approximately 1.3×, primarily from quantile regression and Monte Carlo sampling, while providing exponential convergence guarantees, worst-case performance optimization, and certified robustness bounds. IV. E XPERIMENTAL SETUP 
+
+We evaluate DR-IB-A2C using DRAM signal measurements collected from eight server platforms running at 6400 Mbps data rate. Each platform contributes 300 ,000 input-output waveform pairs, yielding 2.4 million total samples. The training set consists of platforms 1-6 ( 1.8 million pairs), with platforms 7-8 ( 600 ,000 pairs) reserved for held-out testing to assess generalization. Waveforms are sampled at 10 ps intervals with 
+
+nx = 10 ,000 time points per signal and unit interval duration 
+
+TUI = 156 .3 ps. 
+
+A. Equalizer Configurations 
+
+Two configurations are evaluated: (i) 4-tap DFE with parameters p = {t1,t2,t3,t4} ∈ [0, 1]4, and (ii) cascaded CTLE with DFE using p = {Gdc , fz, fp, Gp,t1,t2,t3,t4} ∈ [0, 1]8 where the first four parameters govern the CTLE frequency response (DC gain, zero frequency, pole frequency, peaking gain) and the remaining four are DFE tap coefficients. 
+
+B. Hyperparameters 
+
+The Information Bottleneck encoder uses latent dimension 
+
+l = 11 , IB trade-off β = 0.01 , reconstruction weight λrec =
+
+0.1 , and Monte Carlo dropout rate p = 0.1 with M = 100 samples for uncertainty quantification. The network architecture comprises fully connected layers 10 ,000 → 512 → 256 → 22 for mean and log-variance outputs. Training employs Adam optimizer [46] with learning rate η = 1 × 10 −3, batch size 256, and runs for 200 epochs. The distributional CVaR-A2C agent optimizes at risk level 
+
+α = 0.1 (10% worst-case) using N = 51 uniformly-spaced quantiles. The policy network outputs Gaussian action distri-butions with architecture 22 → 128 → 64 → 2d where d is the parameter dimension. The quantile critic uses architecture 22 + d → 128 → 64 → 51 . Actor and critic learning rates are 
+
+ηθ = 3 × 10 −4 and ηω = 1 × 10 −3 respectively, with entropy coefficient βh = 0.01 , discount factor γ = 0.98 , and batch size 64. PAC-Bayesian regularization uses λPAC = 0.001 with prior variance σ 2 
+
+> P
+
+= 1.0 . Sliced Wasserstein distance employs L = 50 random projections. Spectral normalization enforces Lipschitz constant K = 1.0 . Training runs for 300 epochs with early stopping if validation performance plateaus for 20 consecutive epochs. 
+
+C. Baseline Methods 
+
+Seven baseline methods provide comprehensive comparison: (i) Genetic Algorithm with population size 25, single-point crossover for DFE, two-point crossover for CTLE with DFE, and mutation range [−0.1, 0.1]; (ii) Particle Swarm Optimiza-tion with 20 particles and inertia weight linearly decreasing from 0.9 to 0.4; (iii) Bayesian Optimization using Gaussian Process with 200 iterations; (iv) Q-learning [28] with action branching and k = 16 discretization levels per parameter; (v) 8
+
+TABLE I: Performance Comparison for 4-Tap DFE Optimiza-tion. Worst-10% denotes CVaR at risk level α = 0.1.                                                       
+
+> Method Mean Worst-10% Std Dev Time Rel. (%) (%) (%) (μs) Time DR-IB-A2C 37.1 33.8 1.42 167.4 1.0×
+> Std. Bayesian A2C 35.2 24.1 2.87 162.8 0.97× Deterministic A2C [29] 36.8 30.9 1.89 158.5 0.95× Q-learning [28] 26.1 18.7 3.45 1177.5 7.03× DDPG [47] 15.5 11.2 2.98 676.9 4.04× PSO [14] 19.8 15.3 2.12 340.9 2.04× Bayesian Opt. [16] 11.7 8.4 1.87 842.8 5.03× Genetic Alg. [15] 14.2 10.8 2.34 758.8 4.53× Grid Search 13.8 11.5 1.56 1425.5 8.52×
+
+Deep Deterministic Policy Gradient for sequential parameter de-termination; (vi) Deterministic A2C [29] using standard Advan-tage Actor-Critic without distributional returns or uncertainty quantification; and (vii) Standard Bayesian A2C employing Monte Carlo dropout without Information Bottleneck and mean-variance reward without CVaR optimization. Implementation details for all baselines are provided in Appendices A–D. 
+
+D. Evaluation Metrics 
+
+Performance is measured through: (i) Mean Window Area Improvement : percentage increase in eye-opening area 
+
+> (μ(deo)−μ(do))
+
+/μ(do) × 100 ; (ii) CVaR Window Area Improvement :improvement at α = 0.1 (10% worst-case); (iii) Standard Deviation : consistency across test samples; (iv) Computational Time : measured on NVIDIA RTX 3090 GPU in microseconds per optimization; (v) Convergence Speed : epochs to reach 95% of final performance; and (vi) Generalization Gap : performance difference between training DRAMs 1-6 and held-out DRAMs 7-8. All experiments use five random seeds with statistical significance assessed via paired t-tests at α = 0.01 significance level. V. R ESULTS 
+
+A. Primary Performance Comparison 
+
+Table I presents comprehensive performance metrics for 4-tap DFE optimization across all methods. DR-IB-A2C achieves mean improvement of 37 .1% with worst-case performance of 33 .8% , representing 80 .7% relative improvement in worst-case over Q-learning [28] ( 33 .8% vs 18 .7% ) and 9.4% absolute improvement over deterministic A2C [29] ( 33 .8% vs 30 .9% ). Standard deviation of 1.42% is the lowest among top-three methods, indicating superior consistency. Computational time of 167 .4 μs provides only 1.06 × overhead compared to deter-ministic A2C ( 158 .5 μs ) while delivering substantially better worst-case guarantees. Paired t-test comparing DR-IB-A2C against deterministic A2C [29] on eight DRAM units yields t = 4.23 with p =
+
+0.0038 < 0.01 , confirming statistical significance. Applying Bonferroni correction for nine baseline comparisons yields adjusted significance threshold αadj = 0.01 /9 ≈ 0.0011 ; the pri-mary comparison against deterministic A2C remains marginally significant with effect size Cohen’s d = 1.54 (large effect). Wilcoxon signed-rank test provides non-parametric validation with W = 32 and p = 0.0078 < 0.01 . The 95% confidence 15 20 25 30 35 40 45 50 55 60 
+
+> Window Area Improvement (%)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Probability Density
+> 10th percentile
+> 29.8%
+> 10th percentile
+> 38.1%
+> +8.4%
+> Worst-case
+> Improvement
+> Deterministic A2C
+> Risk-Sensitive DR-IB-A2C
+> Worst 10% (CVaR Region)
+
+Fig. 3: Comparison of window area improvement distributions between Deterministic A2C (red) and Risk-Sensitive DR-IB-A2C (blue). The plot highlights the impact of CVaR optimization: while the mean performance is comparable, the risk-sensitive approach significantly shifts the lower tail (worst 10%) to the right, improving the 10th percentile performance from 29.8% to 38.1% (+8.4% absolute gain). This visualizes the trade-off between maximizing expected return and ensuring reliability for worst-case channels. interval for mean improvement is [35 .2% , 39 .0% ] with worst-case interval [31 .9% , 35 .7% ].Table II shows results for cascaded CTLE with DFE optimization. DR-IB-A2C achieves 41 .5% mean improvement with 38 .2% worst-case, representing 89 .1% relative improve-ment over Q-learning [28] worst-case ( 38 .2% vs 20 .2% ) and 29 .5% relative improvement over deterministic A2C [29] ( 38 .2% vs 29 .5% ). The framework effectively handles the 8-dimensional parameter space with computational time 186 .4 μs ,maintaining 51 × speedup over eye diagram-based evaluation ( 9500 μs ). Mean performance is 1.2 percentage points lower than deterministic A2C ( 41 .5% vs 42 .7% ). This slight reduction in average performance is a deliberate trade-off inherent to risk-sensitive optimization: by prioritizing the worst-case (tail) scenarios to ensure reliability for the most difficult channels, the policy sacrifices marginal gains on ”easy” channels that already meet specifications. This trade-off yields substantially superior tail behavior critical for production deployment. Figure 3 visualizes this distributional shift, showing that while the mean performance of risk-sensitive DR-IB-A2C is slightly lower, its lower tail (specifically the region below the 10th percentile, corresponding to risk level α = 0.1 ) is significantly shifted to the right compared to the deterministic baseline. The generalization gap between training DRAMs 1-6 and held-out DRAMs 7-8 is 1.9% for DFE and 2.1% for CTLE with DFE, validating PAC-Bayesian regularization effectiveness. Convergence speed reaches 95% of final performance in 178 epochs for distributional reinforcement learning compared to 203 epochs for standard A2C [29], confirming Theorem III.2. 
+
+B. Ablation Studies 
+
+The following ablation studies are performed on the more challenging 8-dimensional cascaded CTLE with DFE configu-ration unless otherwise specified. 9
+
+TABLE II: Performance Comparison for Cascaded CTLE+DFE Optimization. Worst-10% denotes CVaR at risk level α = 0.1.                                                      
+
+> Method Mean Worst-10% Std Dev Time Rel. (%) (%) (%) (μs) Time DR-IB-A2C 41.5 38.2 1.68 186.4 1.0×
+> Std. Bayesian A2C 39.4 28.9 3.12 181.2 0.97× Deterministic A2C [29] 42.7 29.5 2.34 176.8 0.95× Q-learning [28] 28.5 20.2 4.23 2429.5 13.03× DDPG [47] 21.3 16.8 3.45 950.1 5.10× PSO [14] 25.4 19.7 2.87 571.9 3.07× Bayesian Opt. [16] 18.9 14.2 2.45 1214.8 6.52× Genetic Alg. [15] 20.5 16.1 2.91 1028.9 5.52× Grid Search 15.2 12.3 1.98 5982.8 32.10×
+
+TABLE III: Information Bottleneck vs Standard Autoencoder Comparison                         
+
+> Latent Learning Mean Worst-10% Silhouette Recon. Method (%) (%) Score MSE IB Variational 41.5 38.2 0.72 0.0234 Standard AE 39.1 33.6 0.58 0.0189
+> AE + Classification 40.3 35.8 0.65 0.0212 Contractive AE 39.8 34.2 0.61 0.0198
+
+Table III compares Information Bottleneck against alternative latent learning methods. The Information Bottleneck with variational bound achieves 41 .5% mean and 38 .2% worst-case improvement, providing 13 .7% absolute improvement in worst-case over standard autoencoder ( 38 .2% vs 33 .6% ). Silhouette score [48] of 0.72 quantifies superior latent space structure compared to 0.58 for standard autoencoder. Figure 4 visualizes t-SNE [49] projections showing clear separation between valid and invalid signal clusters for Information Bottleneck method, while standard autoencoder exhibits substantial overlap. The Information Bottleneck anchor point is positioned closer to the valid cluster centroid, facilitating more effective reinforcement learning guidance. The Information Bottleneck achieves higher silhouette score despite slightly worse reconstruction MSE (0.0234 vs 0.0189), confirming rate-distortion optimality that trades reconstruction fidelity for task-relevant compression. Theorem III.1 is vali-dated through direct measurement of mutual information terms: 
+
+I(Z;Y ) = 0.847 bits (task relevance) and I(Z; Do) = 3.245 bits (compression cost) for β = 0.01 , yielding Information Bot-tleneck objective value 0.815. Standard autoencoder achieves lower task relevance I(Z;Y ) = 0.712 despite retaining more input information I(Z; Do) = 4.567. Table IV evaluates distributional reinforcement learning against value-based methods. Distributional reinforcement learning with quantiles achieves 29 .5% relative improvement in worst-case over standard A2C [29] ( 38 .2% vs 29 .5% ) while maintaining competitive mean performance ( 41 .5% vs 42 .7% ,only 1.2 percentage points lower). KL divergence of 0.142 be-tween predicted and empirical return distributions demonstrates accurate distribution modeling. Convergence in 178 epochs is fastest among all methods, validating Theorem III.2. Figure 5 visualizes full return distributions captured by DR-IB-A2C compared to single-point estimates from standard methods. Table V compares CVaR optimization against alternative risk measures. CVaR at α = 0.1 achieves 16 .8% relative 4 2 0 2 4
+
+> t-SNE Dimension 1
+> 4
+> 2
+> 0
+> 2
+> 4
+> t-SNE Dimension 2
+> Valid
+> Invalid
+> Anchor
+
+(a) IB Method (Silhouette = 0.72) 3 2 1 0 1 2 3 4
+
+> t-SNE Dimension 1
+> 4
+> 3
+> 2
+> 1
+> 0
+> 1
+> 2
+> 3
+> t-SNE Dimension 2
+> Valid
+> Invalid
+> Anchor
+
+(b) Standard AE (Silhouette = 0.58) 
+
+Fig. 4: t-SNE visualization comparing latent spaces. (a) Information Bottleneck method exhibits clear cluster separation with anchor positioned near valid cluster centroid. (b) Standard autoencoder shows overlapping clusters with suboptimal anchor placement. TABLE IV: Return Distribution Modeling Comparison                       
+
+> RL Variant Mean Worst-10% KL Div. Conv. (%) (%) Epochs Distributional RL 41.5 38.2 0.142 178
+> Standard A2C 42.7 29.5 0.387 203 Categorical DQN 38.9 32.1 0.198 245 Implicit Quantile 40.2 35.8 0.165 192
+
+improvement in worst-case over mean-variance with λ = 0.1(38 .2% vs 32 .7% ) and 51 .1% relative improvement in 1%-tail performance ( 33 .4% vs 22 .1% ). As shown in Table V, our method achieves a Sharpe ratio of 2.34, demonstrating superior risk-adjusted return. The coherent risk properties of CVaR provide theoretical advantages over Value-at-Risk, which fails subadditivity. Figure 6 shows Pareto frontiers with DR-IB-A2C dominating mean-variance methods across the risk spectrum. Theorem III.3 is validated through numerical gradient verification. For three state samples, analytical gradients from Equation (9) match finite-difference approximations with average relative error 1.37% , confirming correct CVaR policy gradient derivation. Table VI evaluates Sliced Wasserstein distance against alter-native latent space metrics. Sliced Wasserstein achieves 7.9% absolute improvement in worst-case over Euclidean distance ( 38 .2% vs 35 .4% ) with 40% lower reward variance during training (0.187 vs 0.312), demonstrating superior stability. Figure 7 shows smoother convergence for Wasserstein-based reward compared to Euclidean alternatives. Table VII demonstrates PAC-Bayesian regularization impact on generalization. With λPAC = 0.001 , generalization gap reduces by 74 .7% (1.9% vs 7.5% without regularization). KL divergence to prior decreases from 8.97 to 2.34, confirming convergence to low-complexity solutions. Figure 8 shows train-test performance evolution and empirical validation of Theorem III.4 bound tightness. For sample sizes n ∈ { 100 , 500 , 1000 , 1800 } × 10 3 with confidence δ = 0.05 , empirical risk converges from 0.287 to 0.265, true risk from 0.312 to 0.271, and theoretical PAC bound from 0.334 to 0.276. Bound gap decreases from 0.022 to 0.005 as p1/n, validating Theorem III.4. 10 20 22 24 26 28 
+
+> Episode Return (mV UI)
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> Frequency
+> Mean = 24.57
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> Density
+
+(a) Distributional IB-A2C 12.5 15.0 17.5 20.0 22.5 25.0 27.5  
+
+> Episode Return (mV UI)
+> 0
+> 20
+> 40
+> 60
+> 80
+> Frequency
+> Mean = 22.98
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> Density
+
+(b) Value-Based Method 
+
+Fig. 5: Return distribution visualization. (a) Histogram showing full distribution captured by DR-IB-A2C with mean = 24.8 mV ·UI. (b) Value-based method with mean = 23.2 mV ·UI demonstrating concentrated distribution that underestimates tail risks (KL divergence = 0.142). TABLE V: Risk-Sensitive Objective Comparison 
+
+Risk Mean Worst Worst Worst Sharpe Measure (%) 10% (%) 5% (%) 1% (%) Ratio CVaR α=0.1 41.5 38.2 36.8 33.4 2.34 
+
+Mean-Var λ =0.1 43.1 32.7 28.9 22.1 1.89 Mean-Var λ =0.5 39.2 35.1 31.4 26.7 2.01 Expectile τ=0.1 40.8 36.5 34.2 30.1 2.18 VaR α=0.1 39.7 37.1 33.8 28.9 2.12 
+
+Table VIII evaluates Lipschitz continuity constraints via spectral normalization. With K = 1 , performance under ad-versarial perturbation ε = 0.01 is 24 .4% relatively higher than without spectral normalization ( 39 .2% vs 31 .5% ). Under strong Gaussian noise σ = 0.05 , relative improvement is 29 .5% (38 .6% vs 29 .8% ). Certified radius δ = 0.0048 provides explicit derived worst-case guarantees. Figure 9 visualizes performance degradation under increasing perturbation magnitudes and certified robustness regions. Clean performance degrades minimally from 42.1% to 41.5% (1.4% reduction), demonstrating that robustness constraints impose negligible cost on nominal performance while providing substantial benefits under perturbations. Figure 10 analyzes latent dimension selection. Performance saturates beyond l = 11 with diminishing returns: mean improvement increases from 41 .5% at l = 11 to 42 .3% at l = 20 (< 1% gain) while training time escalates from 17.2 to 28.7 minutes ( 67% increase). Information Bottleneck lower bound plateaus at 0.734 for l = 11 versus 0.748 for l = 20 , confirming optimal rate-distortion trade-off at l = 11 . Compression rate of 99 .89% (10 ,000 → 11 dimensions) validates substantial dimen-sionality reduction while preserving task-relevant information. Figure 11 provides comprehensive ablation summary. Remov-ing Information Bottleneck reduces worst-case performance by 12 .0% (38 .2% to 33 .6% ), removing distributional reinforce-ment learning by 22 .8% ( 38 .2% to 29 .5% ), removing CVaR by 14 .4% (38 .2% to 32 .7% ), removing PAC regularization by 6.5% ( 38 .2% to 35 .7% ), and removing spectral normalization by 2.4% ( 38 .2% to 37 .3% ). Distributional reinforcement learn-ing and CVaR optimization provide the largest contributions to worst-case performance, validating the risk-sensitive framework design. 0.5 1.0 1.5 2.0 2.5 3.0 3.5 
+
+> CVaR Risk (mV UI)
+> 23.5
+> 24.0
+> 24.5
+> 25.0
+> 25.5
+> 26.0
+> Expected Return (mV UI)
+> CVaR Frontier
+> Current
+
+(a) CVaR (Sharpe = 2.34) 1.0 1.5 2.0 2.5 3.0 3.5 4.0 
+
+> Variance Risk (mV UI) 2
+> 21.0
+> 21.5
+> 22.0
+> 22.5
+> 23.0
+> 23.5
+> 24.0
+> Expected Return (mV UI)
+> Mean-Var Frontier
+> Current
+
+(b) Mean-Variance (Sharpe =1.89) 
+
+Fig. 6: Risk-return trade-off analysis. (a) Pareto frontier showing DR-IB-A2C CVaR optimization achieves superior risk-adjusted performance. (b) Mean-variance methods demonstrate suboptimal tradeoff with conservative risk exposure across all operating points. TABLE VI: Latent Space Distance Metric Comparison 
+
+Distance Mean Worst-10% Reward Conv. Metric (%) (%) Variance Rate Sliced Wass. 41.5 38.2 0.187 1.0× 
+
+Euclidean L2 40.1 35.4 0.312 1.18× Cosine 39.3 34.1 0.298 1.24× Mahalanobis 40.6 36.2 0.245 1.09× MMD 39.8 35.7 0.268 1.15× 
+
+C. Theoretical Validation 
+
+Figure 12 validates Theorem III.1 through information plane analysis. For β = 0.01 , task relevance I(Z;Y ) = 0.847 bits and compression cost I(Z; Do) = 3.245 bits yield Information Bottleneck objective 0.815. Increasing β shifts the operating point along the rate-distortion curve, trading task performance for compression. Standard autoencoder with I(Z;Y ) = 0.712 and I(Z; Do) = 4.567 lies below the Pareto frontier, confirming suboptimality. Classification accuracy is 94 .2% for Information Bottleneck compared to 89 .3% for standard autoencoder, demonstrating superior task-relevant representation despite lower mutual information with input. Figure 13 validates Theorem III.2 through Wasserstein distance measurement across training epochs. Initial distance 
+
+W2(Z0, Zπ ) = 12 .34 decays exponentially following the theo-retical bound γkW2(Z0, Zπ ) where γ = 0.98 . Individual epoch measurements (scatter points) exhibit expected variance due to stochastic sampling and policy updates, while the moving average trend (solid line) tracks the theoretical prediction. At epoch 200, the moving-averaged empirical distance is 0.236 versus theoretical bound 0.217 , yielding tightness ratio 1.09 . The log-scale plot confirms the characteristic linear decay of exponential convergence despite episode-to-episode fluctuations, empirically validating the distributional Bellman contraction property. 
+
+D. Deployment Classification Analysis 
+
+Figure 14 presents CVaR-based deployment classification results. For CTLE with DFE, 62 .5% of configurations achieve high reliability status ( CVaR 0.05 [μ] ≥ μthreshold and σunc <11 0 50 100 150 200 250 300 
+
+> Training Episodes
+> 12
+> 14
+> 16
+> 18
+> 20
+> 22
+> 24
+> 26
+> Average Reward (mV UI)
+> Wasserstein
+
+(a) Wasserstein (Var = 0.187) 0 50 100 150 200 250 300  
+
+> Training Episodes
+> 12
+> 14
+> 16
+> 18
+> 20
+> 22
+> 24
+> Average Reward (mV UI)
+> Euclidean
+
+(b) Euclidean (Var = 0.312) 
+
+Fig. 7: Training stability comparison. (a) Reward curves show-ing Sliced Wasserstein distance provides smoother convergence with final reward = 24.8 mV ·UI. (b) Euclidean L2 exhibits 67% higher variance (0.312 vs 0.187) demonstrating less stable policy learning dynamics (final reward = 23.5 mV ·UI). TABLE VII: Generalization with PAC-Bayesian Bounds                         
+
+> Method Train Test Gen. Gap KL(Q ∥P) (%) (%) (%) With PAC ( λ=0.001) 40.8 38.9 1.9 2.34
+> Without PAC 43.2 35.7 7.5 8.97 L2 Reg. ( λ=0.001) 41.5 37.2 4.3 4.12 Dropout (p=0.3) 40.9 37.8 3.1 3.45
+
+0.02 ), qualifying for immediate production deployment. Ad-ditional 24 .8% meet moderate confidence criteria, yielding 87 .3% total deployable with validation. Only 12 .7% require extensive validation. For DFE, percentages are 58 .3% , 27 .4% ,and 14 .3% respectively. Pearson correlation between epistemic uncertainty and CVaR performance is r = −0.47 (p < 0.001 ), validating that lower uncertainty associates with superior worst-case performance. Table IX demonstrates uncertainty calibration across quartiles. Configurations in lowest uncertainty quartile ( σunc < 0.015 )achieve mean performance 42 .8% with calibration error 1.2% ,while highest quartile ( σunc > 0.025 ) achieves 28 .9% with error 2.7% . All quartiles maintain calibration error below 3% , confirming that uncertainty estimates provide reliable deployment guidance. Figure 15 presents training dynamics over 300 epochs. Actor loss decays from 2.5 to 0.3 with smooth convergence. Quantile critic loss exhibits similar behavior, converging to 0.5. Average reward increases from 16 to 26 mV ·UI following typical reinforcement learning learning curves. CVaR 0.1 performance on test data converges to 38.2% with minimal gap from training performance (40.8%), confirming generalization. Early stopping at epoch 178 when validation CVaR plateaus prevents overfitting while achieving optimal performance-efficiency trade-off. 
+
+E. Computational Analysis 
+
+Training time per epoch is 19.5 seconds, comprising quantile regression (21.5%), Monte Carlo sampling (19.5%), policy gra-dient (14.4%), Information Bottleneck encoding (11.8%), Sliced Wasserstein computation (9.7%), spectral normalization (3.6%), PAC regularization (1.5%), and other operations (18.0%). Total training overhead is 1.3× compared to deterministic A2C [29] 10 3 10 4 10 5
+
+> Training Samples
+> 10 1
+> Test Error (%)
+> Empirical Error
+> PAC Bound
+
+Fig. 8: PAC-Bayesian generalization analysis. (a) Learning curves showing 74.7% reduction in generalization gap with PAC regularization. (b) PAC bound tightness improving with training data according to p1/n scaling from Theorem III.4. TABLE VIII: Robustness to Input Perturbations                                
+
+> Method Clean Noise Noise Adv. Cert. (%) σ=0.01 σ=0.05 ε=0.01 Rad. Spectral (K=1) 41.5 40.8 38.6 39.2 0.0048
+> No Spectral 42.1 37.3 29.8 31.5 N/A Batch Norm 41.8 38.9 33.2 34.7 N/A Layer Norm 41.2 39.1 34.8 35.9 N/A
+
+(15.0 seconds per epoch), primarily from quantile regression and uncertainty quantification. Complete training for 300 epochs requires approximately 1.5 hours on NVIDIA RTX 3090 GPU. Inference time per optimization is 186 .4 μs : encoding for-ward pass (23.4 μs, 12.5%), Monte Carlo sampling (45.6 μs,24.4%), policy network (18.2 μs, 9.7%), equalization (89.5 μs ,48.0%), and Sliced Wasserstein (9.7 μs, 5.2%). Compared to eye diagram interpolation and area computation requiring approximately 9500 μs , the 51 × speedup enables real-time optimization despite additional distributional and uncertainty quantification components. Peak memory usage during training is 1.2 GB with inference requiring 324 MB (encoder and policy networks only). VI. D ISCUSSION 
+
+DR-IB-A2C’s superior worst-case performance stems from three synergistic mechanisms. First, Information Bottleneck encoding maximizes compression while preserving validity clas-sification (silhouette: 0.72 vs 0.58) despite worse reconstruction MSE (0.0234 vs 0.0189), aligning with Theorem III.1’s rate-distortion principle that eliminates task-irrelevant noise for 13.7% absolute worst-case improvement. Second, distributional reinforcement learning with quantile regression models full return distributions, shifting optimization from expected value to tail risk mitigation. The 29.5% relative worst-case improve-ment over standard A2C confirms that CVaR optimization at 
+
+α = 0.1 prioritizes reliability despite a 1.2 percentage point mean reduction. Third, Sliced Wasserstein distance provides 12 0.0000  
+
+> 0.0025
+> 0.0050
+> 0.0075
+> 0.0100
+> 0.0125
+> 0.0150
+> 0.0175
+> 0.0200
+> Perturbation Magnitude ( =0.01)
+> 90
+> 92
+> 94
+> 96
+> 98
+> 100
+> 102
+> 104
+> Performance (%)
+> 90% threshold DR-IB-A2C
+> Baseline
+
+(a) σ =0.01 0.0000   
+
+> 0.0025
+> 0.0050
+> 0.0075
+> 0.0100
+> 0.0125
+> 0.0150
+> 0.0175
+> 0.0200
+> Perturbation Magnitude ( =0.05)
+> 87.5
+> 90.0
+> 92.5
+> 95.0
+> 97.5
+> 100.0
+> 102.5
+> Performance (%)
+> 90% threshold
+> DR-IB-A2C
+> Baseline
+
+(b) σ =0.05 
+
+Fig. 9: Robustness evaluation under perturbations. (a) Perfor-mance degradation with noise level σ = 0.01 showing DR-IB-A2C maintaining 29.5% better performance than baseline. (b) Higher noise σ = 0.05 demonstrating certified robustness region with empirical performance remaining within theoretical bounds. 4 6 8 10 12 14 16 18 20 
+
+Latent Dimension   
+
+> 0.04
+> 0.06
+> 0.08
+> 0.10
+> Reconstruction Error
+> Reconstruction Error Silhouette Score Optimal (l=11)
+> 0.40
+> 0.45
+> 0.50
+> 0.55
+> 0.60
+> 0.65
+> 0.70
+> 0.75
+> Silhouette Score
+
+Fig. 10: Latent dimension analysis. (a) Performance versus dimension showing elbow at l = 11 with diminishing returns beyond. (b) Information Bottleneck lower bound saturation at l = 11 while training time increases linearly, confirming optimal selection. 40% variance reduction (0.187 vs 0.312) through topological structure preservation under projection. Unlike sequential formulations such as DDPG [47] which require O(d) channel interactions to determine d parameters, our simultaneous optimization achieves order-of-magnitude sample complexity reduction while maintaining competitive mean performance. The 4.04× timing advantage over DDPG for DFE (167.4 μs vs 676.9 μs) and 5.10× advantage for CTLE+DFE (186.4 μs vs 950.1 μs) demonstrates that avoiding sequential dependencies provides substantial computational ben-efits in production environments where latency directly impacts throughput. Compared to Q-learning [28], the 80.7% and 89.1% worst-case improvements stem from continuous action space representation and distributional value estimation. Q-learning’s discretization introduces quantization errors that compound exponentially with dimension, while lacking mechanisms for tail risk optimization. Contrary to the findings in Bayesian optimization liter-ature [16] which suggest that Gaussian process surrogates IB   
+
+> Encoder
+> Distributional
+> RL
+> CVaR
+> Objective
+> Wasserstein
+> Metric
+> PAC
+> Regularization
+> Lipschitz
+> Constraint
+> Full
+> Model
+> 20
+> 21
+> 22
+> 23
+> 24
+> 25
+> 26
+> 27
+> 28
+> 29
+> Mean Improvement (mV UI)
+> 23.2
+> 24.1
+> 24.5
+> 25.2
+> 26.1 26.5 26.7
+> Baseline
+
+Fig. 11: Ablation study summary showing component contri-butions. Full DR-IB-A2C (highlighted) achieves best worst-case performance. Removing distributional RL or CVaR most severely degrades tail risk ( > 12% reduction), validating core framework design. 3.5 4.0 4.5 5.0 5.5 6.0  
+
+> I(Z;Do) (bits)
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> I(Z; Y) (bits)
+> Start
+> End
+> 0
+> 10
+> 20
+> 30
+> 40
+> Training Epoch
+
+Fig. 12: Information plane analysis validating Theorem III.1. Curves show rate-distortion trade-off for different β values. Optimal operating point at β = 0.01 (green star) dominates standard autoencoder (red X) in task relevance I(Z;Y ) while using less compression I(Z; Do).provide superior sample efficiency, we found that reinforcement learning-based approaches achieve better final performance despite requiring more training iterations. This apparent contradiction can be resolved by recognizing that Bayesian optimization’s sample efficiency advantage applies primarily to expensive black-box optimization where each function evaluation dominates computational cost. In our setting, the Information Bottleneck encoder provides inexpensive approx-imate evaluations ( 186 .4 μs vs 9500 μs for eye diagrams), shifting the cost-benefit trade-off in favor of gradient-based reinforcement learning methods that leverage abundant cheap evaluations to escape local optima. Training overhead is 30% (19.5 s vs 15.0 s per epoch), but inference overhead is only 24.4% (45.6 μs of 186.4 μs total), yielding negligible throughput impact for manufacturing environments while eliminating manual validation for 62.5% of configurations. DR-IB-A2C trades 1.2 percentage points of mean per-13 0 25 50 75 100 125 150 175 200 
+
+> Epoch
+> 10 0
+> 10 1
+> Wasserstein Distance
+> Theoretical Bound
+> Per-Epoch
+> 10-Epoch Moving Avg
+
+(a) Exponential convergence 0 25 50 75 100 125 150 175 200  
+
+> Epoch
+> 0.9
+> 1.0
+> 1.1
+> 1.2
+> 1.3
+> 1.4
+> Ratio: Empirical / Theoretical
+> Tightness Ratio
+> Perfect Tracking
+> Mean Ratio (1.00)
+
+(b) Bound tightness ratio 
+
+Fig. 13: Wasserstein convergence validating Theorem III.2. Scatter points show per-epoch measurements with inherent stochastic variance; solid line represents 10-epoch moving average. (a) Exponential convergence in Wasserstein distance with discount factor γ = 0.98 showing linear trend on log scale despite fluctuations. (b) Bound tightness ratio fluctuating around 1.09, confirming theoretical guarantee holds with moderate variance typical of distributional RL. 18 20 22 24 26 28 30 
+
+> CVaR Return (mV UI)
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> Epistemic Uncertainty
+> Q1 (High Rel.)
+> Q2
+> Q3
+> Q4 (Low Rel.)
+
+Fig. 14: Deployment classification based on CVaR performance and epistemic uncertainty. (a) Scatter plot showing three de-ployment categories with decision boundaries. High reliability configurations (green) satisfy CVaR 0.05 ≥ 36% and σunc < 0.02 .(b) Distribution histogram showing 62.5% of CTLE+DFE configurations qualify for high reliability deployment. formance (41.5% vs 42.7%) for 29.5% relative worst-case improvement, reflecting mission-critical DRAM systems where tail behavior determines reliability specifications and field failures incur substantial costs. Practitioners prioritizing mean performance can adjust CVaR risk level α or use expectile regression, as presented in Table V. Memory requirements (1.2 GB training, 324 MB inference) limit deployment to GPU-equipped systems, though INT8 quantization could reduce inference to <100 MB for FPGA or embedded deployment. The 51× speedup over eye diagram evaluation enables additional post-processing without violating real-time constraints. Spectral normalization provides certified robustness radius 
+
+δ = 0.0048 with performance degradation of only 1.7% under realistic noise ( σ = 0.01 ) versus 29.2% for unconstrained networks. Hyperparameter sensitivity is low as CVaR risk level α ∈ [0.05 , 0.15 ] yields worst-case performance within 2% of optimal, and Information Bottleneck coefficient β ∈
+
+[0.005 , 0.02 ] maintains silhouette scores between 0.69 and TABLE IX: Epistemic Uncertainty Calibration 
+
+Uncertainty Mean Expected Calib. Quartile Perf. (%) Perf. (%) Error 
+
+Q1 (0–0.015) 42.8 42.3 1.2% Q2 (0.015–0.020) 39.7 39.2 1.3% Q3 (0.020–0.025) 35.4 35.9 1.4% Q4 ( >0.025) 28.9 29.7 2.7% 0 50 100 150 200 250 300 
+
+> Epoch
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> 3.5
+> Loss
+> Actor Loss
+
+(a) Actor Loss 0 50 100 150 200 250 300  
+
+> Epoch
+> 0
+> 1
+> 2
+> 3
+> 4
+> Loss
+> Critic Loss
+
+(b) Critic Loss 0 50 100 150 200 250 300  
+
+> Epoch
+> 15.0
+> 17.5
+> 20.0
+> 22.5
+> 25.0
+> 27.5
+> 30.0
+> 32.5
+> Reward (mV UI)
+> Mean Reward
+
+(c) Mean Reward 
+
+Fig. 15: Training dynamics over 300 epochs. (a) Actor loss convergence from 2.5 to 0.3 with smooth moving average. (b) Quantile regression critic loss stabilizing at 0.5. (c) Average reward evolution from 16 to 26 mV ·UI demonstrating convergence with validation gap of 1.9%. 0.74, enabling coarse grid search for practical deployment. Figure 10 identifies l = 11 as the optimal latent dimension, achieving 99.89% compression ( 10 ,000 → 11 dimensions) with 94.2% classification accuracy, validating that minimal sufficient statistics capture the intrinsic manifold structure of valid signal patterns. Key limitations include: (1) requirement for labeled training data, though 1.9–2.1% generalization gaps demonstrate transfer to similar conditions; (2) CVaR guarantees apply at specified risk level α = 0.1 with weaker coverage at extreme tails (1%-tail: 33.4% vs 10%-tail: 38.2%); (3) theoretical convergence requires Lipschitz continuity and bounded rewards, enforced by spectral normalization and reward clipping; (4) fixed equalizer architectures without automated architecture search or multi-channel joint optimization; and (5) GPU requirement for deployment, though model compression techniques could enable edge deployment at reduced accuracy. The framework’s robustness extends beyond the tested scenarios. Results on held-out DRAM units (7-8), which exhibit unique channel characteristics due to manufacturing variations, serve as a proxy for robustness to different channel layouts. While we tested at 6400 Mbps, the frequency-agnostic nature of the eye-opening metric suggests applicability to higher data rates (e.g., 7200/8000 MT/s) provided training data covers these regimes. The intended usage model is primarily offline calibration during production testing, where 1.5-hour training is amortized across millions of units; however, the fast inference time supports online adaptive tuning if coupled with real-time performance monitors. Finally, while this study optimized continuous tap values for fixed architectures, the framework can be extended to variable tap configurations (e.g., selecting between 3 or 5 taps). This can be handled by defining a maximal tap count (e.g., 8) and allowing the agent to set excess taps to zero, effectively performing architecture search within a superset [50], [51]. Alternatively, a hierarchical RL approach could first select 14 
+
+the tap count (discrete action) and then optimize coefficients (continuous action), though this increases training complexity. VII. C ONCLUSION 
+
+This paper addressed high-speed DRAM equalizer optimiza-tion, where traditional methods suffer from computational expense, lack of worst-case guarantees, and absence of de-ployment confidence metrics. We presented DR-IB-A2C, a distributional reinforcement learning framework integrating Information Bottleneck compression, CVaR optimization, PAC-Bayesian generalization bounds, and Lipschitz robustness constraints. Results demonstrated 37.1% mean improvement for 4-tap DFE and 41.5% for 8-tap CTLE with DFE, with worst-case guarantees of 33.8% and 38.2%, representing 80.7% and 89.1% improvements over Q-learning and 29.5% over standard A2C. The Information Bottleneck encoder provided 51 times computational speedup versus eye diagram evaluation while achieving silhouette score of 0.72 compared to 0.58 for autoencoders. Generalization gaps remained below 2.1%, and CVaR-based deployment classification achieved 62.5% high-reliability rate, eliminating manual validation for the majority of configurations. These findings demonstrate a practical solution for production-scale equalizer optimization with real-time capabil-ity, worst-case guarantees, and uncertainty quantification. The ability to classify 62.5% of configurations as high-reliability reduces validation burden and accelerates time-to-market, directly impacting manufacturing efficiency. Future work includes: (1) automatic architecture search for optimal tap counts and equalizer type selection, (2) joint optimization across multiple channels in multi-lane interfaces, (3) transfer learning approaches for rapid adaptation to new memory architectures, (4) FPGA or embedded DSP deployment via model compression techniques, and (5) extension to emerg-ing memory standards (DDR5, LPDDR5, HBM3) operating beyond 10 Gbps. REFERENCES [1] K. Kim, H. Park, S. Kim, Y. Kim, K. Son, D. Lho, K. Son, T. Shin, B. Sim, J. Park, S. Park, and J. Kim, “Policy-based reinforcement learning for through silicon via array design in high-bandwidth memory considering signal integrity,” IEEE Transactions on Electromagnetic Compatibility, vol. 66, no. 1, pp. 130–140, 2024. [2] K. Son, M. Kim, H. Park, D. Lho, K. Son, K. Kim, S. Lee, S. Jeong, S. Park, S. Hong, G. Park, and J. Kim, “Reinforcement-learning-based signal integrity optimization and analysis of a scalable 3-d x-point array structure,” IEEE Transactions on Components, Packaging, and Manufacturing Technology, vol. 12, no. 1, pp. 111–122, 2022. [3] C. Belfiore and J. Park, “Decision feedback equalization,” Proceedings of the IEEE , vol. 67, pp. 1143–1156, 1979. [Online]. Available: https://api.semanticscholar.org/CorpusID:42613982 [4] M. Meyer and G. Pfeiffer, “Multilayer perceptron based decision feedback equalisers for channels with intersymbol interference,” IEE Proceedings I - Communications, Speech and Vision , vol. 140, no. 6, pp. 420–424, 1993. [5] M. A. Dolatsara, H. Yu, J. A. Hejase, W. Dale Becker, and M. Swami-nathan, “Invertible neural networks for inverse design of ctle in high-speed channels,” in 2020 IEEE Electrical Design of Advanced Packaging and Systems (EDAPS), 2020, pp. 1–3. [6] X. Yang, J. Tang, H. M. Torun, W. D. Becker, J. A. Hejase, and M. Swami-nathan, “Rx equalization for a high-speed channel based on bayesian active learning using dropout,” in 2020 IEEE 29th Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS) ,2020, pp. 1–3. [7] R. Lopes and J. Barry, “The soft-feedback equalizer for turbo equalization of highly dispersive channels,” IEEE Transactions on Communications, vol. 54, no. 5, pp. 783–788, 2006. [8] J. Tao, “On low-complexity soft-input soft-output decision-feedback equalizers,” IEEE Communications Letters, vol. 20, no. 9, pp. 1737– 1740, 2016. [9] K. Azadet, E. F. Haratsch, H. Kim, F. Saibi, J. H. Saunders, M. Shaffer, L. Song, and M. L. Yu, “Equalization and fec techniques for optical transceivers,” IEEE Journal of Solid-State Circuits, vol. 37, no. 3, pp. 317–327, 2002. [10] S. U. H. Qureshi, “Adaptive equalization,” Proceedings of the IEEE, vol. 73, no. 9, pp. 1349–1387, 1985. [11] J. G. Proakis and M. Salehi, Digital Communications, 5th ed. McGraw-Hill, 2007. [12] S. Choi, K. Son, H. Park, S. Kim, B. Sim, J. Kim, J. Park, M. Kim, H. Kim, J. Song, Y. Kim, and J. Kim, “Deep reinforcement learning-based optimal and fast hybrid equalizer design method for high-bandwidth memory (hbm) module,” IEEE Transactions on Components, Packaging and Manufacturing Technology, vol. 13, no. 11, pp. 1804–1816, 2023. [13] T. Nguyen, T. Lu, J. Sun, Q. Le, K. We, and J. Schut-Aine, “Transient simulation for high-speed channels with recurrent neural network,” in 2018 IEEE 27th Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS), 2018, pp. 303–305. [14] S. Nanda and S. Garg, “Design of supervised and blind channel equalizer based on moth-flame optimization,” Journal of The Institution of Engineers (India): Series B, vol. 100, pp. 21–31, 2018. [15] H. H. Zhang, Z. Xue, X. Liu, P. Li, L. Jiang, and G. M. Shi, “Optimization of high-speed channel for signal integrity with deep genetic algorithm,” IEEE Transactions on Electromagnetic Compatibility , vol. 64, pp. 1270–1274, 2022. [Online]. Available: https://api.semanticscholar.org/CorpusID:248136122 [16] L. P. P. B. Bohl, K. Scharff, X. Duan, D. Kaller, and C. Schuster, “Bayesian optimization of first-order continuous-time linear equalization in high-speed links including crosstalk,” 2023 IEEE 27th Workshop on Signal and Power Integrity (SPI), pp. 1–4, 2023. [17] L. Wu, J. Zhou, H. Jiang, X. Yang, Y. Zhan, and Y. Zhang, “Predicting the characteristics of high-speed serial links based on a deep neural network (dnn)-transformer cascaded model,” Electronics, vol. 13, no. 15, 2024. [Online]. Available: https://www.mdpi.com/2079-9292/13/15/3064 [18] B. Shi, Y. Zhao, H. Ma, T. Nguyen, E. Li, A. C. Cangellaris, and J. E. Schutt-Ain ´e, “Decision feedback equalizer (dfe) taps estimation with machine learning methods,” 2021 IEEE Electrical Design of Advanced Packaging and Systems (EDAPS) , pp. 1–3, 2021. [Online]. Available: https://api.semanticscholar.org/CorpusID:245514140 [19] Y. Hui, Y. Nong, H. Ma, J. Lv, L. Chen, L. Du, and Y. Du, “A cnn-based one-shot blind rx-side-only equalization scheme for high-speed serdes links,” in 2024 IEEE International Conference on Artificial Intelligence Circuits and Systems (AICAS) , 2024, pp. 61–65. [Online]. Available: https://doi.org/10.1109/AICAS59952.2024.10595918 [20] J. Song, B. Peng, C. H ¨ager, H. Wymeersch, and A. Sahai, “Learning physical-layer communication with quantized feedback,” IEEE Transactions on Communications , vol. 68, pp. 645–653, 2019. [Online]. Available: https://api.semanticscholar.org/CorpusID:125953653 [21] J. Song, C. H ¨ager, J. Schr ¨oder, A. G. i Amat, and H. Wymeersch, “Model-based end-to-end learning for wdm systems with transceiver hardware impairments,” IEEE Journal of Selected Topics in Quantum Electronics , vol. 28, pp. 1–14, 2021. [Online]. Available: https: //api.semanticscholar.org/CorpusID:244714321 [22] R. Medico, D. Spina, D. VandeGinste, D. Deschrijver, and T. Dhaene, “Autoencoding density-based anomaly detection for signal integrity applications,” 2018 IEEE 27th Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS), pp. 47–49, 2018. [23] R. Medico, D. Spina, D. V. Ginste, D. Deschrijver, and T. Dhaene, “Machine-learning-based error detection and design optimization in signal integrity applications,” IEEE Transactions on Components, Packaging and Manufacturing Technology, vol. 9, pp. 1712–1720, 2019. [24] D. Lho, H. Park, K. Kim, S. Kim, B. Sim, K. Son, K. Son, J. Kim, S. Choi, J. Park, H. Kim, K. Kong, and J. Kim, “Deterministic policy gradient-based reinforcement learning for DDR5 memory signaling architecture optimization considering signal integrity,” in 2022 IEEE 31st Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS), 2022, pp. 1–3. 15 
+
+[25] ——, “Deterministic policy gradient-based reinforcement learning for ddr5 memory signaling architecture optimization considering signal integrity,” in 2022 IEEE 31st Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS), 2022, pp. 1–3. [26] S. Choi, M. Kim, H. Park, K. Son, S. Kim, J. Kim, J. Park, H. Kim, T. Shin, K. Kim, and J. Kim, “Sequential policy network-based optimal passive equalizer design for an arbitrary channel of high bandwidth memory using advantage actor critic,” 2021 IEEE 30th Conference on Electrical Performance of Electronic Packaging and Systems (EPEPS) , pp. 1–3, 2021. [Online]. Available: https://api.semanticscholar.org/CorpusID:244530752 [27] Y. Bengio, A. C. Courville, and P. Vincent, “Representation learning: A review and new perspectives,” IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 35, pp. 1798–1828, 2012. [28] M. Usama, H.-D. Jang, and D. E. Chang, “Deep reinforcement learning based dfe structure optimization for high-speed dram signals,” IEEE Transactions on Components, Packaging and Manufacturing Technology ,pp. 1–1, 2025, doi: 10.1109/TCPMT.2025.3648009. [29] M. Usama and D. E. Chang, “Deep reinforcement learning-based dram equalizer parameter optimization using latent representations,” 2025. [Online]. Available: https://arxiv.org/abs/2507.02365 [30] Y. Gal and Z. Ghahramani, “Dropout as a bayesian approximation: Representing model uncertainty in deep learning,” Proceedings of the International Conference on Machine Learning, pp. 1050–1059, 2016. [31] M. Achab, R. ALAMI, Y. A. D. DJILALI, K. Fedyanin, and E. Moulines, “One-step distributional reinforcement learning,” Transactions on Machine Learning Research , 2023. [Online]. Available: https://openreview.net/ forum?id=ZPMf53vE1L [32] D. Brandfonbrener, W. F. Whitney, R. Ranganath, and J. Bruna, “Offline rl without off-policy evaluation,” in Neural Information Processing Systems, 2021. [Online]. Available: https://api.semanticscholar.org/CorpusID: 235446964 [33] M. Usama and D. E. Chang, “Towards robust neural networks with lipschitz continuity,” in Digital Forensics and Watermarking: 17th International Workshop, IWDW 2018, Jeju Island, Korea, October 22-24, 2018, Proceedings 17. Springer, 2019, pp. 373–389. [34] S. Choi, M. Kim, H. Park, H. R. Kim, J. Park, J. Kim, K. Son, S. Kim, K. Kim, D. Lho, J. Yoon, J. Song, K. Kim, J. Park, and J. Kim, “Deep reinforcement learning-based channel-flexible equalization scheme: An application to high bandwidth memory,” in DesignCon, 2022. [35] M. Usama and D. E. Chang, “Pyeye: An integrated approach for signal integrity assessment and eye diagram generation,” in 2023 IEEE International Conference on Consumer Electronics-Asia (ICCE-Asia) ,2023, pp. 1–3. [36] N. Na and H. To, “Effectiveness of equalization and performance potential in DDR5 channels with RDIMM(s),” in 2019 IEEE 69th Electronic Components and Technology Conference (ECTC) . IEEE, 2019, pp. 1053–1059. [37] S. R. Gupta, “LPDDR5 (6.4 gbps) 1-tap DFE optimal weight determi-nation,” in 2021 IEEE International Joint EMC/SI/PI and EMC Europe Symposium. IEEE, 2021, pp. 1–4. [38] A. A. Alemi, I. Fischer, J. V. Dillon, and K. Murphy, “Deep varia-tional information bottleneck,” in International Conference on Learning Representations (ICLR), 2017. [39] R. S. Sutton and A. G. Barto, Reinforcement Learning: An Introduction, 1st ed. MIT Press, 1998. [40] Y. Choi, “High speed DRAM transceiver design for low voltage applications with process and temperature variation-aware calibration,” Journal of Semiconductor Technology and Science , vol. 16, no. 1, pp. 1–10, 2016. [41] Y. Qin, C. Lin, M. Lai, Z. Luo, S. Xu, and W. He, “Reducing DRAM latency via in-situ temperature- and process-variation-aware timing detection and adaption,” in Proceedings of the 61st ACM/IEEE Design Automation Conference (DAC), 2024, pp. 1–6. [42] P. J. Huber, “Robust estimation of a location parameter,” Annals of Mathematical Statistics, vol. 35, no. 1, pp. 73–101, 1964. [43] N. Bonneel, J. Rabin, G. Peyr ´e, and H. Pfister, “Sliced and radon wasserstein barycenters of measures,” Journal of Mathematical Imaging and Vision, vol. 51, no. 1, pp. 22–45, 2015. [44] T. Miyato, T. Kataoka, M. Koyama, and Y. Yoshida, “Spectral normal-ization for generative adversarial networks,” in International Conference on Learning Representations (ICLR), 2018. [45] ˇZ. Klane ˇcek, T. Wagner, Y.-K. Wang, L. Cockmartin, N. Marshall et al. , “Uncertainty estimation for deep learning-based pectoral muscle segmentation via Monte Carlo dropout,” Physics in Medicine & Biology, vol. 68, no. 11, p. 115016, 2023. [46] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,” in International Conference on Learning Representations (ICLR), 2015. [47] T. P. Lillicrap, J. J. Hunt, A. Pritzel, N. M. O. Heess, T. Erez, Y. Tassa, D. Silver, and D. Wierstra, “Continuous control with deep reinforcement learning,” CoRR, vol. abs/1509.02971, 2015. [Online]. Available: https://api.semanticscholar.org/CorpusID:16326763 [48] P. J. Rousseeuw, “Silhouettes: A graphical aid to the interpretation and validation of cluster analysis,” Journal of Computational and Applied Mathematics, vol. 20, pp. 53–65, 1987. [49] L. van der Maaten and G. Hinton, “Visualizing data using t-sne,” Journal of Machine Learning Research, vol. 9, no. 86, pp. 2579–2605, 2008. [50] B. Zoph and Q. V. Le, “Neural architecture search with reinforcement learning,” in International Conference on Learning Representations (ICLR), 2017. [51] A. Chauhan, S. Bhattacharyya, and S. Vadivel, “DQNAS: Neu-ral architecture search using reinforcement learning,” arXiv preprint arXiv:2301.06687, 2023. [52] N. Knudde, J. van der Herten, T. Dhaene, and I. Couckuyt, “Gpflowopt: A bayesian optimization library using tensorflow,” arXiv: Machine Learning, 2017. [Online]. Available: https://api.semanticscholar.org/CorpusID: 55544345 [53] Y. Xu, L. Huang, W. Jiang, L. Xue, W. Hu, and L. Yi, “Automatic optimization of volterra equalizer with deep reinforcement learning for intensity-modulated direct-detection optical communications,” Journal of Lightwave Technology , vol. 40, pp. 5395–5406, 2022. [Online]. Available: https://api.semanticscholar.org/CorpusID:251325192 [54] D. A. McAllester, “Pac-bayesian model averaging,” in Proceedings of the Twelfth Annual Conference on Computational Learning Theory (COLT) .ACM, 1999, pp. 164–170. 
+
+APPENDIX 
+
+A. Genetic Algorithm Implementation 
+
+Our genetic algorithm baseline optimizes the equalizer parameters using a population-based evolutionary approach. For the DFE configuration, it optimizes four parameters 
+
+p = {t1,t2,t3,t4}, while for the CTLE+DFE it handles eight parameters p = {Gdc , fz, fp, Gp,t1,t2,t3,t4}, each within the continuous range [0, 1]. The process starts with an initial population of 25 chromo-somes, randomly selected and defined by genes representing the equalizer parameters. The fitness of each chromosome is evaluated based on the window area improvement metric described in Section IV. Chromosomes with higher fitness are probabilistically selected as parents through roulette wheel selection. For the DFE configuration, single-point crossover is applied at the second gene index, while for CTLE+DFE, two-point crossover is used at indices 3 and 6 to preserve parameter groupings. Controlled mutations, uniformly sampled in range 
+
+[−0.1, 0.1], are introduced to maintain diversity. Let ζt ∈ R
+
+denote the best fitness value in the population at generation 
+
+t. The algorithm terminates when |ζt − ζt−1| ≤ 0.0025 for 10 consecutive generations. 
+
+B. Bayesian Optimization [23] Baseline Implementation 
+
+Our Bayesian optimization based baseline is based on the optimization method presented in [23]. First, we train an autoencoder network using the process described in Section III. Given an output signal do, we use the trained autoencoder to obtain the SI metric score, i.e. μ(do), where μ(do) gives the SI metric value of the signal do as described in [23]. For the DFE configuration, the equalizer parameters are 
+
+p = {t1,t2,t3,t4}. For the cascaded CTLE+DFE configuration, 16 
+
+the parameters are p = {Gdc , fz, fp, Gp,t1,t2,t3,t4}. These pa-rameters p are sampled, and the signal do is equalized with the sampled parameters to get the equalized signal, deo. The SI metric score for the equalized signal deo is calculated using the encoder network to get μ(deo). The SI metric scores with and without equalization are normalized as l = μ(do)−μ(deo)/μ(do). If 
+
+l > 0, the equalization operation with parameters p has caused an improvement in the signal integrity of the signal do. The objective function for the optimization problem is max p l. For the implementation of the Bayesian optimization algorithm, we use GPflowOpt [52]. We use Gaussian Process as our surrogate model and run the optimization process for 200 iterations. 
+
+C. Policy Optimization [53] Baseline Implementation 
+
+Our policy optimization based baseline utilizes the deep deterministic policy gradient (DDPG) agent [47], which learns equalizer parameters sequentially. The agent interacts with the environment (equalizer model) a number of times equal to the number of parameters to be optimized. For the 4-tap DFE, the agent determines four parameters 
+
+{t1,t2,t3,t4} in four sequential interactions. The state s j at step j ∈ { 1, . . . , 4} consists of the first j estimated parameters 
+
+{ˆt1, . . . , ˆt j} padded with zeros for the remaining 4 − j parame-ters. The initial state is s0 = {0, 0, 0, 0}, and the terminal state is s4 = {ˆt1, ˆt2, ˆt3, ˆt4}. For the cascaded CTLE+DFE, the agent determines eight parameters {Gdc , fz, fp, Gp,t1,t2,t3,t4} in eight sequential interactions. The state s j at step j ∈ { 1, . . . , 8}
+
+consists of the first j estimated parameters padded with zeros for the remaining 8 − j parameters. The initial state is an 8-dimensional zero vector, and the terminal state contains all eight estimated parameters. In each interaction, the agent outputs a normalized parameter value in [0, 1], subsequently mapped to the actual parameter range. The reward R = 100 × (1 − BER ) is calculated after all parameters are determined. A replay memory of 50000 and policy noise clip (N (0, 0.075 2), −0.025 , 0.025 ) are used during training. 
+
+D. Q-learning Baseline Implementation 
+
+The Q-learning baseline [28] employs action branching to handle the continuous-valued equalizer parameters. For the DFE configuration with four parameters p = {t1,t2,t3,t4}, each parameter is discretized into k = 16 levels, yielding state-action space complexity O(k4) = 65 ,536 for four independent Q-functions. The state s j at decision step j ∈ { 1, . . . , 4} consists of the latent representation ℓ(do) ∈ R11 concatenated with previously determined parameters {ˆt1, . . . , ˆt j−1} padded with zeros. The action space for each step is discretized: a j ∈ { 0, 115 , 215 , . . . , 1}
+
+representing the j-th parameter value. Each parameter has an independent Q-function Q j : R11 + j−1 ×R → R approximated by a neural network with architecture 11 + j − 1 → 128 → 64 →
+
+k. The networks output Q-values for all k discrete actions simultaneously. Actions are selected greedily during evaluation: 
+
+a j = arg max a∈A j Q j(s j, a).Training employs epsilon-greedy exploration with ε de-caying linearly from 0.9 to 0.1 over 200 epochs. The tem-poral difference target for parameter j is given by y j =
+
+R + γ max a′ Q j+1(s j+1, a′), where R is the final reward received after all four parameters are determined, computed from the Sliced Wasserstein distance between equalized signal latent representation and the anchor point. The Q-functions are updated via MSE loss LQ = ( ˆQ j(s j, a j) − y j)2 using Adam optimizer with learning rate η = 1 × 10 −3.For the cascaded CTLE+DFE configuration with eight pa-rameters, the approach extends naturally with eight independent Q-functions and state dimensions growing from 11 to 18 across decision steps. Experience replay buffer size is 50 ,000 with batch size 256. Target networks are updated every 10 training steps using soft update with τ = 0.01. 
+
+E. Particle Swarm Optimization Baseline Implementation 
+
+The Particle Swarm Optimization baseline uses a population of 20 particles to search the equalizer parameter space. For DFE configuration, each particle i maintains position xi ∈ [0, 1]4
+
+representing equalizer parameters, velocity vi ∈ R4, personal best position pi, and personal best fitness f pi . The swarm maintains global best position g with fitness f g.Fitness evaluation computes the eye-opening window area improvement μ(deo)−μ(do) 
+
+> μ(do)
+
+where deo = E (do; xi) is the equalized signal with parameters from particle i. The latent signal integrity metric μ(·) is computed via the trained Information Bottleneck encoder following the same approach as our proposed method. Particle velocities are updated according to: 
+
+vt+1 
+
+> i
+
+= wvti + c1r1 ⊙ (pi − xti ) + c2r2 ⊙ (g − xti ),
+
+where w is the inertia weight, c1 = c2 = 2.0 are cognitive and social coefficients, r1, r2 ∼ Uniform (0, 1)4 are random vectors, and ⊙ denotes element-wise multiplication. The inertia weight decreases linearly from winit = 0.9 to wfinal = 0.4 over iterations to balance exploration and exploitation. Position updates follow 
+
+xt+1 
+
+> i
+
+= xti + vt+1 
+
+> i
+
+with clamping to [0, 1]4 boundaries. Velocity is bounded to [−vmax , vmax ] where vmax = 0.2 ×
+
+(upper bound − lower bound ) prevents excessive jumps. The algorithm initializes particles uniformly across the search space and terminates when the global best fitness improvement falls below ε = 0.001 for 15 consecutive iterations or after 200 maximum iterations. For cascaded CTLE+DFE with eight parameters, particles exist in [0, 1]8 with identical update rules. The first four dimensions correspond to CTLE parameters (DC gain, zero frequency, pole frequency, peaking gain) and the last four to DFE taps, all normalized to [0, 1] and mapped to actual parameter ranges during equalization evaluation. 
+
+F. Proof of Theorem III.1: Information Bottleneck Rate-Distortion Bound Proof. The mutual information decomposes as I(Z;Y ) = 
+
+H(Y ) − H(Y |Z) where H(Y |Z) = Ep(z)[H(Y |z)] . Using the variational approximation pω (y|z) and Jensen’s inequality: 
+
+H(Y |z) = −Ep(y|z)[log p(y|z)] ≤ − Ep(y|z)[log pω (y|z)] .
+
+For the compression term, I(Z; Do) =
+
+Ep(do)[DKL (pφ (z|do)∥p(z))] . Replacing the intractable marginal p(z) with variational approximation qψ (z) yields: 
+
+I(Z; Do) ≤ Ep(do)[DKL (pφ (z|do)∥qψ (z))] + DKL (p(z)∥qψ (z)) .17 
+
+Combining these bounds establishes the variational lower bound, with equality achieved when the variational distributions match the true posteriors. 
+
+G. Proof of Theorem III.2: Distributional Bellman Convergence Proof. The proof follows from the contraction property of the distributional Bellman operator under Wasserstein metrics. For return distributions Z1, Z2 and corresponding next-state distributions Z′
+
+> 1
+
+, Z′
+
+> 2
+
+:
+
+Wp(T π Z1, T π Z2) = Wp(R + γZ′
+
+> 1
+
+, R + γZ′
+
+> 2
+
+) = γWp(Z′
+
+> 1
+
+, Z′
+
+> 2
+
+),
+
+where the second equality uses the translation invariance and scaling property of Wasserstein distance. Since γ < 1, T π is a contraction mapping. By the Banach fixed-point theorem, repeated application converges geometrically to the unique fixed point Zπ , yielding the exponential convergence rate in Equation (7). 
+
+H. Proof of Theorem III.3: CVaR Policy Gradient Proof. Using the policy gradient theorem and the definition of CVaR from Equation (8): 
+
+∇θ Es[CVaR α [Zπ ]] = ∇θ Es
+
+"
+
+1
+
+Nα
+
+> Nα
+
+# ∑
+
+> i=1
+
+Ea∼πθ [θ ω 
+
+> i
+
+(s, a)] 
+
+#
+
+= 1
+
+Nα
+
+Es
+
+"Nα
+
+# ∑
+
+> i=1
+
+∇θ
+
+> Z
+
+πθ (a|s)θ ω 
+
+> i
+
+(s, a)da
+
+#
+
+= 1
+
+Nα
+
+Es
+
+"Nα
+
+# ∑
+
+> i=1
+> Z
+
+∇θ πθ (a|s)θ ω 
+
+> i
+
+(s, a)da
+
+#
+
+.
+
+Applying the log-derivative trick ∇θ πθ = πθ ∇θ log πθ yields Equation (9). 
+
+I. Proof of Theorem III.4: PAC-Bayesian Policy Bound Proof. The proof follows the PAC-Bayesian framework of McAllester [54]. For any distribution Q over policies and δ >
+
+0, by Markov’s inequality and Donsker-Varadhan variational representation of KL divergence: 
+
+P  Eπ∼Q[L(π) − ˆL(π)] ≥ ε ≤ exp  −nε2/2·exp (DKL (Q∥P)) .
+
+Setting the right-hand side equal to δ and solving for ε yields: 
+
+ε =
+
+r DKL (Q∥P) + log (1/δ )
+
+n .
+
+Applying a union bound over all possible posteriors and using the refined constant gives Equation (12).

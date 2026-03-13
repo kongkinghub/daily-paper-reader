@@ -1,0 +1,639 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-03-13T19:12:07.426780+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 21,
+    "deep_cap": 6,
+    "deep_selected": 6,
+    "quick_candidates": 87,
+    "quick_skim_target": 11,
+    "quick_selected": 11
+  },
+  "deep_dive": [
+    {
+      "id": "2603.11980v1",
+      "title": "Learning Visuomotor Policy for Multi-Robot Laser Tag Game",
+      "abstract": "In this paper, we study multi robot laser tag, a simplified yet practical shooting-game-style task. Classic modular approaches on these tasks face challenges such as limited observability and reliance on depth mapping and inter robot communication. To overcome these issues, we present an end-to-end visuomotor policy that maps images directly to robot actions. We train a high performing teacher policy with multi agent reinforcement learning and distill its knowledge into a vision-based student policy. Technical designs, including a permutation-invariant feature extractor and depth heatmap input, improve performance over standard architectures. Our policy outperforms classic methods by 16.7% in hitting accuracy and 6% in collision avoidance, and is successfully deployed on real robots. Code will be released publicly.",
+      "authors": [
+        "Kai Li",
+        "Shiyu Zhao"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-03-12T14:30:04+00:00",
+      "link": "https://arxiv.org/pdf/2603.11980v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 10.0,
+      "llm_evidence_en": "distill knowledge from teacher policy into student policy",
+      "llm_evidence_cn": "将教师策略的知识蒸馏到学生策略中",
+      "llm_evidence": "将教师策略的知识蒸馏到学生策略中",
+      "llm_tldr_en": "Uses a teacher-student framework to distill a high-performing MARL policy into a vision-based student.",
+      "llm_tldr_cn": "采用教师-学生框架，将高性能多智能体强化学习策略蒸馏到视觉学生策略中。",
+      "llm_tldr": "采用教师-学生框架，将高性能多智能体强化学习策略蒸馏到视觉学生策略中。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "papers on teacher student framework for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.07518v1",
+      "title": "Reinforcement learning-based dynamic cleaning scheduling framework for solar energy system",
+      "abstract": "Advancing autonomous green technologies in solar photovoltaic (PV) systems is key to improving sustainability and efficiency in renewable energy production. This study presents a reinforcement learning (RL)-based framework to autonomously optimize the cleaning schedules of PV panels in arid regions, where soiling from dust and other airborne particles significantly reduces energy output. By employing advanced RL algorithms, Proximal Policy Optimization (PPO) and Soft Actor-Critic (SAC), the framework dynamically adjusts cleaning intervals based on uncertain environmental conditions. The proposed approach was applied to a case study in Abu Dhabi, UAE, demonstrating that PPO outperformed SAC and traditional simulation optimization (Sim-Opt) methods, achieving up to 13% cost savings by dynamically responding to weather uncertainties. The results highlight the superiority of flexible, autonomous scheduling over fixed-interval methods, particularly in adapting to stochastic environmental dynamics. This aligns with the goals of autonomous green energy production by reducing operational costs and improving the efficiency of solar power generation systems. This work underscores the potential of RL-driven autonomous decision-making to optimize maintenance operations in renewable energy systems. In future research, it is important to enhance the generalization ability of the proposed RL model, while also considering additional factors and constraints to apply it to different regions.",
+      "authors": [
+        "Heungjo An"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-08T08:13:36+00:00",
+      "link": "https://arxiv.org/pdf/2603.07518v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Application of PPO and SAC reinforcement learning algorithms",
+      "llm_evidence_cn": "应用PPO和SAC强化学习算法",
+      "llm_evidence": "应用PPO和SAC强化学习算法",
+      "llm_tldr_en": "Optimizes solar panel cleaning schedules using PPO and SAC reinforcement learning algorithms.",
+      "llm_tldr_cn": "利用PPO和SAC强化学习算法优化太阳能电池板的清洁调度。",
+      "llm_tldr": "利用PPO和SAC强化学习算法优化太阳能电池板的清洁调度。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.08476v1",
+      "title": "LAR-MoE: Latent-Aligned Routing for Mixture of Experts in Robotic Imitation Learning",
+      "abstract": "Imitation learning enables robots to acquire manipulation skills from demonstrations, yet deploying a policy across tasks with heterogeneous dynamics remains challenging, as models tend to average over distinct behavioral modes present in the demonstrations. Mixture-of-Experts (MoE) architectures address this by activating specialized subnetworks, but requires meaningful skill decompositions for expert routing. We introduce Latent-Aligned Routing for Mixture of Experts (LAR-MoE), a two-stage framework that decouples unsupervised skill discovery from policy learning. In pre-training, we learn a joint latent representation between observations and future actions through student-teacher co-training. In a post-training stage, the expert routing is regularized to follow the structure of the learned latent space, preventing expert collapse while maintaining parameter efficiency. We evaluate LAR-MoE in simulation and on hardware. On the LIBERO benchmark, our method achieves a 95.2% average success rate with 150M parameters. On a surgical bowel grasping and retraction task, LAR-MoE matches a supervised MoE baseline without requiring any phase annotations, and transfers zero-shot to ex vivo porcine tissue. Our findings suggest that latent-aligned routing provides a principled alternative to supervised skill decomposition, enabling structured expert specialization from unlabeled demonstrations.",
+      "authors": [
+        "Ariel Rodriguez",
+        "Chenpan Li",
+        "Lorenzo Mazza",
+        "Rayan Younis",
+        "Ortrun Hellig",
+        "Sebastian Bodenstedt",
+        "Martin Wagner",
+        "Stefanie Speidel"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-03-09T15:10:31+00:00",
+      "link": "https://arxiv.org/pdf/2603.08476v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Student-teacher co-training for skill discovery in imitation learning",
+      "llm_evidence_cn": "模仿学习中用于技能发现的师生协同训练",
+      "llm_evidence": "模仿学习中用于技能发现的师生协同训练",
+      "llm_tldr_en": "Uses a student-teacher co-training framework to decouple skill discovery from policy learning in robotics.",
+      "llm_tldr_cn": "在机器人领域使用师生协同训练框架，将技能发现与策略学习解耦。",
+      "llm_tldr": "在机器人领域使用师生协同训练框架，将技能发现与策略学习解耦。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Teacher-Student architecture in reinforcement learning",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.11137v1",
+      "title": "Scaling Reasoning Efficiently via Relaxed On-Policy Distillation",
+      "abstract": "On-policy distillation is pivotal for transferring reasoning capabilities to capacity-constrained models, yet remains prone to instability and negative transfer. We show that on-policy distillation can be interpreted, both theoretically and empirically, as a form of policy optimization, where the teacher-student log-likelihood ratio acts as a token reward. From this insight, we introduce REOPOLD (Relaxed On-Policy Distillation) a framework that stabilizes optimization by relaxing the strict imitation constraints of standard on-policy distillation. Specifically, REOPOLD temperately and selectively leverages rewards from the teacher through mixture-based reward clipping, entropy-based token-level dynamic sampling, and a unified exploration-to-refinement training strategy. Empirically, REOPOLD surpasses its baselines with superior sample efficiency during training and enhanced test-time scaling at inference, across mathematical, visual, and agentic tool-use reasoning tasks. Specifically, REOPOLD outperforms recent RL approaches achieving 6.7~12x greater sample efficiency and enables a 7B student to match a 32B teacher in visual reasoning with a ~3.32x inference speedup.",
+      "authors": [
+        "Jongwoo Ko",
+        "Sara Abdali",
+        "Young Jin Kim",
+        "Tianyi Chen",
+        "Pashmina Cameron"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-03-11T16:26:52+00:00",
+      "link": "https://arxiv.org/pdf/2603.11137v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "on-policy distillation interpreted as policy optimization with teacher-student log-likelihood ratio",
+      "llm_evidence_cn": "在线策略蒸馏被解释为带有师生对数似然比的策略优化",
+      "llm_evidence": "在线策略蒸馏被解释为带有师生对数似然比的策略优化",
+      "llm_tldr_en": "Proposes REOPOLD to stabilize on-policy distillation by treating the teacher-student ratio as a reward.",
+      "llm_tldr_cn": "提出REOPOLD框架，通过将师生比例视为奖励来稳定在线策略蒸馏。",
+      "llm_tldr": "提出REOPOLD框架，通过将师生比例视为奖励来稳定在线策略蒸馏。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Impact of inaccurate Q value estimation on policy distillation",
+      "matched_requirement_id": "req-11",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.05275v1",
+      "title": "SarcasmMiner: A Dual-Track Post-Training Framework for Robust Audio-Visual Sarcasm Reasoning",
+      "abstract": "Multimodal sarcasm detection requires resolving pragmatic incongruity across textual, acoustic, and visual cues through cross-modal reasoning. To enable robust sarcasm reasoning with foundation models, we propose SarcasmMiner, a reinforcement learning based post-training framework that resists hallucination in multimodal reasoning. We reformulate sarcasm detection as structured reasoning and adopt a dual-track distillation strategy: high-quality teacher trajectories initialize the student model, while the full set of trajectories trains a generative reward model (GenRM) to evaluate reasoning quality. The student is optimized with group relative policy optimization (GRPO) using decoupled rewards for accuracy and reasoning quality. On MUStARD++, SarcasmMiner increases F1 from 59.83% (zero-shot), 68.23% (supervised finetuning) to 70.22%. These findings suggest that reasoning-aware reward modeling enhances both performance and multimodal grounding.",
+      "authors": [
+        "Zhu Li",
+        "Yongjian Chen",
+        "Huiyuan Lai",
+        "Xiyuan Gao",
+        "Shekhar Nayak",
+        "Matt Coler"
+      ],
+      "primary_category": "cs.MM",
+      "categories": [
+        "cs.MM",
+        "cs.CL",
+        "cs.SD"
+      ],
+      "published": "2026-03-05T15:22:39+00:00",
+      "link": "https://arxiv.org/pdf/2603.05275v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "dual-track distillation strategy with teacher trajectories",
+      "llm_evidence_cn": "带有教师轨迹的双轨蒸馏策略",
+      "llm_evidence": "带有教师轨迹的双轨蒸馏策略",
+      "llm_tldr_en": "Uses teacher-student distillation and RL to improve multimodal sarcasm reasoning in foundation models.",
+      "llm_tldr_cn": "利用教师-学生蒸馏和强化学习来改进基础模型中的多模态讽刺推理。",
+      "llm_tldr": "利用教师-学生蒸馏和强化学习来改进基础模型中的多模态讽刺推理。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "papers on teacher student framework for reinforcement learning",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2603.04029v1",
+      "title": "Self-adapting Robotic Agents through Online Continual Reinforcement Learning with World Model Feedback",
+      "abstract": "As learning-based robotic controllers are typically trained offline and deployed with fixed parameters, their ability to cope with unforeseen changes during operation is limited. Biologically inspired, this work presents a framework for online Continual Reinforcement Learning that enables automated adaptation during deployment. Building on DreamerV3, a model-based Reinforcement Learning algorithm, the proposed method leverages world model prediction residuals to detect out-of-distribution events and automatically trigger finetuning. Adaptation progress is monitored using both task-level performance signals and internal training metrics, allowing convergence to be assessed without external supervision and domain knowledge. The approach is validated on a variety of contemporary continuous control problems, including a quadruped robot in high-fidelity simulation, and a real-world model vehicle. Relevant metrics and their interpretation are presented and discussed, as well as resulting trade-offs described. The results sketch out how autonomous robotic agents could once move beyond static training regimes toward adaptive systems capable of self-reflection and -improvement during operation, just like their biological counterparts.",
+      "authors": [
+        "Fabian Domberg",
+        "Georg Schildbach"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.AI"
+      ],
+      "published": "2026-03-04T13:07:42+00:00",
+      "link": "https://arxiv.org/pdf/2603.04029v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Online Continual Reinforcement Learning and world model feedback",
+      "llm_evidence_cn": "在线持续强化学习与世界模型反馈",
+      "llm_evidence": "在线持续强化学习与世界模型反馈",
+      "llm_tldr_en": "Presents an online continual RL framework for robotic adaptation using world model prediction residuals.",
+      "llm_tldr_cn": "提出了一种利用世界模型预测残差进行机器人自适应的在线持续强化学习框架。",
+      "llm_tldr": "提出了一种利用世界模型预测残差进行机器人自适应的在线持续强化学习框架。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "carryover_cache",
+      "paper_id": "2603.04029v1"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2603.04333v1",
+      "title": "What Does Flow Matching Bring To TD Learning?",
+      "abstract": "Recent work shows that flow matching can be effective for scalar Q-value function estimation in reinforcement learning (RL), but it remains unclear why or how this approach differs from standard critics. Contrary to conventional belief, we show that their success is not explained by distributional RL, as explicitly modeling return distributions can reduce performance. Instead, we argue that the use of integration for reading out values and dense velocity supervision at each step of this integration process for training improves TD learning via two mechanisms. First, it enables robust value prediction through \\emph{test-time recovery}, whereby iterative computation through integration dampens errors in early value estimates as more integration steps are performed. This recovery mechanism is absent in monolithic critics. Second, supervising the velocity field at multiple interpolant values induces more \\emph{plastic} feature learning within the network, allowing critics to represent non-stationary TD targets without discarding previously learned features or overfitting to individual TD targets encountered during training. We formalize these effects and validate them empirically, showing that flow-matching critics substantially outperform monolithic critics (2$\\times$ in final performance and around 5$\\times$ in sample efficiency) in settings where loss of plasticity poses a challenge e.g., in high-UTD online RL problems, while remaining stable during learning.",
+      "authors": [
+        "Bhavya Agrawalla",
+        "Michal Nauman",
+        "Aviral Kumar"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-03-04T17:51:30+00:00",
+      "link": "https://arxiv.org/pdf/2603.04333v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "improves TD learning via test-time recovery to dampen errors in value estimates",
+      "llm_evidence_cn": "通过测试时恢复机制改进TD学习，以抑制价值估计中的误差",
+      "llm_evidence": "通过测试时恢复机制改进TD学习，以抑制价值估计中的误差",
+      "llm_tldr_en": "Proposes flow matching for TD learning to improve value prediction robustness and reduce estimation errors.",
+      "llm_tldr_cn": "提出将流匹配用于TD学习，通过测试时恢复机制提高价值预测的鲁棒性并减少估计误差。",
+      "llm_tldr": "提出将流匹配用于TD学习，通过测试时恢复机制提高价值预测的鲁棒性并减少估计误差。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Addressing Q-value overestimation in deep reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "carryover_cache",
+      "paper_id": "2603.04333v1",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.04768v1",
+      "title": "Distributional Reinforcement Learning with Information Bottleneck for Uncertainty-Aware DRAM Equalization",
+      "abstract": "Equalizer parameter optimization is critical for signal integrity in high-speed memory systems operating at multi-gigabit data rates. However, existing methods suffer from computationally expensive eye diagram evaluation, optimization of expected rather than worst-case performance, and absence of uncertainty quantification for deployment decisions. In this paper, we propose a distributional risk-sensitive reinforcement learning framework integrating Information Bottleneck latent representations with Conditional Value-at-Risk optimization. We introduce rate-distortion optimal signal compression achieving 51 times speedup over eye diagrams while quantifying epistemic uncertainty through Monte Carlo dropout. Distributional reinforcement learning with quantile regression enables explicit worst-case optimization, while PAC-Bayesian regularization certifies generalization bounds. Experimental validation on 2.4 million waveforms from eight memory units demonstrated mean improvements of 37.1\\% and 41.5\\% for 4-tap and 8-tap equalizer configurations with worst-case guarantees of 33.8\\% and 38.2\\%, representing 80.7\\% and 89.1\\% improvements over Q-learning baselines. The framework achieved 62.5\\% high-reliability classification eliminating manual validation for most configurations. These results suggest the proposed framework provides a practical solution for production-scale equalizer optimization with certified worst-case guarantees.",
+      "authors": [
+        "Muhammad Usama",
+        "Dong Eui Chang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-05T03:34:25+00:00",
+      "link": "https://arxiv.org/pdf/2603.04768v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Distributional reinforcement learning framework for uncertainty-aware optimization",
+      "llm_evidence_cn": "用于不确定性感知优化的分布强化学习框架",
+      "llm_evidence": "用于不确定性感知优化的分布强化学习框架",
+      "llm_tldr_en": "Applies distributional RL and Information Bottleneck to optimize DRAM equalization under uncertainty.",
+      "llm_tldr_cn": "应用分布强化学习和信息瓶颈技术在不确定性下优化DRAM均衡。",
+      "llm_tldr": "应用分布强化学习和信息瓶颈技术在不确定性下优化DRAM均衡。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.05000v1",
+      "title": "Competitive Multi-Operator Reinforcement Learning for Joint Pricing and Fleet Rebalancing in AMoD Systems",
+      "abstract": "Autonomous Mobility-on-Demand (AMoD) systems promise to revolutionize urban transportation by providing affordable on-demand services to meet growing travel demand. However, realistic AMoD markets will be competitive, with multiple operators competing for passengers through strategic pricing and fleet deployment. While reinforcement learning has shown promise in optimizing single-operator AMoD control, existing work fails to capture competitive market dynamics. We investigate the impact of competition on policy learning by introducing a multi-operator reinforcement learning framework where two operators simultaneously learn pricing and fleet rebalancing policies. By integrating discrete choice theory, we enable passenger allocation and demand competition to emerge endogenously from utility-maximizing decisions. Experiments using real-world data from multiple cities demonstrate that competition fundamentally alters learned behaviors, leading to lower prices and distinct fleet positioning patterns compared to monopolistic settings. Notably, we demonstrate that learning-based approaches are robust to the additional stochasticity of competition, with competitive agents successfully converging to effective policies while accounting for partially unobserved competitor strategies.",
+      "authors": [
+        "Emil Kragh Toft",
+        "Carolin Schmidt",
+        "Daniele Gammelli",
+        "Filipe Rodrigues"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.MA"
+      ],
+      "published": "2026-03-05T09:44:24+00:00",
+      "link": "https://arxiv.org/pdf/2603.05000v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Multi-operator reinforcement learning framework",
+      "llm_evidence_cn": "多运营商强化学习框架",
+      "llm_evidence": "多运营商强化学习框架",
+      "llm_tldr_en": "Investigates competitive market dynamics using a multi-operator reinforcement learning framework.",
+      "llm_tldr_cn": "使用多运营商强化学习框架研究竞争市场动态。",
+      "llm_tldr": "使用多运营商强化学习框架研究竞争市场动态。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.06958v1",
+      "title": "Chart-RL: Generalized Chart Comprehension via Reinforcement Learning with Verifiable Rewards",
+      "abstract": "Accurate chart comprehension represents a critical challenge in advancing multimodal learning systems, as extensive information is compressed into structured visual representations. However, existing vision-language models (VLMs) frequently struggle to generalize on unseen charts because it requires abstract, symbolic, and quantitative reasoning over structured visual representations. In this work, we introduce Chart-RL, an effective reinforcement learning (RL) method that employs mathematically verifiable rewards to enhance chart question answering in VLMs. Our experiments demonstrate that Chart-RL consistently outperforms supervised fine-tuning (SFT) across different chart understanding benchmarks, achieving relative improvements of 16.7% on MutlChartQA, and 11.5% on ChartInsights. We conduct robustness analysis, where Chart-RL achieves enhanced performance in 18 of 25 perturbed chart categories, demonstrating strong consistency and reasoning capability across visual variations. Furthermore, we demonstrate that task difficulty and inherent complexity are more critical than data quantity in RL training. For instance, Chart-RL trained on merely 10 complex chart-query examples significantly outperforms models trained on over 6,000 simple examples. Additionally, training on challenging reasoning tasks not only improves in-domain generalization relative to simpler tasks, but also facilitate strong transfer to out-of-domain visual mathematical problems.",
+      "authors": [
+        "Xin Zhang",
+        "Xingyu Li",
+        "Rongguang Wang",
+        "Ruizhong Miao",
+        "Zheng Wang",
+        "Dan Roth",
+        "Chenyang Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-03-07T00:26:52+00:00",
+      "link": "https://arxiv.org/pdf/2603.06958v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Reinforcement learning method with verifiable rewards for VLMs",
+      "llm_evidence_cn": "具有可验证奖励的视觉语言模型强化学习方法",
+      "llm_evidence": "具有可验证奖励的视觉语言模型强化学习方法",
+      "llm_tldr_en": "Enhances chart comprehension in vision-language models using reinforcement learning with verifiable rewards.",
+      "llm_tldr_cn": "利用具有可验证奖励的强化学习增强视觉语言模型的图表理解能力。",
+      "llm_tldr": "利用具有可验证奖励的强化学习增强视觉语言模型的图表理解能力。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.04790v1",
+      "title": "Diffusion Policy through Conditional Proximal Policy Optimization",
+      "abstract": "Reinforcement learning (RL) has been extensively employed in a wide range of decision-making problems, such as games and robotics. Recently, diffusion policies have shown strong potential in modeling multi-modal behaviors, enabling more diverse and flexible action generation compared to the conventional Gaussian policy. Despite various attempts to combine RL with diffusion, a key challenge is the difficulty of computing action log-likelihood under the diffusion model. This greatly hinders the direct application of diffusion policies in on-policy reinforcement learning. Most existing methods calculate or approximate the log-likelihood through the entire denoising process in the diffusion model, which can be memory- and computationally inefficient. To overcome this challenge, we propose a novel and efficient method to train a diffusion policy in an on-policy setting that requires only evaluating a simple Gaussian probability. This is achieved by aligning the policy iteration with the diffusion process, which is a distinct paradigm compared to previous work. Moreover, our formulation can naturally handle entropy regularization, which is often difficult to incorporate into diffusion policies. Experiments demonstrate that the proposed method produces multimodal policy behaviors and achieves superior performance on a variety of benchmark tasks in both IsaacLab and MuJoCo Playground.",
+      "authors": [
+        "Ben Liu",
+        "Shunpeng Yang",
+        "Hua Chen"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.RO"
+      ],
+      "published": "2026-03-05T04:12:13+00:00",
+      "link": "https://arxiv.org/pdf/2603.04790v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement learning algorithms and frameworks",
+      "llm_evidence_cn": "强化学习算法与框架",
+      "llm_evidence": "强化学习算法与框架",
+      "llm_tldr_en": "Proposes a diffusion policy framework using PPO to improve multi-modal behavior modeling in RL.",
+      "llm_tldr_cn": "提出一种结合PPO的扩散策略框架，旨在改进强化学习中的多模态行为建模。",
+      "llm_tldr": "提出一种结合PPO的扩散策略框架，旨在改进强化学习中的多模态行为建模。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.05433v1",
+      "title": "On-Policy Self-Distillation for Reasoning Compression",
+      "abstract": "Reasoning models think out loud, but much of what they say is noise. We introduce OPSDC (On-Policy Self-Distillation for Reasoning Compression), a method that teaches models to reason more concisely by   distilling their own concise behavior back into themselves. The entire approach reduces to one idea: condition the same model on a \"be concise\" instruction to obtain teacher logits, and minimize per-token   reverse KL on the student's own rollouts. No ground-truth answers, no token budgets, no difficulty estimators. Just self-distillation. Yet this simplicity belies surprising sophistication: OPSDC automatically   compresses easy problems aggressively while preserving the deliberation needed for hard ones. On Qwen3-8B and Qwen3-14B, we achieve 57-59% token reduction on MATH-500 while improving accuracy by 9-16 points   absolute. On AIME 2024, the 14B model gains 10 points with 41% compression. The secret? Much of what reasoning models produce is not just redundant-it is actively harmful, compounding errors with every   unnecessary token.",
+      "authors": [
+        "Hejian Sang",
+        "Yuanda Xu",
+        "Zhengze Zhou",
+        "Ran He",
+        "Zhipeng Wang",
+        "Jiachen Sun"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-05T17:54:40+00:00",
+      "link": "https://arxiv.org/pdf/2603.05433v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "On-policy self-distillation for reasoning compression",
+      "llm_evidence_cn": "用于推理压缩的策略内自我蒸馏",
+      "llm_evidence": "用于推理压缩的策略内自我蒸馏",
+      "llm_tldr_en": "Teaches models to be concise via self-distillation of teacher logits into student rollouts.",
+      "llm_tldr_cn": "通过将教师逻辑自我蒸馏到学生采样中，训练模型生成更简洁的推理。",
+      "llm_tldr": "通过将教师逻辑自我蒸馏到学生采样中，训练模型生成更简洁的推理。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "relationship between teacher student distillation and extrapolation error",
+      "matched_requirement_id": "req-8",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.07642v1",
+      "title": "Helix: Evolutionary Reinforcement Learning for Open-Ended Scientific Problem Solving",
+      "abstract": "Large language models (LLMs) with reasoning abilities have demonstrated growing promise for tackling complex scientific problems. Yet such tasks are inherently domain-specific, unbounded and open-ended, demanding exploration across vast and flexible solution spaces. Existing approaches, whether purely learning-based or reliant on carefully designed workflows, often suffer from limited exploration efficiency and poor generalization. To overcome these challenges, we present HELIX -- a Hierarchical Evolutionary reinforcement Learning framework with In-context eXperiences. HELIX introduces two key novelties: (i) a diverse yet high-quality pool of candidate solutions that broadens exploration through in-context learning, and (ii) reinforcement learning for iterative policy refinement that progressively elevates solution quality. This synergy enables the discovery of more advanced solutions. On the circle packing task, HELIX achieves state-of-the-art result with a sum of radii of 2.63598308 using only a 14B model. Across standard machine learning benchmarks, HELIX further surpasses GPT-4o with a carefully engineered pipeline, delivering an average F1 improvement of 5.95 points on the Adult and Bank Marketing datasets.",
+      "authors": [
+        "Chang Su",
+        "Zhongkai Hao",
+        "Zhizhou Zhang",
+        "Zeyu Xia",
+        "Youjia Wu",
+        "Hang Su",
+        "Jun Zhu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-08T14:08:52+00:00",
+      "link": "https://arxiv.org/pdf/2603.07642v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Evolutionary Reinforcement Learning framework",
+      "llm_evidence_cn": "进化强化学习框架",
+      "llm_evidence": "进化强化学习框架",
+      "llm_tldr_en": "Proposes HELIX, a hierarchical evolutionary RL framework using LLMs for complex scientific problem solving.",
+      "llm_tldr_cn": "提出HELIX，一种利用大语言模型解决复杂科学问题的分层进化强化学习框架。",
+      "llm_tldr": "提出HELIX，一种利用大语言模型解决复杂科学问题的分层进化强化学习框架。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "carryover_cache",
+      "paper_id": "2603.07642v1",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.05066v1",
+      "title": "Reward-Conditioned Reinforcement Learning",
+      "abstract": "RL agents are typically trained under a single, fixed reward function, which makes them brittle to reward misspecification and limits their ability to adapt to changing task preferences. We introduce Reward-Conditioned Reinforcement Learning (RCRL), a framework that trains a single agent to optimize a family of reward specifications while collecting experience under only one nominal objective. RCRL conditions the agent on reward parameterizations and learns multiple reward objectives from a shared replay data entirely off-policy, enabling a single policy to represent reward-specific behaviors. Across single-task, multi-task, and vision-based benchmarks, we show that RCRL not only improves performance under the nominal reward parameterization, but also enables efficient adaptation to new parameterizations. Our results demonstrate that RCRL provides a scalable mechanism for learning robust, steerable policies without sacrificing the simplicity of single-task training.",
+      "authors": [
+        "Michal Nauman",
+        "Marek Cygan",
+        "Pieter Abbeel"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-03-05T11:29:17+00:00",
+      "link": "https://arxiv.org/pdf/2603.05066v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Off-policy reinforcement learning framework for reward-conditioned policies",
+      "llm_evidence_cn": "奖励条件策略的离线强化学习框架",
+      "llm_evidence": "奖励条件策略的离线强化学习框架",
+      "llm_tldr_en": "Proposes Reward-Conditioned RL to train a single agent for multiple reward specifications off-policy.",
+      "llm_tldr_cn": "提出奖励条件强化学习，通过离线策略训练单个智能体以优化多种奖励规范。",
+      "llm_tldr": "提出奖励条件强化学习，通过离线策略训练单个智能体以优化多种奖励规范。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2603.06957v1",
+      "title": "Post-Training with Policy Gradients: Optimality and the Base Model Barrier",
+      "abstract": "We study post-training linear autoregressive models with outcome and process rewards. Given a context $\\boldsymbol{x}$, the model must predict the response $\\boldsymbol{y} \\in Y^N$, a sequence of length $N$ that satisfies a $γ$ margin condition, an extension of the standard separability to sequences. We prove that on test samples where the base model achieves a non-trivial likelihood $α$, a variant of policy gradient (PG) can achieve likelihood $1 - \\varepsilon$ with an essentially minimax optimal number of reward queries $\\tilde{O}((α^{-1} + \\varepsilon^{-1})/γ^2)$. However, a barrier arises for going beyond the support of the base model. We prove that the overall expected error after post-training with outcome rewards is governed by a property of the base model called the Likelihood Quantile (LQ), and that variants of PG, while minimax optimal, may require a number of reward queries exponential in $N$ to go beyond this support, regardless of the pre-training algorithm. To overcome this barrier, we study post-training with a process reward model, and demonstrate how PG variants in this setting avoid the curse of dimensionality in $N$ via dependence on a token-level LQ. Along the way, we prove that under the margin condition, SGD with adaptive learning rate (LR) achieves a near optimal test error for statistical learning, and PG with adaptive LR achieves a near optimal number of mistakes for online learning while being computationally efficient whenever possible, both of which may be of independent interest.",
+      "authors": [
+        "Alireza Mousavi-Hosseini",
+        "Murat A. Erdogdu"
+      ],
+      "primary_category": "stat.ML",
+      "categories": [
+        "stat.ML",
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-03-07T00:25:53+00:00",
+      "link": "https://arxiv.org/pdf/2603.06957v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "study of post-training linear autoregressive models with policy gradients",
+      "llm_evidence_cn": "使用策略梯度进行后期训练线性自回归模型的研究",
+      "llm_evidence": "使用策略梯度进行后期训练线性自回归模型的研究",
+      "llm_tldr_en": "Analyzes the optimality and limitations of policy gradient methods in post-training autoregressive models.",
+      "llm_tldr_cn": "分析了策略梯度方法在自回归模型后期训练中的最优性及其局限性。",
+      "llm_tldr": "分析了策略梯度方法在自回归模型后期训练中的最优性及其局限性。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2603.08399v1",
+      "title": "A Recipe for Stable Offline Multi-agent Reinforcement Learning",
+      "abstract": "Despite remarkable achievements in single-agent offline reinforcement learning (RL), multi-agent RL (MARL) has struggled to adopt this paradigm, largely persisting with on-policy training and self-play from scratch. One reason for this gap comes from the instability of non-linear value decomposition, leading prior works to avoid complex mixing networks in favor of linear value decomposition (e.g., VDN) with value regularization used in single-agent setups. In this work, we analyze the source of instability in non-linear value decomposition within the offline MARL setting. Our observations confirm that they induce value-scale amplification and unstable optimization. To alleviate this, we propose a simple technique, scale-invariant value normalization (SVN), that stabilizes actor-critic training without altering the Bellman fixed point. Empirically, we examine the interaction among key components of offline MARL (e.g., value decomposition, value learning, and policy extraction) and derive a practical recipe that unlocks its full potential.",
+      "authors": [
+        "Dongsu Lee",
+        "Daehee Lee",
+        "Amy Zhang"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.RO"
+      ],
+      "published": "2026-03-09T13:57:08+00:00",
+      "link": "https://arxiv.org/pdf/2603.08399v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "addressing value-scale amplification and unstable optimization in offline RL",
+      "llm_evidence_cn": "解决离线强化学习中的价值尺度放大和优化不稳定问题",
+      "llm_evidence": "解决离线强化学习中的价值尺度放大和优化不稳定问题",
+      "llm_tldr_en": "Proposes scale-invariant value normalization to stabilize non-linear value decomposition in offline MARL.",
+      "llm_tldr_cn": "提出尺度不变价值归一化，以稳定离线多智能体强化学习中的非线性价值分解。",
+      "llm_tldr": "提出尺度不变价值归一化，以稳定离线多智能体强化学习中的非线性价值分解。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Addressing Q-value overestimation in deep reinforcement learning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2603.05113v1",
+      "title": "Decoupling Task and Behavior: A Two-Stage Reward Curriculum in Reinforcement Learning for Robotics",
+      "abstract": "Deep Reinforcement Learning is a promising tool for robotic control, yet practical application is often hindered by the difficulty of designing effective reward functions. Real-world tasks typically require optimizing multiple objectives simultaneously, necessitating precise tuning of their weights to learn a policy with the desired characteristics. To address this, we propose a two-stage reward curriculum where we decouple task-specific objectives from behavioral terms. In our method, we first train the agent on a simplified task-only reward function to ensure effective exploration before introducing the full reward that includes auxiliary behavior-related terms such as energy efficiency. Further, we analyze various transition strategies and demonstrate that reusing samples between phases is critical for training stability. We validate our approach on the DeepMind Control Suite, ManiSkill3, and a mobile robot environment, modified to include auxiliary behavioral objectives. Our method proves to be simple yet effective, substantially outperforming baselines trained directly on the full reward while exhibiting higher robustness to specific reward weightings.",
+      "authors": [
+        "Kilian Freitag",
+        "Knut Åkesson",
+        "Morteza Haghir Chehreghani"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.RO"
+      ],
+      "published": "2026-03-05T12:34:27+00:00",
+      "link": "https://arxiv.org/pdf/2603.05113v1",
+      "tags": [
+        "keyword:RL TS",
+        "query:RL TS"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Reinforcement Learning algorithms and curriculum frameworks",
+      "llm_evidence_cn": "强化学习算法与课程框架",
+      "llm_evidence": "强化学习算法与课程框架",
+      "llm_tldr_en": "Proposes a two-stage reward curriculum to decouple task and behavior objectives in robotic RL.",
+      "llm_tldr_cn": "提出一种两阶段奖励课程，将机器人强化学习中的任务与行为目标解耦。",
+      "llm_tldr": "提出一种两阶段奖励课程，将机器人强化学习中的任务与行为目标解耦。",
+      "llm_tags": [
+        "query:rl-ts"
+      ],
+      "matched_query_tag": "query:rl-ts",
+      "matched_query_text": "Reinforcement Learning algorithms and frameworks",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    }
+  ]
+}
