@@ -1,0 +1,2352 @@
+Title: Gradient Iterated Temporal-Difference Learning
+
+URL Source: https://arxiv.org/pdf/2603.07833v1
+
+Published Time: Tue, 10 Mar 2026 01:44:55 GMT
+
+Number of Pages: 33
+
+Markdown Content:
+Cover Page 
+
+# Gradient Iterated Temporal-Difference Learning 
+
+## Théo Vincent, Kevin Gerhardt, Yogesh Tripathi, Habib Maraqten, Adam White, Martha White, Jan Peters, Carlo D’Eramo 
+
+Keywords: temporal-difference learning, Bellman error, gradient temporal-difference learning. 
+
+# Summary 
+
+Temporal-difference (TD) learning is highly effective at controlling and evaluating an agent’s long-term outcomes. Most approaches in this paradigm implement a semi-gradient update to boost the learning speed, which consists of ignoring the gradient of the bootstrapped estimate. While popular, this type of update is prone to divergence, as Baird’s counterexample illustrates. Gradient TD methods were introduced to overcome this issue, but have not been widely used, potentially due to issues with learning speed compared to semi-gradient methods. Recently, iterated TD learning was developed to increase the learning speed of TD methods. For that, it learns a sequence of action-value functions in parallel, where each function is op-timized to represent the application of the Bellman operator over the previous function in the sequence. While promising, this algorithm can be unstable due to its semi-gradient nature, as each function tracks a moving target. In this work, we modify iterated TD learning by com-puting the gradients over those moving targets, aiming to build a powerful gradient TD method that competes with semi-gradient methods. Our evaluation reveals that this algorithm, called 
+
+Gradient Iterated Temporal-Difference learning, has a competitive learning speed against semi-gradient methods across various benchmarks, including Atari games, a result that no prior work on gradient TD methods has demonstrated. 
+
+# Contribution(s) 
+
+1. We introduce Gradient Iterated Temporal-Difference learning, a new gradient temporal-difference learning algorithm, which is designed to learn a sequence of action-value func-tions in parallel, where each function is optimized to represent the application of the Bell-man operator over the previous function in the sequence (Section 5). 
+
+Context: Schmitt et al. (2022) first introduced the idea of learning a sequence of action-value functions where each function represents the application of the Bellman operator over the previous function. In a low-dimensional setting, they suggest performing updates se-quentially, starting with the first function in the sequence. However, this method is not scal-able as it relies on multiple sequential gradient steps. Then, Vincent et al. (2025b) suggested performing the updates in parallel, but rely on semi-gradient updates, which can cause in-stability because each function is optimized with respect to a moving target that changes at every gradient step. Finally, Vincent et al. (2026) developed a parameter-efficient version of this idea, which still relies on semi-gradient updates. 2. We derive and evaluate three instances of the introduced algorithm to showcase that the presented method can be used in many different settings and combined with many deep reinforcement learning algorithms (Section 7). 
+
+Context: We present combinations of the proposed algorithm with DQN, SAC, and CQL, along with an advanced architecture (IMPOOLA, Trumpp et al. (2025)), a 3-step return, and a prioritized replay buffer. 3. We demonstrate that the learning speed of the presented gradient TD method is competi-tive against semi-gradient methods across multiple benchmarks, including Atari games. In particular, no prior work has demonstrated that gradient TD methods are competitive in the Atari benchmark (Section 7.2). 
+
+Context: The proposed approach is competitive against semi-gradient methods such as DQN, SAC, and CQL, as well as their iterated variants, across 10 Atari games and 6 Mu-JoCo environments. Ghiassian et al. (2020); Elelimy et al. (2025) evaluate their proposed gradient TD method on MinAtar (Young & Tian, 2019). While Elsayed et al. (2024), Vasan et al. (2024), and Jiang et al. (2022) report experiments on Atari games, these methods use eligibility traces or emphatic weightings, which rely on semi-gradient updates. 
+
+> arXiv:2603.07833v1 [cs.LG] 8 Mar 2026
+
+# Gradient Iterated Temporal-Difference Learning 
+
+## Théo Vincent 1,2, †, Kevin Gerhardt 1,2 , Yogesh Tripathi 1,2 , Habib Maraqten 1,2 ,Adam White 3,4,5 , Martha White 3,4,5 , Jan Peters 1,2,6,7 , Carlo D’Eramo 8
+
+> 1
+
+DFKI, SAIROL , 2TU Darmstadt , 3Alberta Machine Intelligence Institute (Amii) ,
+
+> 4
+
+Department of Computing Science, University of Alberta, Canada , 5CIFAR AI Chair ,
+
+> 6
+
+Hessian.ai , 7Robotics Institute Germany , 8University of Würzburg  
+
+> †
+
+correspondence to theo.vincent@robot-learning.de 
+
+## Abstract 
+
+Temporal-difference (TD) learning is highly effective at controlling and evaluating an agent’s long-term outcomes. Most approaches in this paradigm implement a semi-gradient update to boost the learning speed, which consists of ignoring the gradient of the bootstrapped estimate. While popular, this type of update is prone to divergence, as Baird’s counterexample illustrates. Gradient TD methods were introduced to over-come this issue, but have not been widely used, potentially due to issues with learning speed compared to semi-gradient methods. Recently, iterated TD learning was devel-oped to increase the learning speed of TD methods. For that, it learns a sequence of action-value functions in parallel, where each function is optimized to represent the ap-plication of the Bellman operator over the previous function in the sequence. While promising, this algorithm can be unstable due to its semi-gradient nature, as each func-tion tracks a moving target. In this work, we modify iterated TD learning by computing the gradients over those moving targets, aiming to build a powerful gradient TD method that competes with semi-gradient methods. Our evaluation reveals that this algorithm, called Gradient Iterated Temporal-Difference learning, has a competitive learning speed against semi-gradient methods across various benchmarks, including Atari games, a re-sult that no prior work on gradient TD methods has demonstrated. 
+
+## 1 Introduction 
+
+Temporal-difference (TD, Sutton (1988)) learning is a useful learning paradigm that eliminates the need for long rollouts in the environment, thereby increasing the frequency with which the learn-ing agent receives feedback. This paradigm is successful in solving complex tasks where sample efficiency is key (Mnih et al., 2015; Degrave et al., 2022; Wurman et al., 2022). The core idea behind temporal-difference learning is to reduce the error between the estimated outcome at the cur-rent timestep and the target, where the target is the received reward plus the expected discounted outcome at the next timestep. Applying stochastic gradient descent on this error is a straightforward approach. Unfortunately, this idea is limited to deterministic environments because two independent samples, each starting at the same timestep, are required to compute an unbiased estimate of the target. This issue is known as the double sampling problem (Baird, 1995). For this reason, semi-gradient methods, like TD(0), only use the gradient at the current timestep and ignore the gradient of the target (Watkins & Dayan, 1992). Interestingly, despite known divergence issues on simple problems due to the absence of this gradient term (Baird, 1995), this approach is pursued by all state-of-the-art TD learning methods (Hessel et al., 2018; Vieillard et al., 2020; Lee et al., 2025; Palenicek et al., 2026). Gradient TD algorithms were developed to address this divergence issue (Sutton et al., 2008). This line of work led to provably convergent TD algorithms, even with nonlinear function approxima-tion (Maei et al., 2009; Patterson et al., 2022b). While this strong property should steer the field towards gradient TD methods, semi-gradient methods remain the preferred option. Recently, iterated TD (i-TD) learning was introduced by Vincent et al. (2025b) with the objective of improving the learning speed of TD methods by learning a sequence of action-value functions in 1Figure 1: Schematic representation of bootstrapping methods in the space of action-value functions, where the space of function approximation is colored in green. Left : TD learning uses a target network ¯Q0 to construct a regression target estimating the Bellman iteration Γ ¯Q0, where Γ is the Bellman operator. This quantity is learned by the online network Q1. At every T gradient steps, the target network is updated to the online network to learn the following Bellman iterations. Right :At every step k, Gradient TD learning minimizes the distance between the function Qk and its regression target estimating the Bellman iteration ΓQk.parallel, where each function is optimized to represent the application of the Bellman operator over the previous function (see Figure 2, left). Yet, as each function tracks a moving target, the benefit of learning consecutive Bellman iterations in parallel can diminish when a function positioned at the beginning of the sequence changes faster than the following ones. This issue originates from the semi-gradient nature of this algorithm. The objective is to develop a gradient TD method that is competitive in terms of learning speed 1
+
+against semi-gradient methods by learning a sequence of action-value functions, where each function is optimized to represent the application of the Bellman operator over the previous one. To that end, we introduce Gradient Iterated Temporal-Difference (Gi-TD) learning, which incorporates the idea of recent gradient TD methods (Ghiassian et al., 2020) into the iterated TD approach (Vincent et al., 2025b). This results in an algorithm that optimizes the sequence of action-value functions as a whole, without semi-gradient updates. Our empirical evaluations show that Gi-TD learning: ( 1) converges on counterexamples where semi-gradient methods (including i-TD learning) fail, ( 2) performs well at scale across multiple bench-marks, demonstrating for the first time that gradient TD based methods can provide competitive learning speed in the ALE benchmark (Bellemare et al., 2013), and ( 3) is particularly effective with high replay ratios, and in offline reinforcement learning. 
+
+## 2 The Foundations of Temporal-Difference Learning 
+
+We consider a Markov Decision Process (MDP) defined by a state space S, an action space A, a reward function R, a transition kernel P mapping state-action pairs to probability measures on the following state, and a discount factor γ. We aim to learn the optimal action-value function Q∗, which represents the maximum expected sum of discounted rewards a policy can obtain by interacting with the MDP. From there, an optimal policy π∗ is obtained by choosing an action that maximizes the action-value function for each given state s, i.e. π∗(s) ∈ arg max a Q∗(s, a ). Importantly, the opti-mal action-value function is the unique function that verifies the Bellman equation Q = Γ Q, where 
+
+Γ denotes the Bellman operator, defined as, ΓQ(s, a ) = Er∼R (s,a ),s ′∼P (s,a )[r + γ max a′ Q(s′, a ′)] ,for a state-action pair (s, a ).In problems where the reward and transition dynamics are not directly accessible, the Bellman op-erator must be estimated from samples. Two main bootstrapping methods can be followed to learn the optimal action-value function. Both methods rely on the contraction property of the Bellman operator, whose fixed-point is the optimal action-value function. The first and most popular direc-tion, called TD learning, iteratively applies the Bellman operator, starting from an initial function. 
+
+> 1We are interested in achieving high returns with as few samples as possible, a property we refer to as learning speed, and treat training time as a secondary metric, as TD learning is most useful for tasks that require sample efficiency.
+
+2In an ideal setting, the Banach fixed-point theorem guarantees that this iterative process converges to the fixed point of the Bellman operator. The other direction, called Gradient TD learning, aims to minimize the distance between a Q-network Q and its Bellman iteration ΓQ, thereby forcing the learned estimate to satisfy the Bellman equation. Figure 1 (left) illustrates how TD learning operates in the space of action-value functions, when function approximation is used to cope with large state spaces. The green area represents the space of function approximators. The algorithm starts by instantiating a Q-network ¯Q0, commonly referred to as the target network, used to build a regression target r+γ max a′ ¯Q0(s′, a ′), which is a stochastic estimation of its Bellman iteration Γ ¯Q0. This regression target is learned by a second network Q1,called the online network, using the mean squared error. We highlight that the bar over Q0 is added to emphasize that Q0 is not optimized, as its parameters are frozen. After a predefined number of gradient steps T , a target update is performed, which consists of setting Q1 as the new target network by freezing its parameters, and learning a new Q-network, noted Q2, which takes the role of the online network to minimize the distance between Γ ¯Q1 and Q2.The procedure repeats until the training stops. It benefits from the contraction property of the Bell-man operator at each iteration, which brings the expected regression target closer to the optimal action-value function. This line of work is referred to as the semi-gradient method because the gra-dient with respect to the target network is ignored. The seminal algorithm Q-learning (Watkins & Dayan, 1992) follows this paradigm, with T set to 1.Figure 1 (right) depicts the training dynamics of Gradient TD learning. They are simpler than those of TD learning, since the objective function, i.e., the Bellman error ∥ΓQ − Q∥22, is optimized over all learnable parameters without stop-gradient operations. This is why convergence guarantees can be established for this approach. At each timestep k, the following Q-network Qk is obtained by performing a stochastic gradient descent step on the objective function, evaluated at Qk−1.The difficult part of this method lies in building an unbiased estimate of the objective func-tion’s gradient. Indeed, the gradient of the Bellman error (Γ Qθ (s, a ) − Qθ (s, a )) 2 is equal to 
+
+2 ∂θ ΓQθ (s, a )(Γ Qθ (s, a ) − Qθ (s, a )) − 2 ∂θ Qθ (s, a )(Γ Qθ (s, a ) − Qθ (s, a )) , for a state-action pair 
+
+(s, a ) and some parameters θ. Importantly, an unbiased estimate of the second term can be obtained from a single sample (s, a, r, s ′) by computing −2 ∂θ Qθ (s, a )( r + γ max a′ Qθ (s′, a ′) − Qθ (s, a )) .Unfortunately, it is not possible to build an unbiased estimate of the first term with a single sample because it contains the product of expectations ∂θ ΓQθ (s, a ) · ΓQθ (s, a ).This is why Sutton et al. (2009) learn the difference ΓQθ − Qθ with a different network, Hz , with some parameters z, to replace the need of two independent samples, and use the single sample that is available to estimate ∂θ ΓQθ (s, a ). Adding a weight decay penalty on the z parameters leads to the algorithm called temporal-difference learning with regularized corrections (TDRC, Ghiassian et al. (2020)), where the gradients with respect to the learnable parameters θ and z, noted gθ and gz , are computed as 
+
+∆θ = ∂θ (r + γ max  
+
+> a′
+
+Qθ (s′, a ′)) Hz (s, a ) − ∂θ Qθ (s, a )( r + γ max  
+
+> a′
+
+Qθ (s′, a ′) − Qθ (s, a )) (1) 
+
+gz = ∂z
+
+
+
+Hz (s, a ) − (r + γ max  
+
+> a′
+
+Qθ (s′, a ′) − Qθ (s, a )) 
+
+2
+
++ β ∂ z ∥z∥22, (2) where β is the weight decay coefficient. 
+
+## 3 Iterated Temporal-Difference Learning 
+
+To increase the learning speed of temporal-difference learning methods, Vincent et al. (2025b) sug-gest to learn a sequence of K + 1 action-value functions (Qk)Kk=0 where each function Qk is op-timized to represent ΓQk−1, which is the application of the Bellman operator Γ over the previous function in the sequence Qk−1. For that, the algorithm aims at minimizing the sum of Bellman Errors (BEs), PKk=1 ∥ΓQk−1 − Qk∥22.3Figure 2: Left : In this figure, iterated TD learning learns 3 projected Bellman iterations in parallel, where each Bellman iteration Γ ¯Qk−1, built from the target network ¯Qk−1, is learned with an online network Qk. Right : Gradient iterated TD learning minimizes the sum of Bellman errors ∥Γ ¯Q0 −
+
+Q1∥22 +∥ΓQ1 −Q2∥22 +∥ΓQ2 −Q3∥22. Each function Qk not only learns to regress its target ΓQk−1,but also to make the target ΓQk for the following function Qk+1 easier to regress. The motivation for this novel objective function lies in the fact that this term is included in the upper bound on error propagation for approximate value iteration, published in Farahmand (2011). Given a sequence of functions Q0, . . . , Q K , Farahmand (2011) derive an upper bound on the distance between the optimal action-value function Q∗ and the action-value function QπK , where πK is the greedy policy over the last function QK (see Theorem 3.4 for a formal statement). This upper bound contains the weighted sum of BEs formed by the sequence of functions, i.e., PKk=1 αk∥ΓQk−1 −
+
+Qk∥22,ν , where the weights αk are approximated to 1 in the objective function of i-TD learning, and 
+
+ν is the distribution of the collected data. We present a schematic representation of i-TD learning in Figure 2 (left). It considers K online networks (Qk)Kk=1 , where each network Qk is represented by parameters θk, and K target networks 
+
+( ¯Qk)K−1 
+
+> k=0
+
+, where each network ¯Qk is represented by parameters ¯θk. Similarly to TD learning, each online network Qk learns from its respective target network ¯Qk−1. Crucially, at every D training step, a chain structure is imposed by synchronizing each target network ¯Qk with its corresponding online network Qk, i.e., ¯θk ← θk. D is generally chosen significantly smaller than T .Since the number of Bellman iterations learned over the course of a training is generally too large to store all Q-networks in memory, K is set to a reasonable value ( ≈ 5), and at every T training steps, each network parameter θk is updated to the following one θk+1 so that the following Bellman iterations are considered. The same is done for each target parameter, thereby leading to learning the following Bellman iterations. This step has a similar effect to the target update in TD learning. In fact, when K = 1 , iterated TD learning reduces to TD learning. The major limitation of i-TD learning is that each target network ¯Qk is constantly out of synchro-nization with its corresponding online network Qk, which is the true moving target, as highlighted by the dashed brown curves in Figure 2. While this problem can be reduced by frequently updating each target network to its corresponding online network, it still persists even when this update is performed after each gradient step, i.e., D = 1 . This is because the target networks are frozen dur-ing semi-gradient updates. As a result, i-TD learning minimizes the sum of BEs only under certain conditions (see Proposition 4.1 in Vincent et al. (2025b)), which the algorithm does not control. i-TD learning can even lead to a diverging sum of BEs, as we show in Section 6. 
+
+## 4 Related Work 
+
+Stepping away from semi-gradient updates is not a new idea. Schweitzer & Seidmann (1985) pro-pose to minimize the Bellman error ∥ΓQ−Q∥ in the context of dynamic programming. In determin-istic environments, where the double sampling problem does not occur, Baird (1995) suggest scaling the gradient of the bootstrapped estimate, to be more competitive against semi-gradient methods. In the general case, the Bellman error appears less favorable as a learning objective because it is not a function of the data, which leads Sutton & Barto (2018) (Section 11 .6) to conclude that this quantity is not learnable. Instead, Sutton et al. (2008; 2009) focus on minimizing the projected Bellman error with linear function approximators. 4Patterson et al. (2022b) generalizes this idea to nonlinear function approximation, resulting in the TDRC algorithm presented in Section 2. We denote H as the class of H approximators and Q the class of Q approximators. The authors demonstrate that the algorithm’s learning objective becomes closer to the projected Bellman error when H becomes closer to Q, and the same objective function becomes closer to the Bellman error when H increases in size. For completeness, Figure 9 (left) de-picts the schematic representation of TDRC with the projected Bellman error as objective function, corresponding to the case when H = Q.The idea of learning a sequence of action-value functions that represent consecutive Bellman itera-tions has been introduced by Schmitt et al. (2022). Vincent et al. (2024) extends the idea to nonlinear function approximation and infinite sequence length by learning a hypernetwork mapping the pa-rameters of a Q-network to the parameters of the Q-network representing its projected Bellman iteration. Iterated TD learning (Vincent et al. (2025b), explained in Section 3) further develops the approach to scale to deep nonlinear function approximation and learn every action-value function in parallel without requiring sequential updates. In a follow-up work, Vincent et al. (2026) propose a parameter-efficient version where each function in the sequence is represented by a linear head, built on top of a shared feature extractor. While showing greater learning speed on challenging benchmarks, i-TD learning suffers from moving targets, making it prone to unexpected behavior. Finally, the idea of learning the value improvement path (Dabney et al., 2021) is closely related to i-TD learning, differing in that it focuses on learning past Bellman iterations via auxiliary losses to improve representation learning, rather than actively learning the following Bellman iterations. In the following, we propose to modify i-TD learning by computing the gradient of the stochastic targets, as in TDRC, yielding Gradient Iterated TD (Gi-TD) learning. The resulting algorithm is designed to directly minimize the sum of BEs, thereby combining the soundness of Gradient TD learning with the promise of greater learning speed coming from the idea motivating i-TD learning. 
+
+## 5 Gradient Iterated Temporal-Difference Learning 
+
+We design an algorithm, which we call Gradient Iterated Temporal-Difference (Gi-TD) learning, that learns a sequence of K + 1 action-value functions in parallel. Each function Qk is optimized to represent the Bellman iteration of the previous function in the sequence ΓQk−1. The objective function remains the same as that of i-TD learning, which is the sum of BEs PKk=1 ∥ΓQk−1 −Qk∥22,but Gi-TD learning differs in the way it minimizes this sum. We note that the first function Q0 is kept fixed, since it does not have a target to regress. Hence, we denote it as ¯Q0.In contrast to i-TD learning, Gi-TD learning computes the gradients of the stochastic targets rather than relying on semi-gradient updates. This means that every function Qk is not only learned to approximate its target ΓQk−1, but also to make the target ΓQk for the following function Qk+1 , an easier target to regress towards. It ensures that Gi-TD learning directly minimizes the sum of BEs, as all parameters in the sum are optimized without ignoring the gradient of the targets. Figure 2 (right) illustrates the mechanism behind the proposed algorithm for K = 3 , where the sequence of functions ¯Q0, Q 1, Q 2, Q 3 is learned to minimize the sum of BEs ∥Γ ¯Q0 −Q1∥+∥ΓQ1 −
+
+Q2∥+∥ΓQ2 −Q3∥. Importantly, by directly minimizing the sum of BEs, the optimization procedure allows trade-offs between early and later Bellman errors. This means that future functions influence the learning dynamics of previous ones. This property is novel and avoids the greedy behavior of TD and i-TD learning, which only minimize the immediate Bellman error and disregard the following ones. Figures 1 (left) and 2 account for this property, representing Q1 further away from Γ ¯Q0 for Gi-TD learning than for TD and i-TD learning, with the following Bellman errors being smaller. We now present the update rule for Gi-TD learning and derive a theoretical justification in Section A. We represent the sequence of action-value functions with K + 1 Q-networks ¯Q0, Q 1, . . . , Q K ,parameterized by ¯θ0, θ 1, . . . , θ K . We also use K − 1 H-networks H2, . . . , H K , parameter-ized by z2, . . . , z K , where each network Hk is trained to learn the difference ΓQk−1 − Qk.5Figure 3: Training procedure of Gradient Iterated TD learning with K = 2 . Q1 not only learns the regression target built from ¯Q0, but is also optimized so that the regression target built from itself is closer to Q2. Q2 learns the regression target built from Q1. H2 approximates the difference between the regression target built from Q1, and Q2. To save parameters, each Q and H-network is represented by a head, built on a shared feature extractor, reducing the number of networks to 2.These H-networks are used to compute each gradient term that includes a stochastic target 
+
+r + γ max a′ Qθk (s′, a ′), without requiring two independent samples, as explained in Section 2. Following Patterson et al. (2022b), a weight decay is added to the parameters of the H-networks. This results in the gradient estimates ∆θk , and ∆zk to perform stochastic gradient descent on the 
+
+Q-network parameters, and H-networks parameters. Given a sample (s, a, r, s ′), we define 
+
+∆θk = ∂θk (r + γ max  
+
+> a′
+
+Qθk (s′, a ′)) Hzk+1 (s, a ) − ∂θk Qθk (s, a )( r + γ max  
+
+> a′
+
+Qθk−1 (s′, a ′) − Qθk (s, a )) ∆zk = ∂zk
+
+
+
+Hzk (s, a ) − (r + γ max  
+
+> a′
+
+Qθk−1 (s′, a ′) − Qθk (s, a )) 
+
+2
+
++ β ∂ zk ∥zk∥22,
+
+where β controls the importance given to the weight decay. We note that ∆θK is only equal to 
+
+−∂θK QθK (s, a )( r+γ max a′ QθK−1 (s′, a ′)−QθK (s, a )) , as θK is the last parameter of the sequence. Similarly to i-TD learning, a target update is performed every T steps, allowing the following Bell-man iterations to be considered. The implementation follows θk ← θk+1 , and zk ← zk+1 , for all possible values of k. An analogous update to soft-target updates (Haarnoja et al., 2018) is also pos-sible, where θ0 is updated to τ θ 1 + (1 − τ )θ0 at every step, and τ regulates the speed at which the parameters θ0 are updated to θ1. When interacting with the environment with discrete action spaces, the action that maximizes the average prediction across the online Q-estimates is selected. Figure 3 provides a summary of the training procedure with K = 2 . In practice, parameters can be shared to reduce the memory footprint, with functions represented by different heads that are built on a shared feature extractor. This reduces the number of independent networks to 2. We present the training procedures for TDRC and i-TD learning in Figure 11 to facilitate comparison. The pseudo-code for an instance of Gi-TD learning applied to Deep Q-network (DQN, Mnih et al. (2015)) is presented in Algorithm 1. Algorithm 2 presents an instance of Gi-TD learning applied to Soft Actor-Critic (SAC, Haarnoja et al. (2018)). Finally, the representation capacity of the H-networks can change the objective function (see Sec-tion 4). While Figure 2 (right) shows the sum of BEs as the objective function, we show in Figure 9 (right) the case where H = Q, for which the objective function is the sum of projected BEs. 
+
+## 6 Analysis in Controlled MDPs 
+
+We start by analyzing the behavior of Gi-TD learning on the Star, Hall, and Triangle Markov Pro-cesses (MPs) (Baird, 1995; Tsitsiklis & Van Roy, 1997) against TD, TDRC, and i-TD learning. The Star MP, also known as the Baird’s counterexample, is presented on the left of Figure 4, and the Hall MP is presented on the right. The Triangle MP is presented in Figure 14. For each MP, the objective is to learn the value function from a dataset in which each state is visited with equal frequency. The value function is equal to zero since a reward of zero is given at every transition. 60
+
+1
+
+2Sum of BEs 
+
+i-TD Gi-TD 
+
+0 1 2Gradient Steps (×10 4 )
+
+0
+
+1
+
+2Value Error 
+
+TD TDRC 
+
+10 5
+
+10 0
+
+10 4Sum of BEs i-TD Gi-TD 
+
+0 1 2Gradient Steps (×10 5 )
+
+0
+
+2
+
+4Value Error 
+
+TD TDRC Figure 4: Evaluating the proposed approach in an off-policy setting with linear function approxi-mation . We clarify that in the bottom plots, TD and i-TD learning overlap. Left : While i-TD and Gi-TD learning are both designed to decrease the sum of Bellman errors, only Gi-TD learning de-creases this quantity when evaluated on Baird’s counterexample. This leads to a low value error for Gi-TD learning, as opposed to i-TD learning, for which this error increases. Right : It is well-known that gradient TD methods have a slow learning speed when evaluated on the Hall problem (Baird, 1995). Notably, Gi-TD learning minimizes the value error faster than TDRC. We leverage the low dimensionality of these MPs to study the behavior of the 4 algorithms in a fully deterministic setting. This means that only one evaluation per algorithm is needed. For that, we evaluate the expected version of each algorithm, in which updates are performed synchronously across all states. We remove the influence of the H-network by allowing the algorithm to access the true Bellman iteration, rather than a stochastic estimate. Therefore, TDRC becomes an instantiation of the residual gradient algorithm (Baird, 1995). We also remove the influence of target updates in i-TD and Gi-TD learning and instead set K to a sufficiently large value so that reward propagation is not limited. Finally, we set T = 1 for TD learning, and D = 1 for i-TD learning. For each experiment, we plot the value error of each algorithm, which is the distance between the learned estimate and the true value function, as a function of the number of gradient steps. We also report the objective function of i-TD and Gi-TD learning, which is the sum of BEs PKk=1 ∥ΓVk−1 − Vk∥22, where (Vk)Kk=0 is the considered sequence of value functions. 
+
+6.1 Off-policy Learning with Linear Function Approximation 
+
+We first consider the Star and Hall MPs (Baird, 1995) with linear function approximation (see Fig-ure 4), in an off-policy setting. We set the learning rate to 0.08 , and K = 300 .For the Star MP, all weights are initialized to zero, except for w6, which is set to 1, and γ = 0 .99 .As expected, TD and i-TD learning diverge due to their semi-gradient nature, whereas TDRC and Gi-TD learning converge, as they are part of the Gradient TD learning paradigm (see Figure 4, left). Importantly, while the sum of BEs decreases over time for Gi-TD learning, it increases for i-TD learning, indicating that i-TD learning does not directly minimize this quantity, due to its semi-gradient nature. For the Hall MP, all weights are initialized to one, and γ = 0 .9. Baird (1995) introduce this problem to demonstrate that semi-gradient methods can learn faster than gradient TD methods. Figure 4 (right) confirms this claim. Indeed, TD and i-TD learning minimize the value error faster than TDRC and Gi-TD learning. Notably, Gi-TD learning reduces the value error faster than TDRC. Interestingly, the learning speed difference between i-TD and Gi-TD learning can be explained by the difference in the sum of BEs, supporting the relevance of this objective function. 
+
+6.2 On-policy Learning with Nonlinear Function Approximation 
+
+We now focus on the Triangle MP (Tsitsiklis & Van Roy, 1997) in an on-policy setting, with non-linear function approximation. We set the learning rate to 0.002 , K = 10 , γ = 0 .99 . All weights are initialized to 14 so that all value functions are equal before the training starts. 7V0
+
+V0
+
+V1
+
+V1
+
+V2
+
+V2
+
+V7
+
+V8
+
+V9 V10 
+
+V0
+
+V0
+
+V1V1
+
+V2
+
+V2
+
+V3
+
+V3
+
+V4
+
+V4
+
+0
+
+3
+
+6
+
+> Sum of BEs
+
+1e2 
+
+i-TD Gi-TD 
+
+0
+
+2
+
+4
+
+> Sum of BEs
+
+1e2 
+
+i-TD Gi-TD 
+
+0.0 0.5 1.0 1.5 
+
+Gradient Steps (×10 3)
+
+0
+
+10 
+
+20 
+
+> Value Error
+
+TD 
+
+TDRC 
+
+0.0 0.5 1.0 1.5 
+
+Gradient Steps (×10 3)
+
+0
+
+5
+
+10 
+
+> Value Error
+
+TD 
+
+TDRC Figure 5: Evaluating the proposed approach in an on-policy setting with nonlinear function ap-proximation , on the Triangle MP. We clarify that in the bottom plots, TD and i-TD learning overlap. 
+
+Left : i-TD learning increases the sum of Bellman Errors (BEs) during training, while it is designed to minimize it. This translates to high value errors. In contrast, Gi-TD learning decreases this quan-tity during training, leading to a low final value error. Right : When changing the spiral direction, semi-gradient methods learn faster than gradient TD methods. Importantly, Gi-TD learning exhibits a faster learning speed than TDRC. Studying this problem is helpful because the algorithm’s behavior can be understood geometrically, as shown in Figures 1 and 2. Indeed, the Triangle MP has only 3 states, so the value functions lie in R3. The space of function approximation is a spiral spanning over the plane orthogonal to the vector (1 , 1, 1) and including the origin. In this experiment, the Bellman operator divides the norm of any vector (which represents a value function) by 2, and rotates the resulting vector by an angle of 
+
+−60 ◦ along the axis defined by the vector (1 , 1, 1) . This means that the application of the Bellman operator on any value function belonging to the plane mentioned earlier, remains on this plane. The true value function (V (s1), V (s2), V (s3)) = (0 , 0, 0) is also part of this plane. Therefore, all relevant quantities lie on this plane, and the analysis can be done in 2 dimensions. Figure 5 (left) illustrates the sequence of value functions obtained at the end of training for i-TD and Gi-TD learning. We represent the initial value function V0 on the plane, belonging to the space of representable value functions in gray, with the center of the spiral being the true value function 
+
+(0 , 0, 0) . As explained, ΓV0 equals V0 scaled by half and rotated by −60 ◦. In this experiment, i-TD learning tries to bring V1 (in orange) closer to ΓV0, which makes it move further away from the center of the spiral. The same goes for V2, which moves further away from the center to approximate 
+
+ΓV1. This continues for all terms in the sequence of value functions, which causes the value error and the sum of BEs to increase. This experiment is another example showing that i-TD learning can lead to increasing values of its objective function. In contrast, Gi-TD learning exhibits a different behavior. While Gi-TD learning also brings V1
+
+(in blue) closer to ΓV0, hence further away from the center, it makes ΓV1 closer to V2, which is initialized at the same location as V0, and hence moves V1 closer to the center. Overall, the sum of BEs decreases if all value functions are closer to the center of the spiral. This is why the functions move closer to the center as represented in Figure 5 (left). This behavior translates into lower value errors and a lower sum of BEs, demonstrating the relevance of the proposed approach. Interestingly, changing the direction of the spiral drastically alters the behavior of the studied al-gorithms, since the Bellman operator now points to the direction of the center following the spiral. Indeed, while i-TD learning only moves V1 (in orange) closer to ΓV0, which brings V1 closer to the center, Gi-TD learning also displaces V1 (in blue) such that ΓV1 is closer to V2, which is initialized at the same location as V0, hence moving further away from the center. This means that semi-gradient methods have an advantage, as they ignore the gradient term coming from the bootstrapped target. Due to this additional term, the value functions learned with Gi-TD learning lag behind those learned with i-TD learning in Figure 5 (right). Overall, all methods reduce the value error over time, with semi-gradient methods being faster than gradient TD methods. Notably, the learning speed of Gi-TD learning is higher than that of TDRC, as observed in the Hall MP experiment in Section 6.1. 87 Experiments 
+
+We evaluate the proposed method on various benchmarks against TD, TDRC, and i-TD learning to assess its behavior in more complex environments. 
+
+7.1 Setup 
+
+In this work, we focus on the agent’s learning speed. This is why we place greater importance on the Area Under the Curve (AUC) of the performance curve than on final performance, as it favors algorithms that continuously improve performance over those that only achieve high returns at the end of training. The AUC also has the advantage of being less dependent on the training budget. We use the Inter-Quantile Mean (IQM, Agarwal et al. (2021)) to remove outliers that may arise from lucky exploration, as the algorithms considered in this work compete at the level of optimization, given the collected data. This is done by discarding 25% of each tail of the distribution of scores when aggregating results. It also allows to discard runs with faulty resets, which can occur when using the Gymnasium library (Towers et al., 2026). When aggregating results, we report baseline-normalized scores, with the TD learning end score as baseline, rather than the human-normalized score. Indeed, TD methods learn differently than humans (Delfosse et al., 2025), leading to human-normalized scores that differ significantly across environments (see Figure 15). Therefore, aggregating human-normalized scores with the IQM met-ric results in discarding experiments with the lowest and highest scores, which correspond to the easiest and hardest environments. This goes against our motivation to use the IQM metric. We still use the human-normalized score for selecting a set of 10 Atari games containing varying levels of difficulty (see Figure 15), as commonly done in RL (Graesser et al., 2022; Vincent et al., 2025a). In the supplementary material, we report the list of hyperparameters in Tables 1, and 2, the detailed description of the aggregation protocol in Section D, and the individual learning curves for each experiment in Section F. Importantly, all shared hyperparameters are set to the same values as in the published version of the baseline for all algorithms. We set K = 5 for i-TD and Gi-TD learning, and β = 1 for TDRC and Gi-TD learning. We also set D = 1 for i-TD learning as Vincent et al. (2026) show that it performs well with this value. For experiments with discrete action spaces, we represent all functions with linear heads, built on top of a shared feature extractor for TDRC, i-TD and Gi-TD learning. For experiments with continuous action spaces, we use independent networks for all algorithms except TDRC, which uses linear heads. We ablate those choices in Section 7.3. Finally, we report aggregated scores for 5 seeds per Atari game (Bellemare et al., 2013) and 10 seeds per MuJoCo environment (Todorov et al., 2012). 
+
+7.2 Benchmark Performance Online Discrete Control. We combine each of the 4 considered TD learning methods with DQN equipped with the CNN architecture, yielding DQN, QRC, i-DQN, and Gi-DQN. We report the learning curves over 100 million frames aggregated over 10 Atari games in Figure 6 (top, left). Re-markably, Gi-DQN outperforms all considered algorithms, showing that gradient TD methods can be competitive against semi-gradient approaches. We also report the AUC for each method, normal-ized by DQN’s AUC, along the x-axis of Figure 6 (bottom, left). The y-axis indicates which method is reported. Gi-DQN provides a 20% improvement over DQN, and increases QRC’s performance by 50 points of percentage ( 120 − 70 = 50 ). 
+
+Online Continuous Control. We now investigate the ability of the 4 considered algorithms to learn informative critics when combined with SAC. Following Haarnoja et al. (2018), all networks are composed of 2 hidden layers of 256 neurons each. We let each algorithm interact for one million steps in 6 MuJoCo tasks and report the aggregated SAC-normalized score in Figure 6 (top, center). Here again, Gi-SAC remains competitive against the semi-gradient methods. It is not the case for SACRC, which performs worse than SAC. In Figure 6 (bottom, center), the comparison of AUCs indicates that Gi-SAC achieves a 7% improvement compared to SAC. 91 25 50 75 100 
+
+Number of Frames (×10 6)
+
+0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+Online Discrete Control 
+
+0 2 4 6 8 10 
+
+Environment Steps (×10 5)
+
+Online Continuous Control 
+
+0 12.5 25 37.5 50 
+
+Gradient Steps (×62.5 K)
+
+1
+
+2
+
+Offline Discrete Control 
+
+60 80 100 120 
+
+in % of DQN 
+
+> Area Under
+> the Curve
+
+80 90 100 110 
+
+in % of SAC 
+
+100 140 180 220 
+
+in % of CQL   
+
+> 10 Atari games 6 MuJoCo tasks 10 Atari games
+
+Baseline BaselineRC i-Baseline Gi-Baseline   
+
+> Baseline: DQN Baseline: DQN Baseline: SAC Baseline: SAC Baseline: CQL Baseline: CQL
+
+Figure 6: Evaluating the proposed approach on multiple benchmarks with deep nonlinear function approximation . When combined with DQN (left), SAC (center), and CQL (right), Gi-TD learning is competitive against semi-gradient methods. Importantly, the performance boost is the highest in the offline setting, where the choice of the optimization method is particularly important. 
+
+Offline Discrete Control. To remove the influence of exploration, we perform an evaluation in an offline scenario on 10 Atari games. We use the dataset released by Gulcehre et al. (2020), which is collected by a DQN agent trained online for 200 million interactions. This leads to a dataset of 50 replay buffers, each comprising 4 million frames. We combine the 4 considered methods with Conservative Q-learning (CQL, Kumar et al. (2020)) and let each algorithm have access to the first 10% of each offline replay buffer during training. Notably, Gi-CQL outperforms the other 
+
+3 algorithms by a large margin, as shown in Figure 6 (top, right), yielding an AUC that is twice that of CQL (see Figure 6, bottom, right). Interestingly, both gradient TD methods outperform the semi-gradient methods, highlighting the benefit of using theoretically sound objective functions. 
+
+Scaling Up the Baseline. We now investigate if Gi-DQN brings benefits over a stronger baseline. For that, we use the IMPALA architecture (Espeholt et al., 2018) and add a global average pooling for each channel of the last convolutional layer, as indicated in Trumpp et al. (2025); Sokar & Castro (2025). We also implement a prioritized experience replay buffer (PER, Schaul et al. (2016)) and use a 3-step return. Figure 7 (center) confirms that the resulting baseline yields better performance than the baseline presented in Figure 6 (left), as the previous baseline only reaches 75% of the new baseline’s AUC on the same 10 Atari games and update-to-data ratio (Medium UTD = 1 /4, see the grey dashed lines). In Figure 7 (center), we observe that Gi-DQN remains competitive against semi-gradient methods, improving the AUC by 5% over the baseline. We stress that achieving improvements over strong baselines, such as the one we consider in this experiment, is generally harder. Similar to the previous online experiments, TDRC exhibits lower learning speed. 
+
+Scaling Up the Replay Ratio. Theoretically sound methods should allow for higher data utilization without the risk of divergence. Therefore, we study the behavior of the 4 considered methods with a UTD ratio 16 times higher than the previous one, i.e., UTD = 4 instead of 1/4. To reduce the computational budget, we maintain the same amount of total gradient steps, resulting in 6.25 million interactions ( 100 /16 = 6 .25 ). In Figure 7 (right), the baseline for normalizing the learning curves is still the end performance of the strong DQN version with a medium UTD ratio to ease compari-son. Remarkably, Gi-DQN outperforms the other methods, yielding an average performance 130% 
+
+higher than that of the strong DQN variant. In this setting, QRC also outperforms the semi-gradient methods, supporting the idea that theoretically sound methods generally perform better with more computing power. Finally, we evaluate the 4 methods in a low UTD regime where a gradient step is performed every 32 environment interactions, which is equal to the batch size, thereby evaluat-10 1 25 50 75 100 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+> IQM Return
+
+Low UTD 
+
+1 25 50 75 100 
+
+Number of Frames (×10 6)
+
+0.0 
+
+0.5 
+
+1.0 
+
+Medium UTD 
+
+> DQN with CNN
+
+2 4 6
+
+0.1 
+
+0.2 
+
+0.3 High UTD 
+
+90 95 100 105 
+
+> Area Under
+> the Curve
+
+80 90 100 110 
+
+in % of DQN 
+
+100 110 120 130 
+
+DQN QRC i-DQN Gi-DQN 
+
+IMPALA + GAP + PER + 3-step return Figure 7: Evaluating the proposed approach in combination with a strong baseline , and with dif-ferent update-to-data (UTD) ratios . Gi-TD learning remains competitive against semi-gradient methods when combined with a more powerful architecture (IMPALA + GAP), a prioritized ex-perience replay buffer (PER), and a 3-step return. Notably, Gi-TD learning’s learning speed is significantly greater than that of the other considered methods at high UTD ratios, a setting where the optimization method exerts a stronger influence on the learning behavior. ing the lowest relevant UTD ratio. As expected, all methods perform similarly, confirming that the potential of gradient TD methods lies in high UTD regimes. In Section E, we perform a similar study on the MuJoCo benchmark with varying UTD values. Figure 16 demonstrates a similar trend, confirming the superiority of Gi-TD at high UTD ratios. 
+
+7.3 Ablation Study 
+
+We ablate the design choices made in Section 7. Specifically, we study the dependency of Gi-TD learning on the weight decay coefficient β and the choice of the architecture. For that, we evaluate the combinations of Gi-TD learning with DQN, SAC, and CQL on 2 Atari games with 5 seeds, 2
+
+MuJoCo tasks with 5 seeds, and 2 Gym environments with 10 seeds. We run a grid search on 2 weight decay coefficients ( β = 1 , and 0.01 ), and 3 different architectures that are presented in Figure 10 (independent networks, shared feature extractor with linear heads, and with nonlinear heads), except for the experiments on Atari games, for which we do not evaluate independent architectures to reduce the computational budget. The CNN architecture is used for Gi-DQN, a 2-layer network with 256 neurons is used for Gi-SAC, and a 3-layer network with 50 
+
+neurons is used for Gi-CQL. To reduce dependency on other hyperparameters, we add 2 axes to the grid and aggregate results across them. We select 2 values of UTD ( 0.25 and 1 for Gi-DQN, 1 and 4 for Gi-SAC) or 2 dataset sizes for Gi-CQL ( 10% and 100% ), and 2 target update periods ( T = 1000 and 8000 for Gi-DQN, 
+
+T = 10 and 1000 for Gi-CQL) or 2 values of soft-target updates for Gi-SAC ( τ = 0 .005 and 0.01 ). Figure 8 (top) reports the aggregated performance over architecture designs, the UTDs or dataset sizes, and target update periods or soft-target update values. It demonstrates the relevance of regu-larizing the H-networks as advocated in Ghiassian et al. (2020), because setting the weight decay coefficient to a high value generally leads to better performance. Then, we report the performance of the different architectures in Figure 8 (bottom), selecting β = 1 , and aggregating over the 2 other axes. The architecture with linear heads appears to perform best, except in the continuous-action setting, where independent networks yield the best results. This explains the choices made in Sec-tion 7. We believe that independent networks perform better for Gi-SAC because the architecture is 11 0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+=1 
+
+= 0.01 
+
+Gi-DQN 
+
+0.0 
+
+0.5 
+
+1.0 
+
+Gi-SAC 
+
+1
+
+0
+
+1
+
+Gi-CQL 
+
+1 20 40 
+
+Number of Frames (×10 6)
+
+0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+Non-Linear 
+
+Linear 
+
+1 2.5 5
+
+Environment Steps (×10 5)
+
+0.0 
+
+0.5 
+
+1.0 Independent 
+
+0 10 20 
+
+Gradient Steps (×10 4)
+
+1
+
+0
+
+1  
+
+> Qbert & CrazyClimber Ant & Walker2d LunarLander & MountainCar
+
+Figure 8: Ablation studies on the weight decay coefficient and the architecture design choices .
+
+Top : Setting β = 1 , as advocated in Patterson et al. (2022b), yield better performance. Bottom :Defining a shared feature extractor with linear heads performs best for experiments with discrete actions. In the experiment with a continuous actions space (Gi-SAC), we believe that the neural networks are too shallow to benefit from parameter sharing. too shallow (only 2 layers) to benefit from parameter sharing. We also perform the same study on TDRC and i-TD learning, which we report in Figure 17, and draw similar conclusions. Finally, we fix β = 1 , and use an architecture with linear heads to compare 2 values of K (5 and 50 )for i-TD and Gi-TD learning. We aggregate the learning curves across the 2 other axes in Figure 18. Notably, the dependency of Gi-TD learning on this hyperparameter is lower than for i-TD learning, which struggles to learn for K = 50 , a limitation pointed out in Vincent et al. (2026). 
+
+## 8 Limitations, Conclusion & Future Work 
+
+Due to its more elaborate loss, the presented method requires more floating-point operations per gra-dient step than the other methods, which entails a longer training time (see Figure 12). Nonetheless, we point out that when computing the algorithm’s runtime, the environment steps are simulated, which does not reflect the real-world duration, as the simulator reduces the time required to collect data, which is generally the main bottleneck for real-world applications. Another limitation is that the proposed objective function is not designed to minimize the entire bound on error propagation (see Theorem 3.4). It only focuses on the term that depends on the sequence of action-value functions observed during training. However, the proposed method still provides some benefit compared to i-TD learning, and the other terms are related to the algorithm’s exploration strategy, which is beyond the scope of this work. Finally, studying the convergence properties of the proposed approach would provide more insights into the algorithm’s behavior. To conclude, we introduced Gradient Iterated Temporal-Difference (Gi-TD) learning, which is de-signed to learn a sequence of action-value functions in parallel, where each function is optimized to represent the application of the Bellman operator over the previous function in the sequence. Its ob-jective function is the sum of Bellman errors formed by the sequence of action-value functions. Gi-TD learning minimizes this quantity by optimizing over every learnable parameter, including those used to compute stochastic targets. Therefore, it belongs to the gradient TD line of work. Our eval-uations show competitive performance against semi-gradient methods across various benchmarks, including Atari games, a result that no prior work on gradient TD methods has demonstrated. We believe that studying a version of Gi-TD learning with different coefficients for each Bellman iteration could further boost performance. Additionally, combining Gi-TD learning with gradient eligibility traces (Elelimy et al., 2025), distributional or robust losses (Bellemare et al., 2023; Qu et al., 2019; Patterson et al., 2022a) is a promising step towards sample-efficient algorithms. 12 References 
+
+Rishabh Agarwal, Max Schwarzer, Pablo Samuel Castro, Aaron C Courville, and Marc Bellemare. Deep reinforcement learning at the edge of the statistical precipice. Advances in neural informa-tion processing systems , 2021. Leemon Baird. Residual algorithms: Reinforcement learning with function approximation. Machine learning , 1995. Marc G Bellemare, Yavar Naddaf, Joel Veness, and Michael Bowling. The arcade learning envi-ronment: An evaluation platform for general agents. Journal of Artificial Intelligence Research ,2013. Marc G Bellemare, Will Dabney, and Mark Rowland. Distributional reinforcement learning . MIT Press, 2023. James Bradbury, Roy Frostig, Peter Hawkins, Matthew James Johnson, Chris Leary, Dougal Maclaurin, George Necula, Adam Paszke, Jake VanderPlas, Skye Wanderman-Milne, and Qiao Zhang. JAX: composable transformations of Python+NumPy programs , 2018. Greg Brockman, Vicki Cheung, Ludwig Pettersson, Jonas Schneider, John Schulman, Jie Tang, and Wojciech Zaremba. Openai gym. arXiv preprint arXiv:1606.01540 , 2016. Pablo Samuel Castro, Subhodeep Moitra, Carles Gelada, Saurabh Kumar, and Marc G Belle-mare. Dopamine: A research framework for deep reinforcement learning. arXiv preprint arXiv:1812.06110 , 2018. Will Dabney, André Barreto, Mark Rowland, Robert Dadashi, John Quan, Marc G Bellemare, and David Silver. The value-improvement path: Towards better representations for reinforcement learning. In Proceedings of the AAAI conference on artificial intelligence , 2021. Jonas Degrave, Federico Felici, Jonas Buchli, Michael Neunert, Brendan Tracey, Francesco Carpanese, Timo Ewalds, Roland Hafner, Abbas Abdolmaleki, Diego de Las Casas, et al. Mag-netic control of tokamak plasmas through deep reinforcement learning. Nature , 2022. Quentin Delfosse, Jannis Blüml, Fabian Tatai, Théo Vincent, Bjarne Gregori, Elisabeth Dillies, Jan Peters, Constantin A Rothkopf, and Kristian Kersting. Deep reinforcement learning agents are not even close to human intelligence. In Inductive Biases in Reinforcement Learning Workshop @RLC , 2025. Esraa Elelimy, Brett Daley, Andrew Patterson, Marlos C Machado, Adam White, and Martha White. Deep reinforcement learning with gradient eligibility traces. In Reinforcement Learning Journal ,2025. Mohamed Elsayed, Gautham Vasan, and A Rupam Mahmood. Streaming deep reinforcement learn-ing finally works. arXiv preprint arXiv:2410.14606 , 2024. Lasse Espeholt, Hubert Soyer, Remi Munos, Karen Simonyan, Vlad Mnih, Tom Ward, Yotam Doron, Vlad Firoiu, Tim Harley, Iain Dunning, et al. Impala: Scalable distributed deep-rl with im-portance weighted actor-learner architectures. In International Conference on Machine Learning ,2018. Amir-massoud Farahmand. Regularization in reinforcement learning. University of Alberta , 2011. Sina Ghiassian, Andrew Patterson, Shivam Garg, Dhawal Gupta, Adam White, and Martha White. Gradient temporal-difference learning with regularized corrections. In International Conference on Machine Learning , 2020. Laura Graesser, Utku Evci, Erich Elsen, and Pablo Samuel Castro. The state of sparse training in deep reinforcement learning. In International Conference on Machine Learning , 2022. 13 Caglar Gulcehre, Ziyu Wang, Alexander Novikov, Thomas Paine, Sergio Gómez, Konrad Zolna, Rishabh Agarwal, Josh S Merel, Daniel J Mankowitz, Cosmin Paduraru, et al. Rl unplugged: A suite of benchmarks for offline reinforcement learning. Advances in Neural Information Process-ing Systems , 2020. Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In International Confer-ence on Machine Learning , 2018. Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, and Travis E. Oliphant. Array program-ming with NumPy. Nature , 2020. Matteo Hessel, Joseph Modayil, Hado Van Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan, Bilal Piot, Mohammad Azar, and David Silver. Rainbow: Combining improvements in deep reinforcement learning. In Proceedings of the AAAI conference on artificial intelligence ,2018. Ray Jiang, Shangtong Zhang, Veronica Chelu, Adam White, and Hado van Hasselt. Learning ex-pected emphatic traces for deep rl. In Proceedings of the AAAI conference on artificial intelli-gence , 2022. Diederik Kingma and Jimmy Ba. Adam: A method for stochastic optimization. In International Conference on Learning Representations , 2015. Aviral Kumar, Aurick Zhou, George Tucker, and Sergey Levine. Conservative q-learning for offline reinforcement learning. In Advances in Neural Information Processing Systems , 2020. Hojoon Lee, Youngdo Lee, Takuma Seno, Donghu Kim, Peter Stone, and Jaegul Choo. Hyper-spherical normalization for scalable deep reinforcement learning. In International Conference on Machine Learning , 2025. Marlos C Machado, Marc G Bellemare, Erik Talvitie, Joel Veness, Matthew Hausknecht, and Michael Bowling. Revisiting the arcade learning environment: Evaluation protocols and open problems for general agents. Journal of Artificial Intelligence Research , 2018. Hamid Maei, Csaba Szepesvari, Shalabh Bhatnagar, Doina Precup, David Silver, and Richard S Sutton. Convergent temporal-difference learning with arbitrary smooth function approximation. 
+
+Advances in neural information processing systems , 2009. Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A Rusu, Joel Veness, Marc G Belle-mare, Alex Graves, Martin Riedmiller, Andreas K Fidjeland, Georg Ostrovski, et al. Human-level control through deep reinforcement learning. nature , 2015. Daniel Palenicek, Florian Vogt, Joe Watson, Ingmar Posner, and Jan Peters. Xqc: Well-conditioned optimization accelerates deep reinforcement learning. International Conference on Learning Rep-resentations , 2026. Andrew Patterson, Victor Liao, and Martha White. Robust losses for learning value functions. IEEE Transactions on Pattern Analysis and Machine Intelligence , 2022a. Andrew Patterson, Adam White, and Martha White. A generalized projected bellman error for off-policy value estimation in reinforcement learning. Journal of Machine Learning Research ,2022b. 14 Chao Qu, Shie Mannor, and Huan Xu. Nonlinear distributional gradient temporal-difference learn-ing. In International Conference on Machine Learning , 2019. Tom Schaul, John Quan, Ioannis Antonoglou, and David Silver. Prioritized experience replay. In 
+
+International Conference on Learning Representations , 2016. Simon Schmitt, John Shawe-Taylor, and Hado Van Hasselt. Chaining value functions for off-policy learning. In Proceedings of the AAAI Conference on Artificial Intelligence , 2022. Julian Schrittwieser, Ioannis Antonoglou, Thomas Hubert, Karen Simonyan, Laurent Sifre, Simon Schmitt, Arthur Guez, Edward Lockhart, Demis Hassabis, Thore Graepel, et al. Mastering atari, go, chess and shogi by planning with a learned model. Nature , 2020. Paul J Schweitzer and Abraham Seidmann. Generalized polynomial approximations in markovian decision processes. Journal of Mathematical Analysis and Applications , 1985. Ghada Sokar and Pablo Samuel Castro. Mind the gap! the challenges of scale in pixel-based deep reinforcement learning. Advances in Neural Information Processing Systems , 2025. Richard Sutton and Andrew Barto. Reinforcement learning: an introduction . MIT press Cambridge, 2018. Richard S Sutton. Learning to predict by the methods of temporal differences. Machine learning ,1988. Richard S Sutton, Csaba Szepesvári, and Hamid Reza Maei. A convergent o (n) algorithm for off-policy temporal-difference learning with linear function approximation. Advances in neural information processing systems , 2008. Richard S Sutton, Hamid Reza Maei, Doina Precup, Shalabh Bhatnagar, David Silver, Csaba Szepesvári, and Eric Wiewiora. Fast gradient-descent methods for temporal-difference learning with linear function approximation. In International Conference on Machine Learning , 2009. Emanuel Todorov, Tom Erez, and Yuval Tassa. Mujoco: A physics engine for model-based control. In International Conference on Intelligent Robots and Systems , 2012. Mark Towers, Ariel Kwiatkowski, John U Balis, Gianluca De Cola, Tristan Deleu, Manuel Goulão, Kallinteris Andreas, Markus Krimmel, Arjun KG, Rodrigo De Lazcano Perez-Vicente, et al. Gymnasium: A standard interface for reinforcement learning environments. In Advances in Neu-ral Information Processing Systems Datasets and Benchmarks Track , 2026. Raphael Trumpp, Ansgar Schäfftlein, Mirco Theile, and Marco Caccamo. Impoola: The power of average pooling for image-based deep reinforcement learning. Reinforcement Learning Journal ,2025. John N Tsitsiklis and Benjamin Van Roy. An analysis of temporal-difference learning with function approximation. IEEE Transactions on Automatic Control , 1997. Gautham Vasan, Mohamed Elsayed, Alireza Azimi, Jiamin He, Fahim Shariar, Colin Bellinger, Martha White, and A. Rupam Mahmood. Deep policy gradient methods without batch updates, target networks, or replay buffers. In Advances in Neural Information Processing Systems , 2024. Nino Vieillard, Olivier Pietquin, and Matthieu Geist. Munchausen reinforcement learning. Advances in Neural Information Processing Systems , 2020. Théo Vincent, Alberto Maria Metelli, Boris Belousov, Jan Peters, Marcello Restelli, and Carlo D’Eramo. Parameterized projected bellman operator. In Proceedings of the AAAI Conference on Artificial Intelligence , 2024. 15 Théo Vincent, Tim Faust, Yogesh Tripathi, Jan Peters, and Carlo D’Eramo. Eau de q-network: Adaptive distillation of neural networks in deep reinforcement learning. Reinforcement Learning Journal , 2025a. Théo Vincent, Daniel Palenicek, Boris Belousov, Jan Peters, and Carlo D’Eramo. Iterated q-network: Beyond one-step bellman updates in deep reinforcement learning. Transactions on Machine Learning Research , 2025b. Théo Vincent, Yogesh Tripathi, Tim Faust, Yaniv Oren, Jan Peters, and Carlo D’Eramo. Bridging the performance gap between target-free and target-based reinforcement learning. International Conference on Learning Representations , 2026. Christopher JCH Watkins and Peter Dayan. Q-learning. Machine learning , 1992. Peter R Wurman, Samuel Barrett, Kenta Kawamoto, James MacGlashan, Kaushik Subramanian, Thomas J Walsh, Roberto Capobianco, Alisa Devlic, Franziska Eckert, Florian Fuchs, et al. Out-racing champion gran turismo drivers with deep reinforcement learning. Nature , 2022. Kenny Young and Tian Tian. Minatar: An atari-inspired testbed for thorough and reproducible reinforcement learning experiments. arXiv preprint arXiv:1903.03176 , 2019. 16 Supplementary Materials 
+
+The following content was not necessarily subject to peer review. 
+
+## Table of Contents 
+
+A Theoretical Results 17 B Schematic Representations 19 C Algorithmic Details 20 D Experiment Setup 22 E Additional Experiments 25 
+
+E.1 Scaling Up the Replay Ratio in Continuous Actions Domains . . . . . . . . 25 E.2 Additional Ablation Studies . . . . . . . . . . . . . . . . . . . . . . . . . . 26 
+
+F Individual Learning Curves 29 
+
+## A Theoretical Results 
+
+Theorem 3.4 from Farahmand (2011). Let N ∈ N∗, and ρ, ν two probability measures on S × A .For any sequence (Qk)Kk=0 ∈ Q K+1 Θ where Rγ depends on the reward function and the discount factor, we have 
+
+∥Q∗ − QπK ∥1,ρ ≤ CK,γ,R γ + inf  
+
+> r∈[0 ,1]
+
+F (r; K, ρ, ν, γ )
+
+ PKk=1 α2rk ∥Γ∗Qk−1 − Qk∥22,ν 
+
+ 12
+
+where CK,γ,R γ , F (r; K, ρ, ν, γ ), and (αk)Kk=1 do not depend on (Qk)Kk=1 . πK is a greedy policy computed from QK .
+
+Formal Derivation of Gi-TD learning’s update rule. We present a theoretical justification for Gi-TD learning’s update rule to complement the intuitive explanation given in Section 5. The goal is to reformulate the objective function of Gi-TD learning such that the double sampling problem is replaced by a min-max problem, as in Patterson et al. (2022b). Similar to Sutton et al. (2009), Gi-TD learning’s update rule can then be derived using a saddle-point update and gradient correction. The objective function of Gi-TD learning is the sum of Bellman Errors (BEs) formed by the se-quence of considered action-value functions (Qθk )Kk=0 . For each k, and state-action-reward-next-state (s, a, r, s ′), we note δk(s, a, r, s ′) := r + γ max a′ Qθk−1 (s′, a ′) − Qθk (s, a ). Therefore, Gi-TD learning’s objective is to minimize the sum of BEs that can be written as 
+
+> K
+
+X
+
+> k=1
+
+X
+
+> (s,a )∈S×A
+
+d(s, a ) Er∼R (s,a ),s ′∼P (s,a ) [δk(s, a, r, s ′)] 2 ,
+
+where d(s, a ) is the state-action distribution. Unfortunately, estimating this quantity with a single sample yields a biased gradient, since the square of expectations requires two independent samples to be estimated without bias. This is why we reformulate the objective function using the fact that the square function is equal to its biconjugate, i.e., x2 = max h∈R 2xh − h2, ∀x ∈ R.17 Starting from the original formulation, we replace the square function by its biconjugate to obtain the saddle-point formulation. We note δE 
+
+> k
+
+(s, a ) := Er∼R (s,a ),s ′∼P (s,a ) [δk(s, a, r, s ′)] , and write: 
+
+> K
+
+X
+
+> k=1
+
+X
+
+> (s,a )∈S×A
+
+d(s, a )δE 
+
+> k
+
+(s, a )2 =
+
+> K
+
+X
+
+> k=1
+
+X
+
+> (s,a )∈S×A
+
+d(s, a ) max  
+
+> h∈R
+
+2 h δ E 
+
+> k
+
+(s, a ) − h2(a) 
+
+=
+
+> K
+
+X
+
+> k=1
+
+max 
+
+> H∈F all
+
+X
+
+> (s,a )∈S×A
+
+d(s, a )  2 H(s, a ) δE 
+
+> k
+
+(s, a ) − H(s, a )2
+
+> (b)
+
+= max 
+
+> H∈F K
+> all
+> K
+
+X
+
+> k=1
+
+X
+
+> (s,a )∈S×A
+
+d(s, a )  2 Hk(s, a ) δE 
+
+> k
+
+(s, a ) − Hk(s, a )2 ,
+
+where Fall represents the space of all functions mapping state-action pairs to real values. We remark that Equations (a) and (b) are true because of the interchangeability of the summation and the max in this situation. Indeed, Equation (a) holds because a different value of H(s, a ) can be chosen for each state-action pair (s, a ). Similarly, Equation (b) holds because a different value of Hk(s, a ) can be chosen for each state-action pair (s, a ), and for each k.We remark that the sum of BEs can be converted to the sum of projected BEs when Fall = Q, where 
+
+Q is the space of function approximators, as explained in Patterson et al. (2022b). From there, different update rules can be established to perform stochastic gradient descent on the min-max problem. We use K functions (Hzk )Kk=1 , parameterized by (zk)Kk=1 , to represent the quantity optimized by the maximum operator. Overall, the update rule for all learnable parameters is 
+
+θk ← θk − ηθ ∆θk , for k ∈ { 0, . . . , K }
+
+zk ← zk − ηz ∆zk , for k ∈ { 1, . . . , K },
+
+where ηθ , and ηz are the learning rates shared across all values for k. In the following, we derive the gradient estimates ∆θk and ∆zk .Following GTD2 (Sutton et al., 2009), the gradient estimates for saddle-point updates are 
+
+∆θk = ∂θk
+
+
+
+> K
+
+X
+
+> j=1
+
+2 Hzj (s, a ) δj (s, a, r, s ′) − Hzj (s, a )2
+
+ , where δj is a function of θj−1 and θj ,
+
+=
+
+
+
+2 Hz1 (s, a ) ∂θ0 δ1(s, a, r, s ′) if k = 0 ,
+
+2 Hzk (s, a ) ∂θk δk(s, a, r, s ′) + 2 Hzk+1 (s, a ) ∂θk δk+1 (s, a, r, s ′) if k ∈ { 1, . . . , K − 1},
+
+2 HzK (s, a ) ∂θk δK (s, a, r, s ′) if k = K, 
+
+=
+
+
+
+2 Hz1 (s, a ) ∂θ0 (r + γ max a′ Qθ0 (s′, a ′)) if k = 0 ,
+
+−2 Hzk (s, a ) ∂θk Qθk (s, a ) + 2 Hzk+1 (s, a ) ∂θk (r + γ max a′ Qθk (s′, a ′)) if k ∈ { 1, . . . , K − 1},
+
+−2 HzK (s, a ) ∂θK QθK (s, a ) if k = K, 
+
+∆zk = −∂zk
+
+
+
+> K
+
+X
+
+> j=1
+
+ 2 Hzj (s, a ) δj (s, a, r, s ′) − Hzj (s, a )2
+
+= − [2 δk(s, a, r, s ′) ∂zk Hzk (s, a ) − 2 Hzk (s, a ) ∂zk Hzk (s, a )] = 2 ( Hzk (s, a ) − δk(s, a, r, s ′)) ∂zk Hzk (s, a )= ∂zk [Hzk (s, a ) − δk(s, a, r, s ′)] 2
+
+= ∂zk
+
+h
+
+Hzk (s, a ) − (r + γ max  
+
+> a′
+
+Qθk−1 (s′, a ′) − Qθk (s, a )) 
+
+i2
+
+.
+
+18 Finally, we reduce the influence of the learned estimates (Hzk )Kk=1 on the update rule of the action-value function parameters. For that, following the TDC algorithm (Sutton et al., 2009), we incorpo-rate a gradient correction term in ∆θk . Additionally, we use a weight decay penalty regulated with the coefficient β in ∆zk , as advocated in Ghiassian et al. (2020). We also freeze the first parameters θ0. Indeed, K can only be set to a small value due to memory constraints. This value is generally far lower than the number of Bellman iterations required to ensure sufficient reward propagation. This means that target updates have to be implemented by setting θk ← θk+1 , and zk ← zk+1 every T steps. By freezing the first action-value function in the sequence, we ensure it stays in place at the position that has been learned, and is not influenced by the following functions in the sequence that are still being optimized. When incorporating gradient correction, weight decay penalty, and a frozen θ0, we obtain the gradi-ent estimates presented in Section 5: 
+
+∆θk =
+
+
+
+− (r + γ max  
+
+> a′
+
+Qθk−1 (s′, a ′) − Qθk (s, a )) ∂θk Qθk (s, a )+ Hzk+1 (s, a ) ∂θk (r + γ max  
+
+> a′
+
+Qθk (s′, a ′)) if k ∈ { 1, . . . , K − 1},
+
+−(r + γ max a′ Qθk−1 (s′, a ′) − Qθk (s, a )) ∂θK QθK (s, a ) if k = K, 
+
+∆zk = ∂zk
+
+
+
+Hzk (s, a ) − (r + γ max  
+
+> a′
+
+Qθk−1 (s′, a ′) − Qθk (s, a )) 
+
+2
+
++ β ∂ zk ∥zk∥22,
+
+where a factor of 2 is ignored in all terms of ∆θk for clarity. Finally, we remark that Hz1 does not appear thanks to the gradient correction and the fact that θ0 is frozen. Therefore, only K − 1 H-parameters are needed to compute the update rule. 
+
+## B Schematic Representations 
+
+Figure 9: Left : As opposed to Figures 1 (right), which shows the case where Gradient TD learning minimizes the Bellman error, this figure depicts the case where Gradient TD learning minimizes the projected Bellman error. This case happens when the classes of function approximators for H-networks and Q-networks are equal. Right : Similarly, in this figure, gradient iterated TD learning minimizes the sum of projected Bellman errors, and not the sum of Bellman errors as shown in Figure 2 (right). Importantly, the first Bellman error is not projected as ¯Q0 is kept frozen. Feature extractor Linear layer Non-Linear Shared Linear Shared Independent 
+
+Figure 10: Different architecture choices. Left : Each action-value function or functions H uses a separate network. Center : All action-value functions and functions H use a shared feature extractor with heads that are composed of two linear layers with a ReLU function in between. Right : All action-value functions and functions H use a shared feature extractor with linear heads. 19 Figure 11: Top : Training procedure of TDRC with a shared architecture, and 2 heads. The 2 heads represent the action-value function Q, and the H-prediction H. The Q-head regresses a target built from itself. The H-head regresses the difference between the regression target and the Q-head. 
+
+Bottom : Training procedure for i-TD learning for K = 2 , with shared architecture. Each Qk
+
+regresses a target built from Qk−1. For building regression targets, parameters are kept frozen, depicted in grey on the right-hand side. 
+
+## C Algorithmic Details 
+
+We uploaded our codebase with this submission. Upon acceptance, we will publicly release the code on GitHub. It relies on the JAX framework (Bradbury et al., 2018), the Adam opti-mizer (Kingma & Ba, 2015), and the NumPy library (Harris et al., 2020). 0
+
+1
+
+2 ×10 8 FLOPs 
+
+0
+
+10 
+
+20 
+
+Runtime (in hours) 
+
+1
+
+10 
+
+Number of Parameters (×10 6)
+
+0
+
+2
+
+4
+
+×10 9
+
+0
+
+0.5 
+
+1
+
+1
+
+10 
+
+Baseline BaselineRC i-Baseline Gi-Baseline 
+
+CNN, Baseline: DQN MLP, Baseline: SAC 
+
+IMPALA + GAP + PER + 3-step return, Baseline: DQN 
+
+Figure 12: Comparison of computational requirements between TD, TDRC, i-TD, and Gi-TD learn-ing. The comparison is made for the 2 different architectures used for the online Atari experiment, and for the Multi-Layer Perceptron (MLP) used for the MuJoCo experiment. All algorithms use a shared feature extractor on top of linear heads, except for i-SAC and Gi-SAC, which use indepen-dent networks. We do not report the metrics for the offline experiments as they are similar to those of the online experiments. Left : Number of Floating-Points Operations (FLOPs) required for each gradient step. As expected, gradient TD methods require more FLOPs as they compute the gradient of the target. Center : Training time of the different methods computed on an NVIDIA GeForce RTX 4090 with the game Breakout for the DQN experiments, and with the task Ant for the SAC experiments. Importantly, while a difference is noticeable in terms of FLOPs, the training times are similar. Gi-TD only requires a few minutes more than the other methods. Right : When sharing parameters, Gi-TD uses a similar amount of parameters compared to the other methods. 20 Algorithm 1 Gradient iterated Deep Q-Network (Gi-DQN). Modifications to DQN are in blue.  
+
+> 1:
+
+Initialize K Q -network parameters (θk)Kk=1 , K − 1 H-network parameters (zk)Kk=2 , and an empty replay buffer D. Initialize the frozen target Q-network parameters θ0 ← θ1. 
+
+> 2:
+
+Repeat  
+
+> 3:
+
+Take action at ∼ ϵ-greedy ( 1
+
+> K
+
+PKk=1 Qθk ); Observe reward rt, next state st+1 . 
+
+> 4:
+
+Update D ← D S{(st, a t, r t, s t+1 )}. 
+
+> 5:
+
+for UTD updates  
+
+> 6:
+
+Sample a mini-batch B = {(s, a, r, s ′)} from D. 
+
+> 7:
+
+Set δk(d) = r + γ max a′ Qθk−1 (s′, a ′) − Qθk (s, a ), for d ∈ B , and k ∈ { 1, . . . , K } 
+
+> 8:
+
+Compute the losses, for d ∈ B : ▷ ⌈·⌉ indicates a stop gradient operation. 
+
+LQ(d) = 
+
+> K−1
+
+X
+
+> k=1
+
+h
+
+(r + γ max  
+
+> a′
+
+Qθk (s′, a ′)) · ⌈ Hzk+1 (s, a )⌉ − Qθk (s, a ) · ⌈ δk(d)⌉
+
+i
+
+− QθK (s, a ) · ⌈ δK (d)⌉LH (d) = 
+
+> K
+
+X
+
+> k=2
+
+[⌈δk(d)⌉ − Hzk (s, a )] 2 + β|| zk|| 22. 
+
+> 9:
+
+Update θk with ∇θk
+
+P 
+
+> d∈B
+
+LQ(d), for k ∈ { 1, ...K − 1}. 
+
+> 10:
+
+Update zk with ∇zk
+
+P 
+
+> d∈B
+
+LH (d), for k ∈ { 2, ..., K − 1}. 
+
+> 11:
+
+every T steps  
+
+> 12:
+
+θk ← θk+1 , for k ∈ { 0, . . . , K − 1}. 
+
+> 13:
+
+zk ← zk+1 , for k ∈ { 2, . . . , K − 1}.
+
+Algorithm 2 Gradient iterated Soft Actor Critic (Gi-SAC). Modifications to SAC are in blue.  
+
+> 1:
+
+Initialize the policy network parameters ϕ, 2 × K critic-network parameters (θ1
+
+> k
+
+, θ 2
+
+> k
+
+)Kk=1 , 2×
+
+(K − 1) H-network parameters (z1
+
+> k
+
+, z 2
+
+> k
+
+)Kk=2 , an empty replay buffer D, and α the entropy coefficient. Initialize the 2 frozen target critic-networks parameters θi 
+
+> 0
+
+← θi 
+
+> 1
+
+for i = 1 , 2. 
+
+> 2:
+
+Repeat  
+
+> 3:
+
+Take action at ∼ πϕ(·| st); Observe reward rt, next state st+1 . 
+
+> 4:
+
+Update D ← D S{(st, a t, r t, s t+1 )}. 
+
+> 5:
+
+for UTD updates  
+
+> 6:
+
+Sample a mini-batch B = {(s, a, r, s ′)} from D. 
+
+> 7:
+
+δik(d) = r + γ min  
+
+> j∈{ 1,2}
+
+Qθjk−1
+
+(s′, a ′) − γα log πϕ(a′|s′) − Qθik (s, a ),where a′ ∼ πϕ(·| st), for d ∈ B , k ∈ { 1, . . . , K }, and i ∈ { 1, 2}. 
+
+> 8:
+
+Compute the critic losses, for d ∈ B , and i ∈ { 1, 2}: ▷ ⌈·⌉ indicates stop gradient. 
+
+LiQ(d) = 
+
+> K−1
+
+X
+
+> k=1
+
+ 
+
+r + γ min  
+
+> j∈{ 1,2}
+
+Qθjk−1
+
+(s′, a ′) − γα log πϕ(a′|s′)
+
+
+
+· ⌈ Hzik+1 (s, a )⌉−Qθik (s, a ) · ⌈ δik(d)⌉
+
+i
+
+−QθiK (s, a ) · ⌈ δiK (d)⌉, where a′ ∼ πϕ(·| st)
+
+LiH (d) = 
+
+> K
+
+X
+
+> k=2
+
+h
+
+⌈δik(d)⌉ − Hzik (s, a )
+
+i2
+
++ β|| zik|| 22. 
+
+> 9:
+
+Compute the actor loss, for d ∈ B :
+
+Lπ (d) = min 
+
+> i∈{ 1,2}
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+Qθik (s, a ) − α log πϕ(a|s),
+
+where a ∼ πϕ(·| s), for k ∈ { 1, ...K − 1}, and i ∈ { 1, 2}. 
+
+> 10:
+
+Update θik with ∇θk
+
+P 
+
+> d∈B
+
+LiQ(d), for k ∈ { 1, ...K − 1}, and i ∈ { 1, 2}. 
+
+> 11:
+
+Update zik with ∇zk
+
+P 
+
+> d∈B
+
+LiH (d), for k ∈ { 1, ...K − 1}, and i ∈ { 1, 2}. 
+
+> 12:
+
+Update ϕ from ∇ϕ
+
+P 
+
+> d∈B
+
+Lπ (d). 
+
+> 13:
+
+Update θi 
+
+> 0
+
+← τ θ i 
+
+> 1
+
++ (1 − τ )θi
+
+> 0
+
+, for i ∈ { 1, 2}.21 1 import jax                                                                                                       
+
+> 2import jax.numpy as jnp
+> 345def loss_on_single_sample(params, target_params, sample):
+> 6#Compute (Q_1, ..., Q_K), (H_2, ..., H_K) for state s,
+> 7#with shape (K, n_actions), (K-1, n_actions).
+> 8q_s, h_s =network. apply (params, sample.state)
+> 910 #Compute Q_0 for next state s’, with shape (1, n_actions).
+> 11 q_first_next_s =target_network. apply (target_params, sample.next_state)
+> 12 13 #Compute (Q_1, ..., Q_K) for next state s’, with shape (K, n_actions).
+> 14 q_following_next_s, _=network. apply (params, sample.next_state)
+> 15 16 q_next_s =jnp.concatenate(q_first_next_s, q_following_next_s[:-1])
+> 17 targets =sample.reward +gamma * q_next_s. max (axis=1)
+> 18 td_errors =targets -q_s[:, sample.action]
+> 19 20 loss_targets =targets[1:] * jax.lax.stop_gradient(h_s)
+> 21 loss_online =-q_s[:, sample.action] *jax.lax.stop_gradient(td_errors)
+> 22 loss_h =jnp.square(h_s[:, sample.action] -jax.lax.stop_gradient(td_errors[1:]))
+> 23 24 return loss_targets. sum () +loss_online. sum () +loss_h. sum ()
+
+Figure 13: Loss computation in JAX of Gi-DQN for a single sample. Importantly, the loss for the Q-networks and H-networks can be computed in a single function using vector operations. The variable network is a neural network instantiated to output the values for all the action-value functions except the first one, ¯Q0, and the H-values. The weights parameterizing this network are called params . The variable target_network outputs the values representing the first action-value function ¯Q0. It uses the weights target_params .
+
+## D Experiment Setup 
+
+Figure 14: Triangle Markov Process, con-sisting of three states. The value each state i is approximated by Vω (i),for some parameters ω.
+
+Triangle MP Setup. The Triangle MP is presented in Figure 14. It is composed of 3 states. The space of function approximation is a spiral lying on a plane in the space of value function. For a given parameter ω,the associated value function is defined by 
+
+Vω (1) 
+
+Vω (2) 
+
+Vω (3) 
+
+ = e0.15 ω ·
+
+cos(0 .866 ω)
+
+ 10
+
+−1
+
+ − sin(0 .866 ω) ϵ
+
+√3
+
+ 1
+
+−21
+
+ ,
+
+where ϵ determines the direction of rotation. ϵ is equal to −1 in Figure 5 (left), and 1 in Figure 5 (right). 
+
+Atari Setup. We build our codebase following Machado et al. (2018) standards and taking inspiration from Castro et al. (2018) and Vincent et al. (2025b) codebases 2. Namely, we use the game over signal to ter-minate an episode instead of the life signal. The input given to the neural network is a concatenation of 4 frames in grayscale of dimension 84 by 84 . To get a new frame, we sample 4 frames from the Gym environment (Brockman et al., 2016) configured with no frame-skip, and apply a max pooling operation on the 2 last grayscale frames. We use sticky actions to make the environment stochastic (with p = 0 .25 ). 
+
+Atari Games Selection. Our evaluations are performed on 10 games, which are chosen to represent a large variety of human-normalized scores, reached by DQN agent trained on 
+
+200 million frames, as shown in Figure 15. The human-normalized scores are computed from human and random scores that are reported in Schrittwieser et al. (2020). For the of-
+
+> 2
+
+https://github.com/google/dopamine , and https://github.com/slimRL/slimDQN 
+
+22 fline experiment, we used the datasets provided by Gulcehre et al. (2020). The codebase for the offline experiments is adapted from the code released by Vincent et al. (2025a) 3.0.0 2.5 5.0 7.5 
+
+Human-normalized Score 
+
+of DQN at 200M Frames 
+
+Alien 
+
+Riverraid 
+
+YarsRevenge 
+
+Frostbite 
+
+Asterix 
+
+SpaceInvaders 
+
+Assault 
+
+Gopher 
+
+StarGunner 
+
+Breakout 
+
+Atari games selection 
+
+Figure 15: Human-normalized score of 10 Atari games obtained by a DQN agent after collecting for 200 million frames. 
+
+MuJoCo Setup. Our codebase is a fork from the codebase released by Vincent et al. (2025a) 4. It relies on the Gym library (Towers et al., 2026). 
+
+Performance Aggregation. In most figures in this work, we aggregate results over seeds and environments to account for the stochastic-ity of the training process and the variation in the training dynamics over the different envi-ronments. For that, we first extract the undis-counted returns collected during training for each seed. Then, we smooth the signal for read-ability by replacing each value with the average over a window of size 5 that covers the neigh-boring collected returns. We note the resulting metric for an algorithm a at timestep t, for a seed i, and an environment j, sai,j (t).We stress that the collected returns are not those obtained during a separate evaluation phase, as focusing on the returns obtained during training is closer to the initial motivation behind online learning (Machado et al., 2018). We leverage the Inter-Quantile Mean (Agarwal et al., 2021) to aggregate the collected returns. Be-fore computing the IQM over all runs, we normalize each collected return sai,j (t) by the average end performance of the baseline in the same environment. Therefore, the learning curve report for each timestep t, IQM 
+
+n sai,j (t)   
+
+> 1
+> n_seeds
+> P
+> isbi,j (L)
+
+, for all i and j
+
+o 
+
+, where L is the last timestep of the training. The computation of the 95% stratified bootstrap confidence intervals follows the same methodology. We also report the normalized IQM Area Under the Curve (AUC). For that, we compute the nor-malized scores as described before, sum them across all timesteps, and compute the IQM. We then divide the obtained values by the baseline IQM AUC to facilitate comparison. 
+
+> 3https://github.com/slimRL/slimCQL
+> 4https://github.com/slimRL/slimSAC
+
+23 Table 1: Summary of hyperparameters used for the Atari experiments. We note Conv da,b C a 2D convolutional layer with C filters of size a × b
+
+and of stride d, and FC E a fully connected layer with E neurons. Environment Discount factor γ 0.99 
+
+Horizon 27 000 
+
+Full action space No Reward clipping clip( −1, 1)Shared hyperparameters Batch size 32 
+
+Torso architecture CNN Conv 48,832 
+
+−Conv 24,464 
+
+−Conv 13,364 
+
+Torso architecture IMPALA Conv 48,816 
+
+−Conv 24,432 
+
+−Conv 13,332 
+
+Head architecture FC 512 
+
+−FC nA
+
+Activations ReLU Online Training Target update 8 000 
+
+period T
+
+Initial number 20 000 
+
+of samples Maximum replay 1 000 000 
+
+buffer capacity Number of training 250 000 
+
+steps per epoch Starting ϵ 1
+
+Ending ϵ 10 −2
+
+ϵ linear decay 250 000 
+
+duration Learning rate 6.25 × 10 −5
+
+Adam ϵ 1.5 × 10 −4
+
+Offline Training Target update 2 000 
+
+period T
+
+CQL α 0.1 Learning rate 5 × 10 −5
+
+Adam ϵ 3.125 × 10 −4
+
+Number of training 62 500 
+
+steps per epoch Replay buffer size 5 000 000 
+
+Table 2: Summary of all hyperparameters used for the MuJoCo experiments. We note FC E afully connected layer with E neurons. Environment Discount factor γ 0.99 
+
+Horizon 1 000 
+
+Shared Hyperparameters Initial number 5 000 
+
+of samples Maximum replay 1 000 000 
+
+buffer capacity Batch size 256 
+
+Learning rate 10 −3
+
+Policy delay 1
+
+Actor and critic FC 256 
+
+architecture −FC 256 
+
+Soft-target update τ 5 × 10 −3
+
+Adam ϵ 10 −8
+
+24 Table 3: Summary of hyperparameters used for the offline ablations on LunarLander (LL) and MountainCar (MC) . We note FC E a fully connected layer with E neurons. Environments Discount factor γ 0.99 
+
+Horizon 500 (LL) 
+
+200 (MC) Offline Training CQL α 0.1 Learning rate 5 × 10 −4
+
+Adam ϵ 1 × 10 −8
+
+Number of training 10 000 
+
+steps per epoch Batch size 32 
+
+Torso architecture FC 50 
+
+-FC 50 
+
+Head architecture -FC 50 
+
+-FC nA
+
+Sample collection with DQN Number of initial 1 000 
+
+samples Number of training 10 000 
+
+steps per epoch Maximum replay 10 000 
+
+buffer capacity Target update 100 (LL) period 200 (MC) Batch Size 64 (LL), 32 (MC) UTD 1
+
+Starting ϵ 1
+
+Ending ϵ 10 −2
+
+Features FC 200 (LL) FC 50 (MC) Torso architecture -FC 200 (LL) -FC 50 (MC) -FC nA
+
+Learning rate 3 × 10 3 (LL) 
+
+3 × 10 4 (MC) 
+
+## E Additional Experiments 
+
+E.1 Scaling Up the Replay Ratio in Continuous Actions Domains 0 2 4 6 8 10 
+
+0.00 
+
+0.25 
+
+0.50 
+
+0.75 
+
+> IQM Return
+
+Low UTD 
+
+0 2 4 6 8 10 
+
+Environment Steps (×10 5)
+
+0.0 
+
+0.5 
+
+1.0 
+
+Medium UTD 
+
+0 2 4 6 8 10 
+
+0.0 
+
+0.5 
+
+1.0 
+
+High UTD 
+
+50 75 100 
+
+> Area Under
+> the Curve
+
+80 100 120 
+
+in % of SAC 
+
+50 75 100 125 
+
+SAC SACRC = 1 SACRC = 100 i-SAC K=5 Gi-SAC K=5 
+
+Figure 16: Evaluating the proposed approach on the MuJoCo benchmark with different update-to-data (UTD) ratios . All algorithms are normalized with respect to SAC for medium UTD to ease comparison. We note that all algorithms diverge for the Humanoids and HumanoidStandUp tasks on the high UTD setting. This is why we aggregate the results over the 4 remaining MuJoCo tasks (Hopper, Ant, HalfCheetah, and Walker2d). We believe that this divergence is due to the represen-tational capacity of the neural network being too small to cope with high UTD ratios. Importantly, Gi-SAC is competitive against semi-gradient methods, especially for high UTD ratios. 25 E.2 Additional Ablation Studies 0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+=1 
+
+= 0.01 
+
+QRC 
+
+0.0 
+
+0.5 
+
+1.0 
+
+SACRC 
+
+1
+
+0
+
+1
+
+CQLRC 
+
+0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+Linear 
+
+Non-Linear 
+
+0.0 
+
+0.5 
+
+1.0 
+
+Independent 
+
+1
+
+0
+
+1
+
+1 20 40 
+
+Number of Frames (×10 6)
+
+0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+Non-Linear 
+
+Linear 
+
+i-DQN 
+
+1 2.5 5
+
+Environment Steps (×10 5)
+
+0.0 
+
+0.5 
+
+1.0 Independent 
+
+i-SAC 
+
+0 10 20 
+
+Gradient Steps (×10 4)
+
+1
+
+0
+
+1
+
+i-CQL     
+
+> Qbert & CrazyClimber Ant & Walker2d LunarLander & MountainCar
+> Qbert & CrazyClimber Ant & Walker2d LunarLander & MountainCar
+
+Figure 17: Top row : Ablation study on the weight decay coefficient β for TDRC. TDRC performs better with a high value of β indicating that weight decay is an important component of the algo-rithm, as suggested in Ghiassian et al. (2020). Center row : Ablation study on the choice of the 
+
+architecture for TDRC. Using linear heads on top of a shared feature extractor performs better than the 2 other considered architectures. Bottom row : Ablation study on the choice of the architecture 
+
+for i-TD learning. Using linear heads on top of a shared feature extractor performs better than the 
+
+2 other considered architectures, except for the experiment on continuous action-spaces, where the independent architecture performs better. Overall, we stress that each learning curve is aggregated over 2 values of UTD ( 0.25 and 1 for DQN experiments, 1 and 4 for SAC experiments) or 2 dataset sizes for CQL experiments ( 10% and 100% ), and 2 target update periods ( T = 1000 and 8000 for DQN experiments, T = 10 and 1000 for CQL experiments) or 2 values of soft-target updates for SAC experiments ( τ = 0 .005 and 0.01 ). The learning curves for ablation on the weight decay coefficient are also aggregated over the 3 archic-ture designs, except for SACRC, for which we only use the linear shared architecture as the other architecture perform poorly. β is set to 1 for the ablation on the architecture designs. 26 0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+K = 5 
+
+K = 50 
+
+Gi-DQN 
+
+0.0 
+
+0.5 
+
+1.0 
+
+Gi-SAC 
+
+1
+
+0
+
+1
+
+Gi-CQL 
+
+1 20 40 
+
+Number of Frames (×10 6)
+
+0.0 
+
+0.5 
+
+1.0 
+
+> IQM Return
+
+K = 5 
+
+K = 50 
+
+i-DQN 
+
+1 2.5 5
+
+Environment Steps (×10 5)
+
+0.0 
+
+0.5 
+
+1.0 
+
+i-SAC 
+
+0 10 20 
+
+Gradient Steps (×10 4)
+
+1
+
+0
+
+1
+
+i-CQL     
+
+> Qbert & CrazyClimber Ant & Walker2d LunarLander & MountainCar
+> Qbert & CrazyClimber Ant & Walker2d LunarLander & MountainCar
+
+Figure 18: Ablation study on the number of Bellman iterations K learned in parallel for i-TD (bottom ) and Gi-TD ( top ) learning. Remarkably, while a performance drop is noticeable when increasing K to 50 for i-TD learning, Gi-TD performs similarly for the 2 considered values of K.This indicates that Gi-TD learning is less sensitive to this hyperparameter than i-TD learning. T = 8000, UTD = 0.25 
+
+0.0 
+
+0.5 
+
+1.0 
+
+Non-linear shared Linear shared 
+
+0.0 
+
+0.5 
+
+1.0 
+
+T = 8000, UTD = 1 
+
+Non-linear shared Linear shared 
+
+T = 1000, UTD = 0.25 
+
+0.0 
+
+0.5 
+
+1.0 
+
+Non-linear shared Linear shared 
+
+1 10 20 30 40 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1 10 20 30 40 
+
+T = 1000, UTD = 1 
+
+Non-linear shared Linear shared 
+
+1 10 20 30 40 1 10 20 30 40      
+
+> DQN QRC i-DQN K=5 i-DQN K=50 Gi-DQN K=5 Gi-DQN K=50
+> IQM Return  IQM Return
+
+Number of Frames (×10 6) Number of Frames (×10 6)
+
+> =0.01  =1  =0.01  =1
+> CNN
+
+Figure 19: Ablation study over the weight decay coefficient β, and the choice of the architecture 
+
+on 2 Atari games (Qbert, and CrazyClimber). We also vary the target update period T , and update-to-data (UTD) ratio to better grasp the dependency of the algorithms on the studied hyperparameters. DQN with T = 8000 , and UTD = 0 .25 is used to normalize the performance curves. 27 = 0.01, UTD = 1 
+
+0.0 
+
+0.5 
+
+1.0   
+
+> Independent Non-linear shared Linear shared
+
+0.0 
+
+0.5 
+
+1.0 
+
+= 0.01, UTD = 4   
+
+> Independent Non-linear shared Linear shared
+
+= 0.005, UTD = 1 
+
+0.0 
+
+0.5 
+
+1.0   
+
+> Independent Non-linear shared Linear shared
+
+0 2.5 5
+
+0.0 
+
+0.5 
+
+1.0 
+
+0 2.5 5 0 2.5 5
+
+= 0.005, UTD = 4   
+
+> Independent Non-linear shared Linear shared
+
+0 2.5 5 0 2.5 5 0 2.5 5
+
+SAC SACRC i-SAC K=5 i-SAC K=50 Gi-SAC K=5 Gi-SAC K=50 
+
+> IQM Return  IQM Return
+
+Environment Steps (× 100K) Environment Steps (× 100K) 
+
+> =0.01  =1  =0.01  =1
+
+Figure 20: Ablation study over the weight decay coefficient β, and the choice of the architecture 
+
+on 2 MuJoCo tasks (Ant, and Walker2d). We also vary the soft-update coefficient τ , and update-to-data (UTD) ratio to better grasp the dependency of the algorithms on the studied hyperparameters. SAC with τ = 0 .005 , and UTD = 1 is used to normalize the performance curves. T = 1000, 100% of Data 
+
+0.0 
+
+0.5 
+
+1.0 Independent Non-linear shared Linear shared 
+
+0.0 
+
+0.5 
+
+1.0 
+
+T = 1000, 10% of Data   
+
+> Independent Non-linear shared Linear shared
+
+T = 10, 100% of Data 
+
+0.0 
+
+0.5 
+
+1.0 Independent Non-linear shared Linear shared 
+
+0 10 20 
+
+0.0 
+
+0.5 
+
+1.0 
+
+0 10 20 0 10 20 
+
+T = 10, 10% of Data   
+
+> Independent Non-linear shared Linear shared
+
+0 10 20 0 10 20 0 10 20 
+
+CQL CQLRC i-CQL K=5 i-CQL K=50 Gi-CQL K=5 Gi-CQL K=50 
+
+> IQM Return  IQM Return
+
+Gradient Steps (× 10 4) Gradient Steps (× 10 4)
+
+> =0.01  =1  =0.01  =1
+
+Figure 21: Ablation study over the weight decay coefficient β, and the choice of the architecture 
+
+on 2 Gym environment (LunarLander, and MountainCar). We also vary the target update period 
+
+T , and the percentage of dataset given to the learning algorithm to better grasp the dependency of the algorithms on the studied hyperparameters. The CQL version with T = 1000 that has access to 
+
+100% of the dataset is used to normalize the performance curves. 28 F Individual Learning Curves 0.4 
+
+0.8 
+
+1.2 
+
+1e2 Breakout 
+
+1.5 
+
+3.0 
+
+4.5 
+
+1e4 StarGunner 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e4 Gopher 
+
+0.5 
+
+1.0 
+
+1.5 
+
+> IQM Return
+
+1e3 Assault 
+
+0.8 
+
+1.6 
+
+2.4 
+
+1e3 SpaceInvaders 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e4 Asterix 
+
+2
+
+4
+
+6
+
+1e3 Frostbite 
+
+1 25 50 75 100 
+
+1.5 
+
+3.0 
+
+4.5 
+
+1e4 YarsRevenge 
+
+1 25 50 75 100 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e4 Riverraid 
+
+1 25 50 75 100 
+
+1.5 
+
+3.0 
+
+4.5 1e3 Alien 
+
+DQN QRC i-DQN K=5 Gi-DQN K=5 
+
+## Number of Frames (×10 6)
+
+> CNN
+
+Figure 22: Per Atari game performance for DQN, QRC, i-DQN, and Gi-DQN, in an online learning setting, with the CNN architecture. Except for Breakout, Gi-DQN generally performs better than or is on par with the 3 other algorithms. 3
+
+6
+
+9
+
+1e1 Breakout 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+1e3 StarGunner 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e3 Gopher 
+
+1.5 
+
+3.0 
+
+4.5 
+
+> IQM Return
+
+1e2 Assault 
+
+0.25 
+
+0.50 
+
+0.75 
+
+1.00 
+
+1e3 SpaceInvaders 
+
+0.8 
+
+1.6 
+
+2.4 
+
+1e3 Asterix 
+
+0.6 
+
+1.2 
+
+1.8 
+
+1e3 Frostbite 
+
+0 25 50 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+1e4 YarsRevenge 
+
+0 25 50 
+
+2.5 
+
+5.0 
+
+7.5 
+
+1e3 Riverraid 
+
+0 25 50 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1.6 
+
+1e3 Alien 
+
+CQL CQLRC i-CQL K=5 Gi-CQL K=5 
+
+## Gradient Steps (×62.5 K)
+
+> CNN
+
+Figure 23: Per Atari game performance for CQL, CQLRC, i-CQL, and Gi-CQL, in an offline 
+
+learning setting, with the CNN architecture. Except for Breakout and Assault, Gi-CQL generally performs better than or is on par with the 3 other algorithms. 29 0
+
+2
+
+4
+
+> IQM Return
+
+1e3 Hopper 
+
+0.0 
+
+2.5 
+
+5.0 
+
+1e3 Ant 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1e4 HalfCheetah 
+
+0 2 4 6 8 10 
+
+0
+
+2
+
+4
+
+1e3 Walker2d 
+
+0 2 4 6 8 10 
+
+Environment Steps (×10 5)
+
+0.0 
+
+2.5 
+
+5.0 1e3 Humanoid 
+
+0 2 4 6 8 10 
+
+0.5 
+
+1.0 
+
+1.5 
+
+1e5 HumanoidStandup 
+
+SAC SACRC i-SAC K=5 Gi-SAC K=5 Figure 24: Per MuJoCo task performance for SAC, SACRC, i-SAC, and Gi-SAC, in an online 
+
+learning setting, with a 2-layer MLP architecture. Gi-SAC learns more reliably across tasks than SACRC, while remaining at least competitive with i-SAC, if not outperforming it. 0.8 
+
+1.6 
+
+2.4 1e2 Breakout 
+
+2
+
+4
+
+6
+
+1e4 StarGunner 
+
+2.5 
+
+5.0 
+
+7.5 
+
+1e3 Gopher 
+
+0.8 
+
+1.6 
+
+2.4 
+
+3.2 
+
+> IQM Return
+
+1e3 Assault 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e3 SpaceInvaders 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1e5 Asterix 
+
+1.5 
+
+3.0 
+
+1e3 Frostbite 
+
+1 25 50 75 100 
+
+0.8 
+
+1.2 
+
+1.6 
+
+1e4 YarsRevenge 
+
+1 25 50 75 100 
+
+2.5 
+
+5.0 
+
+7.5 
+
+1e3 Riverraid 
+
+1 25 50 75 100 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 1e3 Alien 
+
+DQN QRC i-DQN K=5 Gi-DQN K=5 
+
+## Number of Frames (×10 6)
+
+IMPALA + GAP + PER + 3-step return 
+
+## Low UTD 
+
+Figure 25: Per Atari game performance for DQN, QRC, i-DQN, and Gi-DQN, in an online learn-ing setting, with the CNN architecture, and a UTD ratio of 132 . All algorithms use the IMPALA architecture with global average pooling (GAP), a prioritized experience replay buffer (PER), and a 
+
+3-step return. Due to the low UTD value, all algorithms perform similarly. 30 0.4 
+
+0.8 
+
+1.2 
+
+1.6 1e2 Breakout 
+
+0.5 
+
+1.0 
+
+1.5 
+
+1e5 StarGunner 
+
+1.5 
+
+3.0 
+
+4.5 
+
+6.0 1e3 Gopher 
+
+1
+
+2
+
+3
+
+4
+
+> IQM Return
+
+1e3 Assault 
+
+1
+
+2
+
+3
+
+1e3 SpaceInvaders 
+
+0.8 
+
+1.6 
+
+2.4 
+
+3.2 1e5 Asterix 
+
+1.5 
+
+3.0 
+
+4.5 
+
+1e3 Frostbite 
+
+1 25 50 75 100 
+
+2
+
+4
+
+6
+
+1e4 YarsRevenge 
+
+1 25 50 75 100 
+
+0.3 
+
+0.6 
+
+0.9 
+
+1.2 1e4 Riverraid 
+
+1 25 50 75 100 
+
+0.8 
+
+1.6 
+
+2.4 
+
+1e3 Alien 
+
+DQN QRC i-DQN K=5 Gi-DQN K=5 
+
+## Number of Frames (×10 6)
+
+IMPALA + GAP + PER + 3-step return 
+
+## Medium UTD Figure 26: Per Atari game performance for DQN, QRC, i-DQN, and Gi-DQN, in an online learning setting, with the CNN architecture, and a UTD ratio of 14 . Gi-DQN remains competitive against semi-gradient methods even when the baseline algorithm is equipped with the IMPALA architecture with global average pooling (GAP), a prioritized experience replay buffer (PER), and a 3-step return. 3
+
+6
+
+9
+
+1e1 Breakout 
+
+1
+
+2
+
+3
+
+1e4 StarGunner 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+1e3 Gopher 
+
+0.4 
+
+0.8 
+
+1.2 
+
+1.6 
+
+> IQM Return
+
+1e3 Assault 
+
+1.5 
+
+3.0 
+
+4.5 
+
+6.0 1e2 SpaceInvaders 
+
+0.25 
+
+0.50 
+
+0.75 
+
+1.00 1e4 Asterix 
+
+0.8 
+
+1.6 
+
+2.4 
+
+1e3 Frostbite 
+
+2 4 6
+
+0.5 
+
+1.0 
+
+1.5 
+
+1e4 YarsRevenge 
+
+2 4 6
+
+1.5 
+
+3.0 
+
+4.5 
+
+6.0 
+
+1e3 Riverraid 
+
+2 4 6
+
+0.5 
+
+1.0 
+
+1.5 
+
+1e3 Alien 
+
+DQN QRC i-DQN K=5 Gi-DQN K=5 
+
+## Number of Frames (×10 6)
+
+IMPALA + GAP + PER + 3-step return 
+
+## High UTD 
+
+Figure 27: Per Atari game performance for DQN, QRC, i-DQN, and Gi-DQN, in an online learning setting, with the CNN architecture, and a UTD ratio of 4. All algorithms use the IMPALA architec-ture with global average pooling (GAP), a prioritized experience replay buffer (PER), and a 3-step return. Except for Gopher, Gi-DQN provides a significant boost in learning speed compared to the other algorithms. 31 0.8 
+
+1.6 
+
+2.4 1e3 Hopper 
+
+0 2 4 6 8 10 
+
+0
+
+1
+
+2
+
+3
+
+1e3 Ant 
+
+0 2 4 6 8 10 
+
+0.0 
+
+2.5 
+
+5.0 
+
+7.5 1e3 HalfCheetah 
+
+0 2 4 6 8 10 
+
+0.8 
+
+1.6 
+
+2.4 
+
+> IQM Return
+
+1e3 Walker2d 
+
+SAC SACRC i-SAC K=5 Gi-SAC K=5 
+
+## Environment Steps (×10 5)
+
+## Low UTD Low UTD Low UTD Low UTD Figure 28: Per MuJoCo task performance for SAC, SACRC, i-SAC, and Gi-SAC, in an online 
+
+learning setting, with a 2-layer MLP, and a UTD ratio of 0.1. SAC, i-SAC, and Gi-SAC reach similar performance. 1
+
+2
+
+3
+
+1e3 Hopper 
+
+0 2 4 6 8 10 
+
+0.0 
+
+1.5 
+
+3.0 
+
+4.5 1e3 Ant 
+
+0 2 4 6 8 10 
+
+0
+
+3
+
+6
+
+9
+
+1e3 HalfCheetah 
+
+0 2 4 6 8 10 
+
+1.5 
+
+3.0 
+
+4.5 
+
+> IQM Return
+
+1e3 Walker2d 
+
+SAC SACRC = 1 
+
+SACRC = 100 
+
+i-SAC K=5 Gi-SAC K=5 
+
+## Environment Steps (×10 5)
+
+## High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD High UTD 
+
+Figure 29: Per MuJoCo task performance for SAC, SACRC, i-SAC, and Gi-SAC, in an online 
+
+learning setting, with a 2-layer MLP, and a UTD ratio of 10 . For SACRC, an additional experiment with a higher value of β is conducted, since the algorithm underperforms with β = 1 . Except for Ant, Gi-SAC performs competitively against i-SAC. 32

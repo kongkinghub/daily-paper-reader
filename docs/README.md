@@ -9,55 +9,55 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-05 ~ 2026-03-13
-- 运行时间：2026-03-13 19:14:57 UTC
+- 最新运行日期：2026-03-07 ~ 2026-03-15
+- 运行时间：2026-03-15 19:10:30 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-本期精选 17 篇 RL 前沿成果，重点突破多机器人激光对战策略与太阳能系统智能调度。
-满分论文揭示了视觉运动策略在复杂博弈中的威力，同时 RL 在科学发现与图表理解领域展现出强劲的泛化潜力。
-建议深入探索强化学习与物理系统、科学计算的跨界融合，关注可验证奖励机制带来的性能提升。
-- 详情：[/20260305-20260313/README](/20260305-20260313/README)
+本期日报深度复盘 17 篇 AI 顶尖成果，聚焦 LLM 智能体长程决策与实时多模态轨迹生成的重大进展。
+核心突破在于利用事后信用分配强化智能体逻辑，并结合 IMLE 蒸馏技术将复杂轨迹策略提炼至“一步到位”。
+推荐优先研读两篇 9.0 分论文，深入理解如何通过知识蒸馏提升自动驾驶与人形机器人的实战性能。
+- 详情：[/20260307-20260315/README](/20260307-20260315/README)
 
 ### 精读区论文标签
-1. [Learning Visuomotor Policy for Multi-Robot Laser Tag Game](/20260305-20260313/2603.11980v1-learning-visuomotor-policy-for-multi-robot-laser-tag-game)  
-   标签：评分：10.0/10、query:rl-ts
-2. [Reinforcement learning-based dynamic cleaning scheduling framework for solar energy system](/20260305-20260313/2603.07518v1-reinforcement-learning-based-dynamic-cleaning-scheduling-framework-for-solar-energy-system)  
+1. [Hindsight Credit Assignment for Long-Horizon LLM Agents](/20260307-20260315/2603.08754v1-hindsight-credit-assignment-for-long-horizon-llm-agents)  
    标签：评分：9.0/10、query:rl-ts
-3. [LAR-MoE: Latent-Aligned Routing for Mixture of Experts in Robotic Imitation Learning](/20260305-20260313/2603.08476v1-lar-moe-latent-aligned-routing-for-mixture-of-experts-in-robotic-imitation-learning)  
+2. [From Flow to One Step: Real-Time Multi-Modal Trajectory Policies via Implicit Maximum Likelihood Estimation-based Distribution Distillation](/20260307-20260315/2603.09415v1-from-flow-to-one-step-real-time-multi-modal-trajectory-policies-via-implicit-maximum-likelihood-estimation-based-distribution-distillation)  
    标签：评分：9.0/10、query:rl-ts
-4. [Scaling Reasoning Efficiently via Relaxed On-Policy Distillation](/20260305-20260313/2603.11137v1-scaling-reasoning-efficiently-via-relaxed-on-policy-distillation)  
+3. [STAIRS-Former: Spatio-Temporal Attention with Interleaved Recursive Structure Transformer for Offline Multi-task Multi-agent Reinforcement Learning](/20260307-20260315/2603.11691v1-stairs-former-spatio-temporal-attention-with-interleaved-recursive-structure-transformer-for-offline-multi-task-multi-agent-reinforcement-learning)  
    标签：评分：9.0/10、query:rl-ts
-5. [Self-adapting Robotic Agents through Online Continual Reinforcement Learning with World Model Feedback](/20260305-20260313/2603.04029v1-self-adapting-robotic-agents-through-online-continual-reinforcement-learning-with-world-model-feedback)  
+4. [Meta-RL with Shared Representations Enables Fast Adaptation in Energy Systems](/20260307-20260315/2603.08418v1-meta-rl-with-shared-representations-enables-fast-adaptation-in-energy-systems)  
    标签：评分：8.0/10、query:rl-ts
-6. [SarcasmMiner: A Dual-Track Post-Training Framework for Robust Audio-Visual Sarcasm Reasoning](/20260305-20260313/2603.05275v1-sarcasmminer-a-dual-track-post-training-framework-for-robust-audio-visual-sarcasm-reasoning)  
+5. [Towards Batch-to-Streaming Deep Reinforcement Learning for Continuous Control](/20260307-20260315/2603.08588v1-towards-batch-to-streaming-deep-reinforcement-learning-for-continuous-control)  
+   标签：评分：8.0/10、query:rl-ts
+6. [SPAARS: Safer RL Policy Alignment through Abstract Exploration and Refined Exploitation of Action Space](/20260307-20260315/2603.09378v1-spaars-safer-rl-policy-alignment-through-abstract-exploration-and-refined-exploitation-of-action-space)  
    标签：评分：8.0/10、query:rl-ts
 
 ### 速读区论文标签
-1. [What Does Flow Matching Bring To TD Learning?](/20260305-20260313/2603.04333v1-what-does-flow-matching-bring-to-td-learning)  
+1. [EvoDriveVLA: Evolving Autonomous Driving Vision-Language-Action Model via Collaborative Perception-Planning Distillation](/20260307-20260315/2603.09465v1-evodrivevla-evolving-autonomous-driving-vision-language-action-model-via-collaborative-perception-planning-distillation)  
    标签：评分：8.0/10、query:rl-ts
-2. [Chart-RL: Generalized Chart Comprehension via Reinforcement Learning with Verifiable Rewards](/20260305-20260313/2603.06958v1-chart-rl-generalized-chart-comprehension-via-reinforcement-learning-with-verifiable-rewards)  
+2. [SCDP: Learning Humanoid Locomotion from Partial Observations via Mixed-Observation Distillation](/20260307-20260315/2603.09574v1-scdp-learning-humanoid-locomotion-from-partial-observations-via-mixed-observation-distillation)  
    标签：评分：8.0/10、query:rl-ts
-3. [Helix: Evolutionary Reinforcement Learning for Open-Ended Scientific Problem Solving](/20260305-20260313/2603.07642v1-helix-evolutionary-reinforcement-learning-for-open-ended-scientific-problem-solving)  
+3. [Actor-Accelerated Policy Dual Averaging for Reinforcement Learning in Continuous Action Spaces](/20260307-20260315/2603.10199v1-actor-accelerated-policy-dual-averaging-for-reinforcement-learning-in-continuous-action-spaces)  
    标签：评分：8.0/10、query:rl-ts
-4. [A Recipe for Stable Offline Multi-agent Reinforcement Learning](/20260305-20260313/2603.08399v1-a-recipe-for-stable-offline-multi-agent-reinforcement-learning)  
+4. [Graph-GRPO: Training Graph Flow Models with Reinforcement Learning](/20260307-20260315/2603.10395v1-graph-grpo-training-graph-flow-models-with-reinforcement-learning)  
    标签：评分：8.0/10、query:rl-ts
-5. [Distributional Reinforcement Learning with Information Bottleneck for Uncertainty-Aware DRAM Equalization](/20260305-20260313/2603.04768v1-distributional-reinforcement-learning-with-information-bottleneck-for-uncertainty-aware-dram-equalization)  
+5. [Dreamer-CDP: Improving Reconstruction-free World Models Via Continuous Deterministic Representation Prediction](/20260307-20260315/2603.07083v1-dreamer-cdp-improving-reconstruction-free-world-models-via-continuous-deterministic-representation-prediction)  
    标签：评分：7.0/10、query:rl-ts
-6. [Diffusion Policy through Conditional Proximal Policy Optimization](/20260305-20260313/2603.04790v1-diffusion-policy-through-conditional-proximal-policy-optimization)  
+6. [Learning From Failures: Efficient Reinforcement Learning Control with Episodic Memory](/20260307-20260315/2603.07110v1-learning-from-failures-efficient-reinforcement-learning-control-with-episodic-memory)  
    标签：评分：7.0/10、query:rl-ts
-7. [Reward-Conditioned Reinforcement Learning](/20260305-20260313/2603.05066v1-reward-conditioned-reinforcement-learning)  
+7. [Agentic Planning with Reasoning for Image Styling via Offline RL](/20260307-20260315/2603.07148v1-agentic-planning-with-reasoning-for-image-styling-via-offline-rl)  
    标签：评分：7.0/10、query:rl-ts
-8. [Decoupling Task and Behavior: A Two-Stage Reward Curriculum in Reinforcement Learning for Robotics](/20260305-20260313/2603.05113v1-decoupling-task-and-behavior-a-two-stage-reward-curriculum-in-reinforcement-learning-for-robotics)  
+8. [Gradient Iterated Temporal-Difference Learning](/20260307-20260315/2603.07833v1-gradient-iterated-temporal-difference-learning)  
    标签：评分：7.0/10、query:rl-ts
-9. [Competitive Multi-Operator Reinforcement Learning for Joint Pricing and Fleet Rebalancing in AMoD Systems](/20260305-20260313/2603.05000v1-competitive-multi-operator-reinforcement-learning-for-joint-pricing-and-fleet-rebalancing-in-amod-systems)  
+9. [Entropy-Aware On-Policy Distillation of Language Models](/20260307-20260315/2603.07079v1-entropy-aware-on-policy-distillation-of-language-models)  
    标签：评分：6.0/10、query:rl-ts
-10. [On-Policy Self-Distillation for Reasoning Compression](/20260305-20260313/2603.05433v1-on-policy-self-distillation-for-reasoning-compression)  
+10. [PDD: Manifold-Prior Diverse Distillation for Medical Anomaly Detection](/20260307-20260315/2603.07142v1-pdd-manifold-prior-diverse-distillation-for-medical-anomaly-detection)  
    标签：评分：6.0/10、query:rl-ts
-11. [Post-Training with Policy Gradients: Optimality and the Base Model Barrier](/20260305-20260313/2603.06957v1-post-training-with-policy-gradients-optimality-and-the-base-model-barrier)  
+11. [Unlocking Data Value in Finance: A Study on Distillation and Difficulty-Aware Training](/20260307-20260315/2603.07223v1-unlocking-data-value-in-finance-a-study-on-distillation-and-difficulty-aware-training)  
    标签：评分：6.0/10、query:rl-ts
 
 
